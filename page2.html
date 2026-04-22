@@ -1431,28 +1431,33 @@ function doSubmit() {
     sessionStorage.setItem('orderImgBack',  S.imgBack  || '');
   }
 
-  // ①-b Cloudflare KVに全データ保存（画像含む・管理画面の詳細ページ用）
-  fetch('https://buki-booth.com/api/save-order', {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify(orderData),
-  }).catch(() => {});
+  // ② ボタンを送信中に変更
+  const btn = document.querySelector('.submit-btn');
+  if (btn) { btn.textContent = '送信中...'; btn.disabled = true; }
 
-  // ② Google Apps Script に送信（スプレッドシートに記録）
-  // 画像データを除いた軽量版を送信（画像はサイズが大きすぎるため）
+  // ③ Cloudflare KV と Apps Script に並行送信してから遷移
+  const saves = [];
+
+  // KV保存（詳細ページ用・画像含む）
+  saves.push(
+    fetch('https://buki-booth.com/api/save-order', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(orderData),
+    }).catch(() => {})
+  );
+
+  // Apps Script送信（スプレッドシート記録用）
   if (APPS_SCRIPT_URL && !APPS_SCRIPT_URL.includes('YOUR_SCRIPT_ID')) {
     const sendData = { ...orderData, imgFront: orderData.imgFront ? '✓' : null, imgBack: orderData.imgBack ? '✓' : null };
-    // フォームで送信（no-corsの制限を回避）
     const form = document.createElement('form');
     form.method = 'POST';
     form.action = APPS_SCRIPT_URL;
-    form.target = 'hidden_iframe'; // 別フレームに送信してページ遷移を防ぐ
+    form.target = 'hidden_iframe';
     const input = document.createElement('input');
-    input.type = 'hidden';
-    input.name = 'data';
+    input.type = 'hidden'; input.name = 'data';
     input.value = JSON.stringify(sendData);
     form.appendChild(input);
-    // 非表示iframeを作成
     let iframe = document.getElementById('hidden_iframe');
     if (!iframe) {
       iframe = document.createElement('iframe');
@@ -1465,8 +1470,13 @@ function doSubmit() {
     form.remove();
   }
 
-  // ③ 確認ページへ遷移
-  window.location.href = 'page3.html';
+  // 全部送信完了後（最大3秒）に遷移
+  Promise.race([
+    Promise.all(saves),
+    new Promise(r => setTimeout(r, 3000))
+  ]).then(() => {
+    window.location.href = 'page3.html';
+  });
 }
 
 // ═══════════════════════════════
