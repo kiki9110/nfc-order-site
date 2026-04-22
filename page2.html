@@ -1,0 +1,1449 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>NFC ORDER — カスタマイズ</title>
+<style>
+@import url('https://fonts.googleapis.com/css2?family=Noto+Sans+JP:wght@400;500;700&family=Syne:wght@700;800&display=swap');
+:root{
+  --ink:#0f0f0d;--paper:#f5f2ec;--cream:#ece8df;
+  --accent:#d4522a;--muted:#6b6860;--border:#ccc8be;--radius:14px;
+}
+*,*::before,*::after{box-sizing:border-box;margin:0;padding:0;}
+body{font-family:'Noto Sans JP',sans-serif;background:var(--paper);color:var(--ink);padding-bottom:100px;}
+
+/* TOPBAR */
+.topbar{position:sticky;top:0;z-index:50;background:var(--ink);display:flex;align-items:center;justify-content:space-between;padding:13px 20px;}
+.topbar-logo{font-family:'Syne',sans-serif;font-weight:800;font-size:16px;color:var(--paper);letter-spacing:.06em;}
+.topbar-order{font-size:12px;color:rgba(255,255,255,.45);font-family:monospace;}
+.topbar-step{font-size:11px;color:var(--accent);font-weight:500;}
+.prog{height:3px;background:var(--cream);position:sticky;top:47px;z-index:49;}
+.prog-fill{height:100%;background:var(--accent);width:0%;transition:width .4s;}
+
+/* LAYOUT */
+.layout{display:flex;flex-direction:column;max-width:960px;margin:0 auto;padding:16px 16px 0;}
+@media(min-width:700px){.layout{flex-direction:row;gap:24px;padding:24px 20px 0;}}
+.form-col{flex:1;min-width:0;}
+.preview-col{width:100%;}
+@media(min-width:700px){.preview-col{width:300px;flex-shrink:0;position:sticky;top:68px;align-self:flex-start;}}
+
+/* SECTION */
+.sec{background:#fff;border-radius:var(--radius);border:1.5px solid var(--border);margin-bottom:12px;overflow:hidden;}
+.sec-head{display:flex;align-items:center;gap:10px;padding:13px 16px;cursor:pointer;user-select:none;}
+.sec-head:hover{background:#fafaf8;}
+.sec-num{width:24px;height:24px;border-radius:50%;background:var(--ink);color:#fff;display:flex;align-items:center;justify-content:center;font-size:11px;font-weight:700;flex-shrink:0;}
+.sec-num.done{background:var(--accent);}
+.sec-title{font-size:14px;font-weight:500;flex:1;}
+.sec-status{font-size:11px;color:var(--muted);}
+.sec-body{padding:16px;border-top:1px solid var(--cream);}
+.sec-body.hidden{display:none;}
+.sec.locked .sec-body{display:none !important;}
+.sec.locked{opacity:.5;}
+.lock-bar{display:none;font-size:11px;color:var(--accent);padding:7px 16px;background:#fff8f5;border-top:1px solid #f5d0c0;cursor:pointer;}
+.sec.locked .lock-bar{display:block;}
+
+/* COLOR SWATCHES */
+.color-row{display:flex;flex-wrap:wrap;gap:8px;}
+.csw{width:42px;height:42px;border-radius:9px;border:2px solid transparent;cursor:pointer;transition:transform .12s,border-color .12s;box-shadow:0 1px 5px rgba(0,0,0,.13);}
+.csw:hover{transform:scale(1.1);}
+.csw.sel{border-color:var(--accent);}
+.csw.sel::after{content:'✓';display:flex;align-items:center;justify-content:center;width:100%;height:100%;font-size:16px;color:#fff;text-shadow:0 1px 2px rgba(0,0,0,.5);}
+.color-name{font-size:11px;color:var(--muted);margin-top:8px;}
+
+/* SHAPE BUTTONS */
+.shape-row{display:flex;gap:8px;}
+.shape-btn{flex:1;padding:12px 6px;border:2px solid var(--border);border-radius:10px;background:#fff;cursor:pointer;text-align:center;transition:all .15s;}
+.shape-btn:hover{border-color:var(--ink);}
+.shape-btn.sel{border-color:var(--accent);background:#fff8f5;}
+.sh-icon{margin:0 auto 8px;display:flex;align-items:center;justify-content:center;width:44px;height:44px;}
+.sh-circle{width:40px;height:40px;border-radius:50%;border:2.5px solid var(--ink);background:var(--cream);}
+.sh-square{width:40px;height:40px;border-radius:4px;border:2.5px solid var(--ink);background:var(--cream);}
+.shape-btn.sel .sh-circle,.shape-btn.sel .sh-square{border-color:var(--accent);background:#fde8e0;}
+.shape-name{font-size:12px;font-weight:500;}
+.shape-sub{font-size:10px;color:var(--muted);margin-top:2px;}
+
+/* YN BUTTONS (あり/なし) */
+.yn-row{display:flex;gap:10px;}
+.yn-btn{flex:1;padding:16px 10px;border:2px solid var(--border);border-radius:12px;background:#fff;cursor:pointer;font-family:'Noto Sans JP',sans-serif;font-size:15px;font-weight:500;color:var(--muted);transition:all .15s;text-align:center;}
+.yn-btn:hover{border-color:var(--ink);color:var(--ink);}
+.yn-btn.sel{border-color:var(--accent);background:var(--accent);color:#fff;}
+.yn-sub{font-size:10px;margin-top:3px;opacity:.8;}
+
+/* URL INPUT */
+.url-box{margin-top:14px;padding:14px;background:var(--cream);border-radius:10px;display:none;}
+.url-box.show{display:block;}
+.url-box label{font-size:11px;font-weight:500;color:var(--muted);letter-spacing:.06em;text-transform:uppercase;display:block;margin-bottom:6px;}
+.url-box input{width:100%;padding:10px 12px;border:1.5px solid var(--border);border-radius:8px;font-size:13px;font-family:'Noto Sans JP',sans-serif;background:#fff;color:var(--ink);outline:none;}
+.url-box input:focus{border-color:var(--accent);}
+.url-hint{font-size:11px;color:var(--muted);margin-top:5px;line-height:1.6;}
+
+/* UPLOAD */
+.upload-zone{border:2px dashed var(--border);border-radius:10px;padding:26px 16px;text-align:center;cursor:pointer;position:relative;background:#fff;transition:all .15s;}
+.upload-zone:hover,.upload-zone.over{border-color:var(--accent);background:#fff8f5;}
+.upload-zone input{position:absolute;inset:0;opacity:0;cursor:pointer;width:100%;height:100%;}
+.uz-icon{font-size:26px;margin-bottom:6px;}
+.uz-text{font-size:13px;color:var(--muted);}
+.uz-text strong{color:var(--ink);}
+.preview-wrap{display:none;margin-top:12px;text-align:center;}
+.preview-wrap.show{display:block;}
+.preview-wrap canvas{display:block;max-width:200px;margin:0 auto;border-radius:8px;border:2px solid var(--border);}
+.retake-btn{margin-top:6px;font-size:12px;color:var(--accent);background:none;border:none;cursor:pointer;text-decoration:underline;}
+.up-badge{display:inline-block;background:var(--accent);color:#fff;font-size:10px;font-weight:700;padding:2px 8px;border-radius:4px;margin-bottom:6px;}
+.section-label{font-size:11px;font-weight:500;color:var(--muted);text-transform:uppercase;letter-spacing:.06em;margin-bottom:8px;}
+.divider{height:1px;background:var(--cream);margin:14px 0;}
+.extra-tag{display:inline-block;font-size:10px;padding:1px 7px;background:#fde8e0;color:var(--accent);border-radius:20px;font-weight:500;margin-left:6px;}
+
+/* QR EDITOR */
+.qr-editor{margin-top:14px;}
+.qr-canvas-wrap{position:relative;width:100%;height:220px;border-radius:10px;overflow:hidden;border:1.5px solid var(--border);background:var(--cream);margin-bottom:10px;}
+.qr-canvas-wrap canvas{position:absolute;inset:0;width:100%;height:100%;pointer-events:none;}
+.qr-box{position:absolute;border:2.5px solid #fff;box-shadow:0 0 0 1.5px rgba(0,0,0,.25),0 2px 8px rgba(0,0,0,.3);cursor:grab;border-radius:3px;display:flex;align-items:center;justify-content:center;}
+.qr-box:active{cursor:grabbing;}
+.qr-box span{font-size:9px;font-weight:700;color:#fff;letter-spacing:.05em;text-shadow:0 1px 2px rgba(0,0,0,.6);pointer-events:none;}
+.qr-size-row{display:flex;align-items:center;gap:8px;}
+.qr-size-row label{font-size:11px;color:var(--muted);width:40px;flex-shrink:0;}
+.qr-size-row input[type=range]{flex:1;accent-color:var(--accent);}
+.num-step{display:flex;align-items:center;border:1.5px solid var(--border);border-radius:8px;overflow:hidden;background:#fff;flex-shrink:0;}
+.num-step button{width:28px;height:30px;border:none;background:transparent;font-size:16px;cursor:pointer;color:var(--ink);display:flex;align-items:center;justify-content:center;}
+.num-step button:hover{background:var(--cream);}
+.num-step input{width:48px;height:30px;border:none;border-left:1px solid var(--border);border-right:1px solid var(--border);text-align:center;font-size:13px;font-family:'Syne',sans-serif;font-weight:700;background:transparent;color:var(--ink);outline:none;-moz-appearance:textfield;}
+.num-step input::-webkit-outer-spin-button,.num-step input::-webkit-inner-spin-button{-webkit-appearance:none;}
+.num-step .unit{font-size:11px;color:var(--muted);padding:0 6px 0 2px;}
+
+/* SIZE SLIDERS */
+.slider-group{margin-bottom:14px;}
+.slider-group label{font-size:11px;font-weight:500;color:var(--muted);text-transform:uppercase;letter-spacing:.05em;display:block;margin-bottom:7px;}
+.slider-row{display:flex;align-items:center;gap:10px;}
+.slider-row input[type=range]{flex:1;accent-color:var(--accent);}
+
+/* ATTACH */
+.attach-wrap{position:relative;width:100%;height:180px;background:#18181a;border-radius:12px;overflow:hidden;margin:10px 0 8px;}
+.attach-wrap canvas{position:absolute;inset:0;width:100%;height:100%;pointer-events:none;}
+.attach-dot{position:absolute;width:22px;height:22px;background:var(--accent);border:3px solid #fff;border-radius:50%;transform:translate(-50%,-50%);cursor:grab;z-index:5;box-shadow:0 2px 8px rgba(0,0,0,.5);}
+.attach-dot:active{cursor:grabbing;}
+.attach-ctrl{display:flex;align-items:center;gap:8px;margin-top:2px;}
+.attach-ctrl label{font-size:11px;color:var(--muted);width:36px;flex-shrink:0;}
+.attach-ctrl input[type=range]{flex:1;accent-color:var(--accent);}
+.attach-info{font-size:11px;color:var(--muted);margin-top:6px;}
+
+/* 3D PREVIEW */
+.prev-card{background:var(--ink);border-radius:var(--radius);overflow:hidden;margin-bottom:12px;margin-top:14px;}
+@media(min-width:700px){.prev-card{margin-top:0;}}
+.prev-head{padding:11px 15px;display:flex;align-items:center;justify-content:space-between;}
+.prev-title{font-size:11px;font-weight:500;color:rgba(255,255,255,.65);letter-spacing:.08em;text-transform:uppercase;}
+.prev-hint{font-size:10px;color:rgba(255,255,255,.3);}
+.three-wrap{position:relative;width:100%;background:#080806;line-height:0;}
+#threeCanvas{display:block;width:100%;height:auto;}
+.dicut-btn-area{display:none;padding:9px 14px;border-top:1px solid rgba(255,255,255,.08);}
+.dicut-btn{width:100%;padding:10px;background:var(--accent);border:none;border-radius:9px;color:#fff;font-family:'Noto Sans JP',sans-serif;font-size:13px;font-weight:500;cursor:pointer;}
+.size-pills{display:flex;gap:4px;padding:9px 14px;border-top:1px solid rgba(255,255,255,.07);}
+.pill{flex:1;text-align:center;background:rgba(255,255,255,.05);border-radius:7px;padding:7px 2px;}
+.pill-label{font-size:9px;color:rgba(255,255,255,.3);margin-bottom:2px;}
+.pill-val{font-size:12px;font-weight:700;font-family:'Syne',sans-serif;color:var(--paper);}
+
+/* SUBMIT */
+.submit-bar{position:fixed;bottom:0;left:0;right:0;z-index:60;background:var(--ink);padding:12px 18px 18px;display:flex;align-items:center;gap:10px;border-top:1px solid rgba(255,255,255,.08);}
+.submit-info{flex:1;font-size:12px;color:rgba(255,255,255,.45);line-height:1.4;}
+.submit-info strong{color:var(--paper);font-size:13px;display:block;margin-bottom:1px;}
+.submit-btn{padding:13px 20px;background:var(--accent);border:none;border-radius:10px;color:#fff;font-family:'Noto Sans JP',sans-serif;font-size:13px;font-weight:500;cursor:pointer;white-space:nowrap;}
+
+/* CROP MODAL */
+.modal-bg{display:none;position:fixed;inset:0;background:rgba(0,0,0,.82);z-index:200;align-items:center;justify-content:center;padding:16px;}
+.modal-bg.open{display:flex;}
+.modal{background:var(--paper);border-radius:16px;width:100%;max-width:400px;overflow:hidden;}
+.modal-head{background:var(--ink);color:var(--paper);padding:13px 16px;display:flex;align-items:center;justify-content:space-between;}
+.modal-title{font-size:14px;font-weight:500;}
+.modal-x{background:none;border:none;color:var(--paper);font-size:22px;cursor:pointer;line-height:1;padding:0;}
+.crop-area{position:relative;height:290px;background:#111;overflow:hidden;cursor:grab;user-select:none;}
+.crop-area:active{cursor:grabbing;}
+#cropImg{position:absolute;pointer-events:none;transform-origin:center center;}
+#maskCv{position:absolute;inset:0;pointer-events:none;}
+.dicut-bar{display:none;padding:7px 13px;background:rgba(228,160,32,.1);font-size:11px;color:#c8900a;line-height:1.5;}
+.crop-ctrl{padding:10px 14px;background:var(--cream);border-top:1px solid var(--border);display:flex;flex-direction:column;gap:7px;}
+.cr-row{display:flex;align-items:center;gap:8px;}
+.cr-label{font-size:11px;color:var(--muted);width:34px;flex-shrink:0;}
+.cr-row input[type=range]{flex:1;accent-color:var(--accent);}
+.modal-foot{padding:11px 14px;display:flex;gap:8px;}
+.btn-cancel{flex:1;padding:11px;border:2px solid var(--border);border-radius:9px;background:transparent;cursor:pointer;font-family:'Noto Sans JP',sans-serif;font-size:13px;color:var(--ink);}
+.btn-apply{flex:1;padding:11px;background:var(--accent);border:none;border-radius:9px;color:#fff;font-family:'Noto Sans JP',sans-serif;font-size:13px;font-weight:500;cursor:pointer;}
+
+/* TOAST */
+.toast{position:fixed;bottom:82px;left:50%;transform:translateX(-50%) translateY(8px);background:var(--ink);color:var(--paper);padding:9px 18px;border-radius:30px;font-size:13px;opacity:0;pointer-events:none;transition:all .25s;white-space:nowrap;z-index:400;}
+.toast.show{opacity:1;transform:translateX(-50%) translateY(0);}
+</style>
+</head>
+<body>
+
+<div class="topbar">
+  <div class="topbar-logo">NFC ORDER</div>
+  <div class="topbar-order" id="topOrder">—</div>
+  <div class="topbar-step">ステップ 2 / 2</div>
+</div>
+<div class="prog"><div class="prog-fill" id="progFill"></div></div>
+
+<div class="layout">
+<div class="form-col">
+
+<!-- 1. 土台カラー -->
+<div class="sec" id="sec1">
+  <div class="sec-head" onclick="toggle(1)">
+    <div class="sec-num" id="sn1">1</div>
+    <div class="sec-title">土台カラー</div>
+    <div class="sec-status" id="ss1">選択してください</div>
+  </div>
+  <div class="sec-body hidden" id="sb1">
+    <div class="color-row" id="colorRow"></div>
+    <div class="color-name" id="colorName">—</div>
+  </div>
+</div>
+
+<!-- 2. 形状 -->
+<div class="sec" id="sec2">
+  <div class="sec-head" onclick="toggle(2)">
+    <div class="sec-num" id="sn2">2</div>
+    <div class="sec-title">キーホルダーの形状</div>
+    <div class="sec-status" id="ss2">選択してください</div>
+  </div>
+  <div class="sec-body hidden" id="sb2">
+    <div class="shape-row">
+      <button class="shape-btn" id="sh-circle" onclick="pickShape('circle')">
+        <div class="sh-icon"><div class="sh-circle"></div></div>
+        <div class="shape-name">丸型</div><div class="shape-sub">φ 50mm</div>
+      </button>
+      <button class="shape-btn" id="sh-square" onclick="pickShape('square')">
+        <div class="sh-icon"><div class="sh-square"></div></div>
+        <div class="shape-name">四角形</div><div class="shape-sub">50×50mm</div>
+      </button>
+      <button class="shape-btn" id="sh-diecut" onclick="pickShape('diecut')">
+        <div class="sh-icon">
+          <svg width="40" height="40" viewBox="0 0 40 40" fill="none">
+            <path d="M20 3C12 3 5 9 4 18c-1 8 4 15 9 17 2 1 5 1 7 0 6-2 10-9 9-17C28 9 28 3 20 3z" fill="#ece8df" stroke="#0f0f0d" stroke-width="2" stroke-dasharray="3 2"/>
+            <circle cx="20" cy="14" r="4" fill="#ccc8be"/>
+          </svg>
+        </div>
+        <div class="shape-name">ダイアカット</div><div class="shape-sub">輪郭切抜</div>
+      </button>
+    </div>
+    <div id="diecut-note" style="display:none;margin-top:12px;padding:10px;background:#fffbf0;border:1.5px solid #f0d080;border-radius:9px;font-size:12px;color:#7a6020;line-height:1.7;">
+      📐 画像の輪郭に沿って切り抜きます。背景透過のPNGを推奨します。
+    </div>
+  </div>
+</div>
+
+<!-- 3. NFC -->
+<div class="sec" id="sec3">
+  <div class="sec-head" onclick="toggle(3)">
+    <div class="sec-num" id="sn3">3</div>
+    <div class="sec-title">NFC タグ<span class="extra-tag">+¥300</span></div>
+    <div class="sec-status" id="ss3">なし</div>
+  </div>
+  <div class="sec-body hidden" id="sb3">
+    <div style="font-size:12px;color:var(--muted);margin-bottom:14px;line-height:1.6;">スマホをかざすと登録したURLに飛べます。</div>
+    <div class="yn-row">
+      <button class="yn-btn" id="nfc-yes" onclick="setNFC(true)">
+        あり
+        <div class="yn-sub">+¥300</div>
+      </button>
+      <button class="yn-btn sel" id="nfc-no" onclick="setNFC(false)">
+        なし
+      </button>
+    </div>
+    <div class="url-box" id="nfcUrl-box">
+      <label>登録するURL</label>
+      <input type="url" id="nfcUrl" placeholder="https://example.com" oninput="S.nfcUrl=this.value">
+      <div class="url-hint">※ SNSプロフィールURLや作品ページなど</div>
+    </div>
+  </div>
+</div>
+
+<!-- 3.5 裏面印刷 -->
+<div class="sec" id="sec35">
+  <div class="sec-head" onclick="toggle(35)">
+    <div class="sec-num" id="sn35">▸</div>
+    <div class="sec-title">裏面にも印刷<span class="extra-tag">+¥100</span></div>
+    <div class="sec-status" id="ss35">なし</div>
+  </div>
+  <div class="sec-body hidden" id="sb35">
+    <div class="yn-row">
+      <button class="yn-btn" id="bp-yes" onclick="setBackPrint(true)">あり<div class="yn-sub">+¥100</div></button>
+      <button class="yn-btn sel" id="bp-no" onclick="setBackPrint(false)">なし</button>
+    </div>
+  </div>
+</div>
+
+<!-- 4. 画像（ロック） -->
+<div class="sec locked" id="sec4">
+  <div class="sec-head" onclick="onImgSecClick()">
+    <div class="sec-num" id="sn4">4</div>
+    <div class="sec-title">キーホルダー画像</div>
+    <div class="sec-status" id="ss4">未設定</div>
+  </div>
+  <div class="sec-body hidden" id="sb4">
+    <!-- おもて -->
+    <div id="frontLbl" style="display:none;" class="section-label">おもて面</div>
+    <div id="upBadge" style="display:none;margin-bottom:6px;"><span class="up-badge">↑ この向きが「上」</span></div>
+    <div class="upload-zone" id="uz-front">
+      <input type="file" id="img-front" accept="image/*" onchange="onFileChange(event,'front')">
+      <div class="uz-icon">🖼️</div>
+      <div class="uz-text"><strong>クリックして選択</strong><br>またはドロップ</div>
+    </div>
+    <div class="preview-wrap" id="pw-front">
+      <canvas id="cv-front" width="200" height="200"></canvas>
+      <button class="retake-btn" onclick="resetImg('front')">選び直す</button>
+    </div>
+    <!-- 裏面 -->
+    <div id="backArea" style="display:none;">
+      <div class="divider"></div>
+      <div class="section-label">うら面</div>
+      <div id="upBadgeBack" style="display:none;margin-bottom:6px;"><span class="up-badge">↑ この向きが「上」（裏から見て）</span></div>
+      <div class="upload-zone" id="uz-back">
+        <input type="file" id="img-back" accept="image/*" onchange="onFileChange(event,'back')">
+        <div class="uz-icon">🖼️</div>
+        <div class="uz-text"><strong>うら面の画像を選択</strong></div>
+      </div>
+      <div class="preview-wrap" id="pw-back">
+        <canvas id="cv-back" width="200" height="200"></canvas>
+        <button class="retake-btn" onclick="resetImg('back')">選び直す</button>
+      </div>
+    </div>
+  </div>
+  <div class="lock-bar" onclick="onLockBarClick()">⚠ <span id="lockMsg">先に「土台カラー」と「形状」を選択してください</span> →</div>
+</div>
+
+<!-- 5. QR -->
+<div class="sec" id="sec5">
+  <div class="sec-head" onclick="toggle(5)">
+    <div class="sec-num" id="sn5">5</div>
+    <div class="sec-title">QR コード</div>
+    <div class="sec-status" id="ss5">なし</div>
+  </div>
+  <div class="sec-body hidden" id="sb5">
+    <div class="yn-row" style="margin-bottom:14px;">
+      <button class="yn-btn" id="qr-yes" onclick="setQR(true)">あり</button>
+      <button class="yn-btn sel" id="qr-no" onclick="setQR(false)">なし</button>
+    </div>
+    <div id="qrOptions" style="display:none;">
+      <div class="section-label" style="margin-bottom:8px;">印刷する面</div>
+      <div class="yn-row" style="margin-bottom:14px;">
+        <button class="yn-btn" id="qrs-front" onclick="setQRSide('front')">おもて面</button>
+        <button class="yn-btn" id="qrs-back" onclick="setQRSide('back')">うら面</button>
+      </div>
+      <!-- QR位置エディタ（おもて） -->
+      <div id="qrEd-front" style="display:none;">
+        <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:6px;">
+          <div class="section-label" style="margin-bottom:0;">おもて面 — 位置をドラッグで指定</div>
+          <button onclick="resyncQR('front')" style="font-size:11px;padding:4px 10px;border:1.5px solid var(--border);border-radius:7px;background:#fff;cursor:pointer;color:var(--ink);white-space:nowrap;">↺ 本体サイズを反映</button>
+        </div>
+        <div class="qr-canvas-wrap" id="qrWrap-front">
+          <canvas id="qrBg-front"></canvas>
+          <div class="qr-box" id="qrBox-front"><span>QR</span></div>
+        </div>
+        <div class="qr-size-row">
+          <label>サイズ</label>
+          <input type="range" id="qrSz-front" min="1.2" max="5" step="0.1" value="2" oninput="onQRSzSlider('front')">
+          <div class="num-step">
+            <button onclick="stepQR('front',-0.1)">−</button>
+            <input type="number" id="qrSzN-front" min="1.2" max="5" step="0.1" value="2" oninput="onQRSzInput('front')">
+            <span class="unit">cm</span>
+            <button onclick="stepQR('front',0.1)">＋</button>
+          </div>
+        </div>
+      </div>
+      <!-- QR位置エディタ（うら） -->
+      <div id="qrEd-back" style="display:none;margin-top:12px;">
+        <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:6px;">
+          <div class="section-label" style="margin-bottom:0;">うら面 — 位置をドラッグで指定</div>
+          <button onclick="resyncQR('back')" style="font-size:11px;padding:4px 10px;border:1.5px solid var(--border);border-radius:7px;background:#fff;cursor:pointer;color:var(--ink);white-space:nowrap;">↺ 本体サイズを反映</button>
+        </div>
+        <div class="qr-canvas-wrap" id="qrWrap-back">
+          <canvas id="qrBg-back"></canvas>
+          <div class="qr-box" id="qrBox-back"><span>QR</span></div>
+        </div>
+        <div class="qr-size-row">
+          <label>サイズ</label>
+          <input type="range" id="qrSz-back" min="1.2" max="5" step="0.1" value="2" oninput="onQRSzSlider('back')">
+          <div class="num-step">
+            <button onclick="stepQR('back',-0.1)">−</button>
+            <input type="number" id="qrSzN-back" min="1.2" max="5" step="0.1" value="2" oninput="onQRSzInput('back')">
+            <span class="unit">cm</span>
+            <button onclick="stepQR('back',0.1)">＋</button>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- 6. サイズ -->
+<div class="sec" id="sec6">
+  <div class="sec-head" onclick="toggle(6)">
+    <div class="sec-num" id="sn6">6</div>
+    <div class="sec-title">サイズ設定</div>
+    <div class="sec-status" id="ss6">7.0cm / 厚さ2.0cm</div>
+  </div>
+  <div class="sec-body hidden" id="sb6">
+    <div class="slider-group">
+      <label>長辺（最長部分）</label>
+      <div class="slider-row">
+        <input type="range" id="szSlider" min="5" max="15" step="0.5" value="7" oninput="onSzSlider()">
+        <div class="num-step">
+          <button onclick="stepSz(-0.5)">−</button>
+          <input type="number" id="szN" min="5" max="15" step="0.5" value="7" oninput="onSzInput()">
+          <span class="unit">cm</span>
+          <button onclick="stepSz(0.5)">＋</button>
+        </div>
+      </div>
+    </div>
+    <div class="slider-group">
+      <label>厚さ</label>
+      <div class="slider-row">
+        <input type="range" id="thSlider" min="1" max="4" step="0.5" value="2" oninput="onThSlider()">
+        <div class="num-step">
+          <button onclick="stepTh(-0.5)">−</button>
+          <input type="number" id="thN" min="1" max="4" step="0.5" value="2" oninput="onThInput()">
+          <span class="unit">cm</span>
+          <button onclick="stepTh(0.5)">＋</button>
+        </div>
+      </div>
+    </div>
+    <div style="font-size:11px;color:var(--muted);margin-top:4px;line-height:1.6;">※ 長辺でのサイズ指定。3Dプレビューに反映されます。</div>
+  </div>
+</div>
+
+<!-- 7. 穴の位置 -->
+<div class="sec" id="sec7">
+  <div class="sec-head" onclick="toggle(7)">
+    <div class="sec-num" id="sn7">7</div>
+    <div class="sec-title">穴・アタッチメントの位置</div>
+    <div class="sec-status" id="ss7">未設定</div>
+  </div>
+  <div class="sec-body hidden" id="sb7">
+    <div style="font-size:12px;color:var(--muted);margin-bottom:4px;">赤い点をドラッグして穴の位置を指定してください。</div>
+    <div class="attach-wrap" id="attachWrap">
+      <canvas id="attachCv"></canvas>
+      <div class="attach-dot" id="attachDot"></div>
+    </div>
+    <div class="attach-ctrl">
+      <label>角度</label>
+      <input type="range" id="attachAngle" min="0" max="360" step="1" value="0" oninput="onAttachAngle()">
+      <div class="num-step">
+        <button onclick="stepAngle(-1)">−</button>
+        <input type="number" id="attachAngleN" min="0" max="360" value="0" oninput="onAttachAngleN()">
+        <span class="unit">°</span>
+        <button onclick="stepAngle(1)">＋</button>
+      </div>
+    </div>
+    <div class="attach-info">X:<span id="attX">50</span>% Y:<span id="attY">10</span>% 角度:<span id="attA">0</span>°</div>
+  </div>
+</div>
+
+</div><!-- /form-col -->
+
+<!-- 3D PREVIEW -->
+<div class="preview-col">
+  <div class="prev-card">
+    <div class="prev-head">
+      <div class="prev-title">3D プレビュー</div>
+      <div class="prev-hint">ドラッグで回転 / スクロールで拡大</div>
+    </div>
+    <div class="three-wrap">
+      <canvas id="threeCanvas"></canvas>
+    </div>
+    <div class="dicut-btn-area" id="dicutArea">
+      <button class="dicut-btn" onclick="openDicutCrop()">✂ ダイアカット輪郭を確定</button>
+    </div>
+    <div class="size-pills">
+      <div class="pill"><div class="pill-label">長辺</div><div class="pill-val" id="pd-size">7.0cm</div></div>
+      <div class="pill"><div class="pill-label">厚さ</div><div class="pill-val" id="pd-thick">2.0cm</div></div>
+      <div class="pill"><div class="pill-label">形状</div><div class="pill-val" id="pd-shape">—</div></div>
+      <div class="pill"><div class="pill-label">カラー</div><div class="pill-val" id="pd-color">—</div></div>
+    </div>
+  </div>
+</div>
+</div><!-- /layout -->
+
+<!-- SUBMIT -->
+<div class="submit-bar">
+  <div class="submit-info">
+    <strong id="submitLabel">注文内容を確認して送信</strong>
+    <span id="submitSub">全項目を設定してください</span>
+  </div>
+  <button class="submit-btn" onclick="doSubmit()">注文を送信 →</button>
+</div>
+
+<!-- CROP MODAL -->
+<div class="modal-bg" id="cropModal">
+  <div class="modal">
+    <div class="modal-head">
+      <span class="modal-title" id="cropTitle">画像の位置・サイズを調整</span>
+      <button class="modal-x" onclick="closeCrop()">×</button>
+    </div>
+    <div class="crop-area" id="cropArea"
+         onmousedown="cdragStart(event)" ontouchstart="cdragStartT(event)">
+      <img id="cropImg" src="" alt="">
+      <canvas id="maskCv"></canvas>
+    </div>
+    <div class="dicut-bar" id="dicutBar">📐 ダイアカット：画像の輪郭に沿って切り抜きます。背景透過PNGを推奨。</div>
+    <div class="crop-ctrl">
+      <div class="cr-row">
+        <span class="cr-label">サイズ</span>
+        <input type="range" id="cropSz" min="1" max="200" step="1" value="50" oninput="onCropSzSlider()">
+        <div class="num-step" style="background:#fff;">
+          <button onclick="stepCropSz(-1)">−</button>
+          <input type="number" id="cropSzN" min="1" max="200" value="50" oninput="onCropSzInput()">
+          <span class="unit">%</span>
+          <button onclick="stepCropSz(1)">＋</button>
+        </div>
+      </div>
+      <div class="cr-row" id="rotRow" style="display:none;">
+        <span class="cr-label">回転</span>
+        <input type="range" id="cropRot" min="-180" max="180" step="1" value="0" oninput="onCropRotSlider()">
+        <div class="num-step" style="background:#fff;">
+          <button onclick="stepCropRot(-1)">−</button>
+          <input type="number" id="cropRotN" min="-180" max="180" value="0" oninput="onCropRotInput()">
+          <span class="unit">°</span>
+          <button onclick="stepCropRot(1)">＋</button>
+        </div>
+      </div>
+    </div>
+    <div class="modal-foot">
+      <button class="btn-cancel" onclick="closeCrop()">キャンセル</button>
+      <button class="btn-apply" onclick="applyCrop()">切り取る ✓</button>
+    </div>
+  </div>
+</div>
+
+<div class="toast" id="toast"></div>
+
+<script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+<script>
+'use strict';
+
+// ═══════════════════════════════
+// STATE
+// ═══════════════════════════════
+const S = {
+  orderId: sessionStorage.getItem('orderId') || '—',
+  color: null, colorHex: null,
+  shape: null,
+  nfc: false, nfcUrl: '',
+  backPrint: false,
+  imgFront: null, imgBack: null,
+  qr: false, qrSide: null,
+  qrFront: { x: 50, y: 50, cm: 2 },
+  qrBack:  { x: 50, y: 50, cm: 2 },
+  sizeCm: 7, thickCm: 2,
+  attX: 50, attY: 10, attAngle: 0,
+};
+let cropTarget = 'front';
+
+document.getElementById('topOrder').textContent = S.orderId;
+
+// ═══════════════════════════════
+// SECTION TOGGLE
+// ═══════════════════════════════
+function toggle(n) {
+  const sb = document.getElementById('sb' + n);
+  if (!sb) return;
+  sb.classList.toggle('hidden');
+}
+
+// ═══════════════════════════════
+// COLORS
+// ═══════════════════════════════
+const COLORS = [
+  { name:'ホワイト', hex:'#FFFFFF', border:'#ccc' },
+  { name:'ブラック', hex:'#1a1a18' },
+  { name:'ブルー',   hex:'#2563EB' },
+  { name:'イエロー', hex:'#FACC15' },
+  { name:'オレンジ', hex:'#F97316' },
+  { name:'レッド',   hex:'#EF4444' },
+  { name:'グリーン', hex:'#22C55E' },
+];
+(function renderColors() {
+  const row = document.getElementById('colorRow');
+  COLORS.forEach(c => {
+    const el = document.createElement('div');
+    el.className = 'csw';
+    el.title = c.name;
+    el.style.background = c.hex;
+    if (c.border) el.style.border = '2px solid ' + c.border;
+    el.addEventListener('click', () => {
+      document.querySelectorAll('.csw').forEach(e => e.classList.remove('sel'));
+      el.classList.add('sel');
+      S.color = c.name; S.colorHex = c.hex;
+      document.getElementById('colorName').textContent = '選択中：' + c.name;
+      document.getElementById('ss1').textContent = c.name;
+      document.getElementById('pd-color').textContent = c.name;
+      done(1); updateLock(); updateProg(); rebuild3D();
+    });
+    row.appendChild(el);
+  });
+})();
+
+// ═══════════════════════════════
+// SHAPE
+// ═══════════════════════════════
+function pickShape(sh) {
+  ['circle','square','diecut'].forEach(s => {
+    document.getElementById('sh-' + s).classList.toggle('sel', s === sh);
+  });
+  S.shape = sh;
+  const names = { circle:'丸型', square:'四角形', diecut:'ダイアカット' };
+  document.getElementById('ss2').textContent = names[sh];
+  document.getElementById('pd-shape').textContent = { circle:'丸', square:'四角', diecut:'ダイカ' }[sh];
+  document.getElementById('diecut-note').style.display = sh === 'diecut' ? 'block' : 'none';
+  document.getElementById('dicutArea').style.display = sh === 'diecut' ? 'block' : 'none';
+  // 丸型の上マーカー
+  const isCircle = sh === 'circle';
+  document.getElementById('upBadge').style.display = isCircle ? 'block' : 'none';
+  document.getElementById('upBadgeBack').style.display = isCircle ? 'block' : 'none';
+  done(2);
+  // セクションを閉じる（選択済みを示す）
+  document.getElementById('sb2').classList.add('hidden');
+  updateLock(); updateProg(); rebuild3D();
+  if (window._redrawAttach) window._redrawAttach();
+}
+
+// ═══════════════════════════════
+// LOCK (sec4)
+// ═══════════════════════════════
+function updateLock() {
+  const locked = !S.color || !S.shape;
+  const sec4 = document.getElementById('sec4');
+  sec4.classList.toggle('locked', locked);
+  if (locked) {
+    let msg = '';
+    if (!S.color && !S.shape) msg = '先に「土台カラー」と「形状」を選択してください';
+    else if (!S.color) msg = '先に「土台カラー」を選択してください';
+    else msg = '先に「形状」を選択してください';
+    document.getElementById('lockMsg').textContent = msg;
+  }
+}
+function onImgSecClick() {
+  if (document.getElementById('sec4').classList.contains('locked')) {
+    onLockBarClick();
+    return;
+  }
+  toggle(4);
+}
+function onLockBarClick() {
+  const noC = !S.color, noS = !S.shape;
+  if (noC && noS) toast('「土台カラー」と「形状」を選択してください');
+  else if (noC) toast('「土台カラー」を選択してください');
+  else toast('「形状」を選択してください');
+  if (noC) { document.getElementById('sb1').classList.remove('hidden'); document.getElementById('sec1').scrollIntoView({behavior:'smooth',block:'center'}); }
+  else     { document.getElementById('sb2').classList.remove('hidden'); document.getElementById('sec2').scrollIntoView({behavior:'smooth',block:'center'}); }
+}
+
+// ═══════════════════════════════
+// NFC
+// ═══════════════════════════════
+function setNFC(val) {
+  S.nfc = val;
+  document.getElementById('nfc-yes').classList.toggle('sel', val);
+  document.getElementById('nfc-no').classList.toggle('sel', !val);
+  document.getElementById('nfcUrl-box').classList.toggle('show', val);
+  document.getElementById('ss3').textContent = val ? 'あり (+¥300)' : 'なし';
+  done(3); updateProg();
+}
+
+// ═══════════════════════════════
+// BACK PRINT
+// ═══════════════════════════════
+function setBackPrint(val) {
+  S.backPrint = val;
+  document.getElementById('bp-yes').classList.toggle('sel', val);
+  document.getElementById('bp-no').classList.toggle('sel', !val);
+  document.getElementById('ss35').textContent = val ? 'あり (+¥100)' : 'なし';
+  document.getElementById('backArea').style.display = val ? 'block' : 'none';
+  document.getElementById('frontLbl').style.display = val ? 'block' : 'none';
+  updateProg();
+}
+
+// ═══════════════════════════════
+// IMAGE
+// ═══════════════════════════════
+function onFileChange(e, target) {
+  cropTarget = target;
+  const file = e.target.files[0];
+  if (!file) return;
+  const reader = new FileReader();
+  reader.onload = ev => openCrop(ev.target.result);
+  reader.readAsDataURL(file);
+}
+
+// Drag & drop
+['uz-front','uz-back'].forEach((id, i) => {
+  const el = document.getElementById(id);
+  const tgt = i === 0 ? 'front' : 'back';
+  el.addEventListener('dragover', e => { e.preventDefault(); el.classList.add('over'); });
+  el.addEventListener('dragleave', () => el.classList.remove('over'));
+  el.addEventListener('drop', e => {
+    e.preventDefault(); el.classList.remove('over');
+    const f = e.dataTransfer.files[0];
+    if (f && f.type.startsWith('image/')) {
+      cropTarget = tgt;
+      const r = new FileReader(); r.onload = ev => openCrop(ev.target.result); r.readAsDataURL(f);
+    }
+  });
+});
+
+function resetImg(target) {
+  if (target === 'front') {
+    S.imgFront = null;
+    document.getElementById('pw-front').classList.remove('show');
+    document.getElementById('uz-front').style.display = '';
+    document.getElementById('img-front').value = '';
+  } else {
+    S.imgBack = null;
+    document.getElementById('pw-back').classList.remove('show');
+    document.getElementById('uz-back').style.display = '';
+    document.getElementById('img-back').value = '';
+  }
+  const any = S.imgFront || S.imgBack;
+  document.getElementById('ss4').textContent = any ? '設定済み' : '未設定';
+  rebuild3D();
+}
+
+// ═══════════════════════════════
+// CROP
+// ═══════════════════════════════
+const C = { x:0, y:0, scale:1, rot:0, imgW:0, imgH:0, fitScale:1, drag:false, sx:0, sy:0 };
+
+function openDicutCrop() {
+  if (!S.imgFront) { toast('先に画像をアップロードしてください'); return; }
+  cropTarget = 'front';
+  const img = document.getElementById('cropImg');
+  if (img.src && img.complete && img.naturalWidth > 0) openCropModal();
+  else toast('画像を再アップロードしてください');
+}
+
+function openCrop(src) {
+  const img = document.getElementById('cropImg');
+  img.onload = openCropModal;
+  img.src = src;
+}
+
+function openCropModal() {
+  const img = document.getElementById('cropImg');
+  const ca  = document.getElementById('cropArea');
+  requestAnimationFrame(() => {
+    const cw = ca.offsetWidth || 360, ch = ca.offsetHeight || 290;
+    C.imgW = img.naturalWidth; C.imgH = img.naturalHeight; C.rot = 0;
+    const fw = cw * .78, fh = ch * .78;
+    C.fitScale = Math.min(fw / C.imgW, fh / C.imgH);
+    const initPct = 50;
+    C.scale = initPct / 100 * C.fitScale;
+    setCropSz(initPct, false);
+    setCropRot(0, false);
+    C.x = (cw - C.imgW * C.scale) / 2;
+    C.y = (ch - C.imgH * C.scale) / 2;
+    posImg(); drawMask();
+    const sh = S.shape || 'circle';
+    document.getElementById('dicutBar').style.display = sh === 'diecut' ? 'block' : 'none';
+    document.getElementById('rotRow').style.display = (sh === 'circle' || sh === 'square') ? 'flex' : 'none';
+    document.getElementById('cropTitle').textContent = sh === 'diecut' ? 'ダイアカット輪郭を確定' : '画像の位置・サイズを調整';
+    document.getElementById('cropModal').classList.add('open');
+  });
+}
+function closeCrop() { document.getElementById('cropModal').classList.remove('open'); }
+
+// Scale (UI 100% = fitScale = 枠ぴったり, 1%〜100%)
+function setCropSz(pct, doUpdate = true) {
+  pct = Math.min(200, Math.max(1, Math.round(pct)));
+  document.getElementById('cropSz').value  = pct;
+  document.getElementById('cropSzN').value = pct;
+  if (!doUpdate) return;
+  const ca = document.getElementById('cropArea');
+  const cw = ca.offsetWidth || 360, ch = ca.offsetHeight || 290;
+  const fw = cw * .78, fh = ch * .78;
+  C.fitScale = Math.min(fw / C.imgW, fh / C.imgH);
+  const prev = C.scale || .001;
+  C.scale = pct / 100 * C.fitScale;
+  const cx = cw / 2, cy = ch / 2;
+  C.x = cx - (cx - C.x) * C.scale / prev;
+  C.y = cy - (cy - C.y) * C.scale / prev;
+  posImg(); drawMask();
+}
+function onCropSzSlider() { setCropSz(+document.getElementById('cropSz').value); }
+function onCropSzInput()  { setCropSz(+document.getElementById('cropSzN').value); }
+function stepCropSz(d)    { setCropSz((+document.getElementById('cropSzN').value || 75) + d); }
+
+// Rotation
+function setCropRot(deg, doUpdate = true) {
+  deg = Math.min(180, Math.max(-180, Math.round(deg)));
+  document.getElementById('cropRot').value  = deg;
+  document.getElementById('cropRotN').value = deg;
+  C.rot = deg;
+  if (doUpdate) { posImg(); drawMask(); }
+}
+function onCropRotSlider() { setCropRot(+document.getElementById('cropRot').value); }
+function onCropRotInput()  { setCropRot(+document.getElementById('cropRotN').value); }
+function stepCropRot(d)    { setCropRot((+document.getElementById('cropRotN').value || 0) + d); }
+
+function posImg() {
+  const img = document.getElementById('cropImg');
+  img.style.left   = C.x + 'px';
+  img.style.top    = C.y + 'px';
+  img.style.width  = C.imgW * C.scale + 'px';
+  img.style.height = C.imgH * C.scale + 'px';
+  img.style.transform = 'rotate(' + C.rot + 'deg)';
+}
+
+function drawMask() {
+  const ca = document.getElementById('cropArea');
+  const cw = ca.offsetWidth || 360, ch = ca.offsetHeight || 290;
+  const cv = document.getElementById('maskCv');
+  cv.width = cw; cv.height = ch;
+  const ctx = cv.getContext('2d');
+  const size = Math.min(cw, ch) * .78, cx = cw / 2, cy = ch / 2;
+  ctx.clearRect(0, 0, cw, ch);
+  ctx.fillStyle = 'rgba(0,0,0,.62)'; ctx.fillRect(0, 0, cw, ch);
+  ctx.globalCompositeOperation = 'destination-out';
+  ctx.beginPath();
+  const sh = S.shape || 'circle';
+  if (sh === 'circle')  ctx.arc(cx, cy, size / 2, 0, Math.PI * 2);
+  else if (sh === 'diecut') dicutPath(ctx, cx, cy, size);
+  else rrect(ctx, cx - size / 2, cy - size / 2, size, size, size * .06);
+  ctx.fill();
+  ctx.globalCompositeOperation = 'source-over';
+  ctx.strokeStyle = 'rgba(255,255,255,.65)'; ctx.lineWidth = 2; ctx.setLineDash([5, 4]);
+  ctx.beginPath();
+  if (sh === 'circle')  ctx.arc(cx, cy, size / 2, 0, Math.PI * 2);
+  else if (sh === 'diecut') dicutPath(ctx, cx, cy, size);
+  else rrect(ctx, cx - size / 2, cy - size / 2, size, size, size * .06);
+  ctx.stroke(); ctx.setLineDash([]);
+  // 丸型「上」マーカー
+  if (sh === 'circle') {
+    ctx.fillStyle = 'rgba(212,82,42,.9)';
+    ctx.beginPath();
+    ctx.moveTo(cx, cy - size / 2 - 14); ctx.lineTo(cx - 8, cy - size / 2 - 1); ctx.lineTo(cx + 8, cy - size / 2 - 1);
+    ctx.closePath(); ctx.fill();
+    ctx.fillStyle = '#fff'; ctx.font = 'bold 10px sans-serif';
+    ctx.textAlign = 'center'; ctx.textBaseline = 'bottom';
+    ctx.fillText('上', cx, cy - size / 2 - 15);
+  }
+}
+
+function rrect(ctx, x, y, w, h, r) {
+  ctx.moveTo(x+r,y); ctx.lineTo(x+w-r,y); ctx.arcTo(x+w,y,x+w,y+r,r);
+  ctx.lineTo(x+w,y+h-r); ctx.arcTo(x+w,y+h,x+w-r,y+h,r);
+  ctx.lineTo(x+r,y+h); ctx.arcTo(x,y+h,x,y+h-r,r);
+  ctx.lineTo(x,y+r); ctx.arcTo(x,y,x+r,y,r); ctx.closePath();
+}
+
+function dicutPath(ctx, cx, cy, size) {
+  const imgEl = document.getElementById('cropImg');
+  if (!imgEl || !imgEl.complete || !imgEl.naturalWidth) { rrect(ctx, cx-size/2, cy-size/2, size, size, size*.08); return; }
+  const W = 128, H = 128;
+  const tmp = document.createElement('canvas'); tmp.width = W; tmp.height = H;
+  const tc = tmp.getContext('2d'); tc.drawImage(imgEl, 0, 0, W, H);
+  const data = tc.getImageData(0, 0, W, H).data;
+  const pts = [];
+  for (let y = 0; y < H; y += 3) {
+    let f = -1, l = -1;
+    for (let x = 0; x < W; x++) { if (data[(y*W+x)*4+3] > 30) { if (f < 0) f = x; l = x; } }
+    if (f >= 0) { pts.push({x:f/W,y:y/H,s:'L'}); if (l !== f) pts.push({x:l/W,y:y/H,s:'R'}); }
+  }
+  const all = [...pts.filter(p=>p.s==='L'), ...pts.filter(p=>p.s==='R').reverse()];
+  if (all.length < 3) { rrect(ctx, cx-size/2, cy-size/2, size, size, size*.08); return; }
+  const ox = cx - size/2, oy = cy - size/2;
+  ctx.moveTo(ox + all[0].x*size, oy + all[0].y*size);
+  for (let i = 1; i < all.length; i++) ctx.lineTo(ox + all[i].x*size, oy + all[i].y*size);
+  ctx.closePath();
+}
+
+// Crop drag
+function cdragStart(e) { C.drag=true; C.sx=e.clientX-C.x; C.sy=e.clientY-C.y; window.addEventListener('mousemove',cdragMove); window.addEventListener('mouseup',cdragEnd); }
+function cdragStartT(e) { const t=e.touches[0]; C.drag=true; C.sx=t.clientX-C.x; C.sy=t.clientY-C.y; window.addEventListener('touchmove',cdragMoveT,{passive:false}); window.addEventListener('touchend',cdragEnd); }
+function cdragMove(e) { if(!C.drag)return; C.x=e.clientX-C.sx; C.y=e.clientY-C.sy; posImg(); }
+function cdragMoveT(e) { e.preventDefault(); if(!C.drag)return; const t=e.touches[0]; C.x=t.clientX-C.sx; C.y=t.clientY-C.sy; posImg(); }
+function cdragEnd() { C.drag=false; window.removeEventListener('mousemove',cdragMove); window.removeEventListener('mouseup',cdragEnd); window.removeEventListener('touchmove',cdragMoveT); window.removeEventListener('touchend',cdragEnd); }
+
+function applyCrop() {
+  const ca = document.getElementById('cropArea');
+  const cw = ca.offsetWidth||360, ch = ca.offsetHeight||290;
+  const size = Math.min(cw,ch)*.78, cx=cw/2, cy=ch/2;
+  const out = 400;
+  const cv = document.createElement('canvas'); cv.width=out; cv.height=out;
+  const ctx = cv.getContext('2d');
+  const sh = S.shape || 'circle';
+  ctx.beginPath();
+  if (sh==='circle') ctx.arc(out/2,out/2,out/2,0,Math.PI*2);
+  else if (sh==='diecut') dicutPath(ctx,out/2,out/2,out);
+  else rrect(ctx,0,0,out,out,out*.06);
+  ctx.clip();
+  ctx.save(); ctx.translate(out/2,out/2); ctx.rotate(C.rot*Math.PI/180);
+  const imgEl = document.getElementById('cropImg');
+  const srcX = (cx-size/2-C.x)/C.scale, srcY=(cy-size/2-C.y)/C.scale, srcW=size/C.scale;
+  ctx.drawImage(imgEl, srcX,srcY,srcW,srcW, -out/2,-out/2,out,out);
+  ctx.restore();
+  const url = cv.toDataURL('image/png');
+  if (cropTarget === 'back') {
+    S.imgBack = url;
+    drawPreview('back');
+    document.getElementById('uz-back').style.display = 'none';
+    document.getElementById('pw-back').classList.add('show');
+  } else {
+    S.imgFront = url;
+    drawPreview('front');
+    document.getElementById('uz-front').style.display = 'none';
+    document.getElementById('pw-front').classList.add('show');
+  }
+  document.getElementById('ss4').textContent = '設定済み';
+  done(4); updateProg(); rebuild3D(); closeCrop();
+}
+
+function drawPreview(target) {
+  const cvEl = document.getElementById('cv-' + target);
+  const src  = target === 'back' ? S.imgBack : S.imgFront;
+  cvEl.style.borderRadius = S.shape==='circle' ? '50%' : '8px';
+  const ctx = cvEl.getContext('2d'); ctx.clearRect(0,0,200,200);
+  const img = new Image(); img.onload = () => ctx.drawImage(img,0,0,200,200); img.src = src;
+}
+
+// ═══════════════════════════════
+// QR
+// ═══════════════════════════════
+function setQR(val) {
+  S.qr = val;
+  document.getElementById('qr-yes').classList.toggle('sel', val);
+  document.getElementById('qr-no').classList.toggle('sel', !val);
+  document.getElementById('qrOptions').style.display = val ? 'block' : 'none';
+  document.getElementById('ss5').textContent = val ? 'あり' : 'なし';
+  if (val) done(5);
+  updateProg(); rebuild3D();
+}
+
+function setQRSide(side) {
+  S.qrSide = side;
+  document.getElementById('qrs-front').classList.toggle('sel', side==='front');
+  document.getElementById('qrs-back').classList.toggle('sel',  side==='back');
+  document.getElementById('qrEd-front').style.display = side==='front' ? 'block' : 'none';
+  document.getElementById('qrEd-back').style.display  = side==='back'  ? 'block' : 'none';
+  setTimeout(() => { initQREditor(side); rebuild3D(); }, 30);
+}
+
+// QR editor state per side
+const QRS = { front:{x:50,y:50,cm:2}, back:{x:50,y:50,cm:2} };
+
+function getKHRect(aw, ah) {
+  const margin = 14;
+  const side2  = Math.min(aw - margin*2, ah - margin*2);
+  const kw = side2, kh = side2;
+  const ox = (aw - kw) / 2, oy = (ah - kh) / 2;
+  const pxPerCm = kw / (S.sizeCm || 7);
+  return { ox, oy, kw, kh, pxPerCm };
+}
+
+function initQREditor(side) {
+  const wrap = document.getElementById('qrWrap-' + side);
+  const bgCv = document.getElementById('qrBg-' + side);
+  const box  = document.getElementById('qrBox-' + side);
+  const aw = wrap.offsetWidth || 260;
+  const ah = wrap.offsetHeight || 200;
+  bgCv.width = aw; bgCv.height = ah;
+  drawQRBg(side, bgCv, aw, ah);
+  posQRBox(side, box, bgCv, aw, ah);
+  setupQRDrag(side, wrap, box, bgCv);
+}
+
+function drawQRBg(side, cv, aw, ah) {
+  const ctx = cv.getContext('2d');
+  ctx.clearRect(0, 0, aw, ah);
+  const { ox, oy, kw, kh, pxPerCm } = getKHRect(aw, ah);
+  const src = side === 'back' ? S.imgBack : S.imgFront;
+
+  function khPath() {
+    ctx.beginPath();
+    if (S.shape === 'circle') ctx.arc(ox+kw/2, oy+kh/2, kw/2, 0, Math.PI*2);
+    else rrect(ctx, ox, oy, kw, kh, 8);
+  }
+
+  if (src) {
+    const img = new Image();
+    img.onload = () => {
+      ctx.save(); khPath(); ctx.clip();
+      const ir = img.naturalWidth / img.naturalHeight;
+      const kr = kw / kh;
+      let dw, dh, dx, dy;
+      if (ir > kr) { dh=kh; dw=dh*ir; dx=ox-(dw-kw)/2; dy=oy; }
+      else          { dw=kw; dh=dw/ir; dy=oy-(dh-kh)/2; dx=ox; }
+      ctx.drawImage(img, dx, dy, dw, dh);
+      ctx.restore();
+      ctx.strokeStyle='rgba(0,0,0,.2)'; ctx.lineWidth=1; khPath(); ctx.stroke();
+      drawScaleBar(ctx, ox, oy, kw, kh, pxPerCm);
+    };
+    img.src = src;
+  } else {
+    ctx.fillStyle='rgba(200,198,190,.4)'; khPath(); ctx.fill();
+    ctx.strokeStyle='rgba(0,0,0,.12)'; ctx.lineWidth=1; khPath(); ctx.stroke();
+    ctx.fillStyle='rgba(100,98,94,.45)'; ctx.font='11px sans-serif';
+    ctx.textAlign='center'; ctx.textBaseline='middle';
+    ctx.fillText('画像未設定', aw/2, ah/2);
+    drawScaleBar(ctx, ox, oy, kw, kh, pxPerCm);
+  }
+}
+
+function drawScaleBar(ctx, ox, oy, kw, kh, pxPerCm) {
+  // 右下に2cmスケールバー
+  const barCm = 2, barPx = barCm * pxPerCm;
+  const bx = ox + kw - barPx - 4, by = oy + kh - 8;
+  ctx.strokeStyle='rgba(255,255,255,.8)'; ctx.lineWidth=2;
+  ctx.beginPath(); ctx.moveTo(bx, by); ctx.lineTo(bx+barPx, by); ctx.stroke();
+  ctx.fillStyle='rgba(255,255,255,.8)'; ctx.font='bold 9px sans-serif';
+  ctx.textAlign='center'; ctx.textBaseline='bottom';
+  ctx.fillText(barCm+'cm', bx+barPx/2, by-2);
+}
+
+function posQRBox(side, box, bgCv, aw, ah) {
+  const { ox, oy, kw, kh, pxPerCm } = getKHRect(aw, ah);
+  const bpx = Math.max(16, QRS[side].cm * pxPerCm);
+  const cx  = ox + kw * QRS[side].x/100 - bpx/2;
+  const cy  = oy + kh * QRS[side].y/100 - bpx/2;
+  box.style.width  = bpx+'px'; box.style.height = bpx+'px';
+  box.style.left   = Math.min(ox+kw-bpx, Math.max(ox, cx))+'px';
+  box.style.top    = Math.min(oy+kh-bpx, Math.max(oy, cy))+'px';
+}
+
+function setupQRDrag(side, wrap, box, bgCv) {
+  const nb = box.cloneNode(true); box.parentNode.replaceChild(nb, box); box = nb;
+  let drag=false, ox2=0, oy2=0;
+  const onDown = e => {
+    drag=true;
+    const r=wrap.getBoundingClientRect();
+    const cl=e.touches?e.touches[0].clientX:e.clientX;
+    const ct=e.touches?e.touches[0].clientY:e.clientY;
+    ox2=cl-r.left-box.offsetLeft; oy2=ct-r.top-box.offsetTop;
+    e.preventDefault();
+  };
+  box.addEventListener('mousedown', onDown);
+  box.addEventListener('touchstart', onDown, {passive:false});
+  const onMove = e => {
+    if (!drag) return;
+    const r=wrap.getBoundingClientRect();
+    const cl=e.touches?e.touches[0].clientX:e.clientX;
+    const ct=e.touches?e.touches[0].clientY:e.clientY;
+    const aw=bgCv.width, ah=bgCv.height;
+    const { ox, oy, kw, kh, pxPerCm }=getKHRect(aw, ah);
+    const bpx=Math.max(16, QRS[side].cm*pxPerCm);
+    const nx=Math.min(ox+kw-bpx, Math.max(ox, cl-r.left-ox2));
+    const ny=Math.min(oy+kh-bpx, Math.max(oy, ct-r.top-oy2));
+    box.style.left=nx+'px'; box.style.top=ny+'px';
+    QRS[side].x = ((nx+bpx/2)-ox)/kw*100;
+    QRS[side].y = ((ny+bpx/2)-oy)/kh*100;
+    if (e.cancelable) e.preventDefault();
+    rebuild3D();
+  };
+  window.addEventListener('mousemove', onMove);
+  window.addEventListener('touchmove', onMove, {passive:false});
+  window.addEventListener('mouseup',  ()=>drag=false);
+  window.addEventListener('touchend', ()=>drag=false);
+}
+
+// QR size — max = 本体sizeCm
+function clampQRSz(v) { return Math.min(S.sizeCm||7, Math.max(1.2, Math.round(v*10)/10)); }
+function setQRSz(side, v) {
+  QRS[side].cm = clampQRSz(v);
+  document.getElementById('qrSz-'+side).value  = QRS[side].cm;
+  document.getElementById('qrSzN-'+side).value = QRS[side].cm;
+  const wrap=document.getElementById('qrWrap-'+side);
+  const bgCv=document.getElementById('qrBg-'+side);
+  const box=wrap.querySelector('.qr-box');
+  const aw=bgCv.width||wrap.offsetWidth||260, ah=bgCv.height||wrap.offsetHeight||200;
+  posQRBox(side, box, bgCv, aw, ah);
+  rebuild3D();
+}
+function onQRSzSlider(side) { setQRSz(side, +document.getElementById('qrSz-'+side).value); }
+function onQRSzInput(side)  { setQRSz(side, +document.getElementById('qrSzN-'+side).value); }
+function stepQR(side, d)    { setQRSz(side, QRS[side].cm + d); }
+
+// 本体サイズ変更後にQRエディタを再描画する
+function resyncQR(side) {
+  const wrap = document.getElementById('qrWrap-' + side);
+  const bgCv = document.getElementById('qrBg-' + side);
+  const box  = wrap.querySelector('.qr-box');
+  if (!wrap || !bgCv || !box) return;
+  const aw = wrap.offsetWidth || 260;
+  const ah = wrap.offsetHeight || 220;
+  bgCv.width = aw; bgCv.height = ah;
+  // QRサイズの上限を新しいsizeCmに合わせてクランプ
+  QRS[side].cm = Math.min(QRS[side].cm, S.sizeCm);
+  document.getElementById('qrSz-'+side).value  = QRS[side].cm;
+  document.getElementById('qrSzN-'+side).value = QRS[side].cm;
+  drawQRBg(side, bgCv, aw, ah);
+  posQRBox(side, box, bgCv, aw, ah);
+  // 再セットアップ（ドラッグ座標系が変わるため）
+  setupQRDrag(side, wrap, box, bgCv);
+}
+
+// ═══════════════════════════════
+// SIZE
+// ═══════════════════════════════
+function clampSz(v) { return Math.min(15,Math.max(5,Math.round(v*10)/10)); }
+function clampTh(v) { return Math.min(4, Math.max(1, Math.round(v*10)/10)); }
+function setSz(v) {
+  v = clampSz(v);
+  document.getElementById('szSlider').value = v;
+  document.getElementById('szN').value = v;
+  S.sizeCm = v;
+  const s = v.toFixed(1)+'cm', t = S.thickCm.toFixed(1)+'cm';
+  document.getElementById('pd-size').textContent = s;
+  document.getElementById('ss6').textContent = s+' / 厚さ'+t;
+  done(6); updateProg(); rebuild3D();
+}
+function setTh(v) {
+  v = clampTh(v);
+  document.getElementById('thSlider').value = v;
+  document.getElementById('thN').value = v;
+  S.thickCm = v;
+  const s = S.sizeCm.toFixed(1)+'cm', t = v.toFixed(1)+'cm';
+  document.getElementById('pd-thick').textContent = t;
+  document.getElementById('ss6').textContent = s+' / 厚さ'+t;
+  done(6); updateProg(); rebuild3D();
+}
+function onSzSlider() { setSz(+document.getElementById('szSlider').value); }
+function onSzInput()  { setSz(+document.getElementById('szN').value); }
+function stepSz(d)    { setSz(S.sizeCm+d); }
+function onThSlider() { setTh(+document.getElementById('thSlider').value); }
+function onThInput()  { setTh(+document.getElementById('thN').value); }
+function stepTh(d)    { setTh(S.thickCm+d); }
+// init sizes
+setSz(7); setTh(2);
+
+// ═══════════════════════════════
+// ATTACHMENT
+// ═══════════════════════════════
+(function initAttach(){
+  const wrap = document.getElementById('attachWrap');
+  const dot  = document.getElementById('attachDot');
+  const cv   = document.getElementById('attachCv');
+  function redraw() {
+    const aw=wrap.offsetWidth||200, ah=wrap.offsetHeight||180;
+    cv.width=aw; cv.height=ah;
+    const ctx=cv.getContext('2d'); ctx.clearRect(0,0,aw,ah);
+    ctx.strokeStyle='rgba(255,255,255,.15)'; ctx.lineWidth=1.5;
+    const pw=aw*.55, ph=ah*.72, ox=(aw-pw)/2, oy=(ah-ph)/2;
+    ctx.beginPath();
+    if (S.shape==='circle') ctx.arc(aw/2,ah/2,Math.min(pw,ph)/2,0,Math.PI*2);
+    else rrect(ctx,ox,oy,pw,ph,6);
+    ctx.stroke();
+    const dx=aw*S.attX/100, dy=ah*S.attY/100, ang=S.attAngle*Math.PI/180;
+    ctx.strokeStyle='rgba(212,82,42,.85)'; ctx.lineWidth=2;
+    ctx.beginPath(); ctx.moveTo(dx,dy); ctx.lineTo(dx+Math.cos(ang)*26,dy+Math.sin(ang)*26); ctx.stroke();
+    dot.style.left=dx+'px'; dot.style.top=dy+'px';
+    document.getElementById('attX').textContent=Math.round(S.attX);
+    document.getElementById('attY').textContent=Math.round(S.attY);
+    document.getElementById('attA').textContent=S.attAngle;
+    document.getElementById('ss7').textContent='X:'+Math.round(S.attX)+'% Y:'+Math.round(S.attY)+'%';
+    done(7); updateProg();
+  }
+  window._redrawAttach = redraw;
+  let drag=false;
+  dot.addEventListener('mousedown', e=>{drag=true;e.preventDefault();e.stopPropagation();});
+  dot.addEventListener('touchstart',e=>{drag=true;e.preventDefault();},{passive:false});
+  window.addEventListener('mousemove',e=>{
+    if(!drag)return;
+    const r=wrap.getBoundingClientRect();
+    S.attX=Math.min(100,Math.max(0,(e.clientX-r.left)/r.width*100));
+    S.attY=Math.min(100,Math.max(0,(e.clientY-r.top)/r.height*100));
+    redraw();
+  });
+  window.addEventListener('touchmove',e=>{
+    if(!drag)return;
+    const t=e.touches[0],r=wrap.getBoundingClientRect();
+    S.attX=Math.min(100,Math.max(0,(t.clientX-r.left)/r.width*100));
+    S.attY=Math.min(100,Math.max(0,(t.clientY-r.top)/r.height*100));
+    redraw();
+  },{passive:true});
+  window.addEventListener('mouseup',()=>drag=false);
+  window.addEventListener('touchend',()=>drag=false);
+  setTimeout(redraw,100);
+})();
+
+function onAttachAngle() {
+  S.attAngle=+document.getElementById('attachAngle').value;
+  document.getElementById('attachAngleN').value=S.attAngle;
+  if(window._redrawAttach)window._redrawAttach();
+}
+function onAttachAngleN() {
+  S.attAngle=Math.min(360,Math.max(0,+document.getElementById('attachAngleN').value||0));
+  document.getElementById('attachAngle').value=S.attAngle;
+  if(window._redrawAttach)window._redrawAttach();
+}
+function stepAngle(d) {
+  S.attAngle=Math.min(360,Math.max(0,(+document.getElementById('attachAngleN').value||0)+d));
+  document.getElementById('attachAngle').value=S.attAngle;
+  document.getElementById('attachAngleN').value=S.attAngle;
+  if(window._redrawAttach)window._redrawAttach();
+}
+
+// ═══════════════════════════════
+// PROGRESS
+// ═══════════════════════════════
+function done(n) {
+  const el = document.getElementById('sn'+n);
+  if (el) el.classList.add('done');
+}
+function updateProg() {
+  const steps = [S.color, S.shape, true, true, S.imgFront, true, S.sizeCm, true];
+  document.getElementById('progFill').style.width = (steps.filter(Boolean).length/steps.length*100)+'%';
+}
+updateProg();
+
+// ═══════════════════════════════
+// THREE.JS
+// ═══════════════════════════════
+(function initThree(){
+  const canvas = document.getElementById('threeCanvas');
+  const renderer = new THREE.WebGLRenderer({canvas, antialias:true, alpha:false});
+  renderer.setPixelRatio(Math.min(devicePixelRatio, 2));
+  renderer.setClearColor(0x080806, 1);
+  const scene = new THREE.Scene();
+  scene.background = new THREE.Color(0x080806);
+  const camera = new THREE.PerspectiveCamera(45, 1, .1, 100);
+  camera.position.set(0, 1.5, 5);
+  scene.add(new THREE.AmbientLight(0xffffff, .4));
+  const dl = new THREE.DirectionalLight(0xffffff, 1.2); dl.position.set(3, 5, 4); scene.add(dl);
+  const pl = new THREE.PointLight(0xffddaa, .6, 20); pl.position.set(-2, 3, 2); scene.add(pl);
+
+  let mesh = null, tex = null, texBack = null;
+
+  function buildQROverlay() {
+    // 既存QRメッシュをmeshから削除
+    if (!mesh) return;
+    mesh.children.slice().forEach(c => mesh.remove(c));
+    if (!S.qr || !S.qrSide) return;
+
+    const sz  = S.sizeCm / 10;
+    const th  = S.thickCm / 20;
+    const eps = 0.002;
+
+    function makeQRPlane(qrState, yPos, rotX, flipX, flipZ) {
+      const qsz = qrState.cm / 10;
+      const geo = new THREE.PlaneGeometry(qsz, qsz);
+      const mat = new THREE.MeshBasicMaterial({
+        color: 0xffffff, transparent: true, opacity: 0.88,
+        side: THREE.DoubleSide, depthWrite: false
+      });
+      const m = new THREE.Mesh(geo, mat);
+      const px = (flipX ? -1 : 1) * (qrState.y / 100 - 0.5) * sz;
+      const pz = (flipZ ? -1 : 1) * (qrState.x / 100 - 0.5) * sz;
+      m.position.set(px, yPos, pz);
+      m.rotation.x = rotX;
+      return m;
+    }
+
+    if (S.qrSide === 'front' || S.qrSide === 'both') {
+      mesh.add(makeQRPlane(QRS.front,  th / 2 + eps, -Math.PI / 2, true, false));
+    }
+    if (S.qrSide === 'back' || S.qrSide === 'both') {
+      mesh.add(makeQRPlane(QRS.back, -(th / 2 + eps),  Math.PI / 2, false, false));
+    }
+  }
+
+  function build() {
+    if (mesh) { scene.remove(mesh); mesh.geometry.dispose(); }
+    const sz = S.sizeCm / 10, th = S.thickCm / 20;
+    const matSide = new THREE.MeshStandardMaterial({
+      color: new THREE.Color(S.colorHex || '#ddddcc'),
+      roughness: .25, metalness: .05
+    });
+    const geo = S.shape === 'circle'
+      ? new THREE.CylinderGeometry(sz/2, sz/2, th, 64)
+      : new THREE.BoxGeometry(sz, th, sz);
+
+    // マテリアル配列: circle=[side, top, bottom], box=[right,left,top,bottom,front,back]
+    let mats;
+    if (S.shape === 'circle') {
+      const mTop    = tex     ? new THREE.MeshStandardMaterial({map: tex,     roughness:.3, transparent:true}) : matSide;
+      const mBottom = texBack ? new THREE.MeshStandardMaterial({map: texBack, roughness:.3, transparent:true}) : matSide;
+      mats = [matSide, mTop, mBottom];
+    } else {
+      // BoxGeometry: index 2=top(+Y), index 3=bottom(-Y)
+      const mTop    = tex     ? new THREE.MeshStandardMaterial({map: tex,     roughness:.3, transparent:true}) : matSide;
+      const mBottom = texBack ? new THREE.MeshStandardMaterial({map: texBack, roughness:.3, transparent:true}) : matSide;
+      mats = [matSide, matSide, mTop, mBottom, matSide, matSide];
+    }
+    mesh = new THREE.Mesh(geo, mats);
+    mesh.castShadow = true;
+    scene.add(mesh);
+    buildQROverlay();
+  }
+  build();
+
+  let ry = .3, rx = .2, down = false, lx = 0, ly = 0, auto = true;
+  let camDist = 5; // カメラ距離（ズームに使う）
+  camera.position.set(0, 1.5, camDist);
+
+  canvas.addEventListener('mousedown', e => { down=true; auto=false; lx=e.clientX; ly=e.clientY; });
+  canvas.addEventListener('touchstart', e => {
+    auto=false;
+    if (e.touches.length === 1) {
+      down=true; lx=e.touches[0].clientX; ly=e.touches[0].clientY;
+    } else if (e.touches.length === 2) {
+      down=false;
+      // ピンチ開始距離を記録
+      const dx=e.touches[0].clientX-e.touches[1].clientX;
+      const dy=e.touches[0].clientY-e.touches[1].clientY;
+      canvas._pinchDist = Math.sqrt(dx*dx+dy*dy);
+    }
+  });
+  window.addEventListener('mouseup', () => down = false);
+  window.addEventListener('touchend', e => { if(e.touches.length<2) canvas._pinchDist=null; if(e.touches.length===0) down=false; });
+
+  canvas.addEventListener('mousemove', e => {
+    if(!down)return;
+    ry+=(e.clientX-lx)*.008; rx+=(e.clientY-ly)*.008;
+    lx=e.clientX; ly=e.clientY;
+  });
+  canvas.addEventListener('touchmove', e => {
+    e.preventDefault();
+    if (e.touches.length === 2 && canvas._pinchDist != null) {
+      // ピンチズーム
+      const dx=e.touches[0].clientX-e.touches[1].clientX;
+      const dy=e.touches[0].clientY-e.touches[1].clientY;
+      const newDist = Math.sqrt(dx*dx+dy*dy);
+      const delta = canvas._pinchDist - newDist;
+      camDist = Math.min(12, Math.max(1.5, camDist + delta * 0.02));
+      camera.position.set(0, camDist*0.3, camDist);
+      camera.updateProjectionMatrix();
+      canvas._pinchDist = newDist;
+    } else if(e.touches.length===1 && down) {
+      ry+=(e.touches[0].clientX-lx)*.008;
+      rx+=(e.touches[0].clientY-ly)*.008;
+      lx=e.touches[0].clientX; ly=e.touches[0].clientY;
+    }
+  }, {passive:false});
+
+  // マウスホイールズーム
+  canvas.addEventListener('wheel', e => {
+    e.preventDefault();
+    camDist = Math.min(12, Math.max(1.5, camDist + e.deltaY * 0.01));
+    camera.position.set(0, camDist*0.3, camDist);
+    camera.updateProjectionMatrix();
+  }, {passive:false});
+
+  function doResize() {
+    const w = canvas.clientWidth || canvas.parentElement?.clientWidth || 300;
+    renderer.setSize(w, w, false);  // square
+    camera.aspect = 1;
+    camera.updateProjectionMatrix();
+  }
+
+  // Delay first resize so layout is settled
+  setTimeout(() => {
+    doResize();
+    if (canvas.parentElement) new ResizeObserver(doResize).observe(canvas.parentElement);
+  }, 100);
+
+  (function anim() {
+    requestAnimationFrame(anim);
+    if (auto) ry += .006;
+    if (mesh) {
+      mesh.rotation.y = ry;
+      mesh.rotation.x = rx;
+      // 子のQR枠はmeshの子なので自動で追従
+    }
+    renderer.render(scene, camera);
+  })();
+
+  window._rebuild3D = function() {
+    document.getElementById('pd-color').textContent = S.color || '—';
+    // おもてと裏の両方のテクスチャをロードしてからbuild
+    let pending = 0;
+    function tryBuild() { if (pending === 0) build(); }
+
+    if (S.imgFront) {
+      pending++;
+      const img = new Image(); img.src = S.imgFront;
+      img.onload = () => { tex = new THREE.CanvasTexture(img); pending--; tryBuild(); };
+      img.onerror = () => { tex = null; pending--; tryBuild(); };
+    } else { tex = null; }
+
+    if (S.imgBack) {
+      pending++;
+      const img2 = new Image(); img2.src = S.imgBack;
+      img2.onload = () => { texBack = new THREE.CanvasTexture(img2); pending--; tryBuild(); };
+      img2.onerror = () => { texBack = null; pending--; tryBuild(); };
+    } else { texBack = null; }
+
+    if (pending === 0) build();
+  };
+})();
+function rebuild3D() { if (window._rebuild3D) window._rebuild3D(); }
+
+// ═══════════════════════════════
+// SUBMIT
+// ═══════════════════════════════
+// ★ここにApps ScriptのデプロイURLを貼る★
+// ★Google Apps ScriptをデプロイしたらここのURLを貼り替えてください★
+const APPS_SCRIPT_URL = 'https://script.google.com/macros/s/YOUR_SCRIPT_ID/exec';
+
+function doSubmit() {
+  if (!S.color)    { toast('土台カラーを選択してください'); document.getElementById('sb1').classList.remove('hidden'); document.getElementById('sec1').scrollIntoView({behavior:'smooth',block:'center'}); return; }
+  if (!S.shape)    { toast('形状を選択してください'); document.getElementById('sb2').classList.remove('hidden'); document.getElementById('sec2').scrollIntoView({behavior:'smooth',block:'center'}); return; }
+  if (!S.imgFront) { toast('おもて面の画像を設定してください'); document.getElementById('sb4').classList.remove('hidden'); document.getElementById('sec4').scrollIntoView({behavior:'smooth',block:'center'}); return; }
+  if (S.backPrint && !S.imgBack) { toast('うら面の画像を設定してください'); document.getElementById('sec4').scrollIntoView({behavior:'smooth',block:'center'}); return; }
+
+  const orderData = {
+    orderId:    S.orderId,
+    color:      S.color,
+    colorHex:   S.colorHex,
+    shape:      S.shape,
+    nfc:        S.nfc,
+    nfcUrl:     S.nfcUrl,
+    backPrint:  S.backPrint,
+    imgFront:   S.imgFront,
+    imgBack:    S.imgBack || null,
+    qr:         S.qr,
+    qrSide:     S.qrSide,
+    qrFront:    { ...QRS.front },
+    qrBack:     { ...QRS.back },
+    sizeCm:     S.sizeCm,
+    thickCm:    S.thickCm,
+    attX:       S.attX,
+    attY:       S.attY,
+    attAngle:   S.attAngle,
+    submittedAt: new Date().toLocaleString('ja-JP'),
+  };
+
+  // ① sessionStorageに保存（確認ページ用）
+  try {
+    sessionStorage.setItem('orderData', JSON.stringify(orderData));
+  } catch(e) {
+    const lite = { ...orderData, imgFront: '__large__', imgBack: '__large__' };
+    sessionStorage.setItem('orderData', JSON.stringify(lite));
+    sessionStorage.setItem('orderImgFront', S.imgFront || '');
+    sessionStorage.setItem('orderImgBack',  S.imgBack  || '');
+  }
+
+  // ② Google Apps Script に送信（スプレッドシートに記録）
+  //    URL が設定されていれば送信、未設定でもページ遷移はする
+  if (APPS_SCRIPT_URL && !APPS_SCRIPT_URL.includes('YOUR_SCRIPT_ID')) {
+    // no-corsで送信（レスポンスは受け取れないがサーバー側に届く）
+    fetch(APPS_SCRIPT_URL, {
+      method: 'POST',
+      mode:   'no-cors',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(orderData),
+    }).catch(() => {}); // エラーでもページ遷移は続ける
+  }
+
+  // ③ 確認ページへ遷移
+  window.location.href = 'page3.html';
+}
+
+// ═══════════════════════════════
+// TOAST
+// ═══════════════════════════════
+function toast(msg) {
+  const el = document.getElementById('toast');
+  el.textContent = msg; el.classList.add('show');
+  setTimeout(()=>el.classList.remove('show'), 2800);
+}
+</script>
+</body>
+</html>

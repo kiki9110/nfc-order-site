@@ -1,0 +1,521 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>NFC ORDER — 注文確認</title>
+<style>
+@import url('https://fonts.googleapis.com/css2?family=Noto+Sans+JP:wght@400;500;700&family=Syne:wght@700;800&display=swap');
+:root{
+  --ink:#0f0f0d;--paper:#f5f2ec;--cream:#ece8df;
+  --accent:#d4522a;--muted:#6b6860;--border:#ccc8be;--radius:14px;
+  --green:#22863a;--green-bg:#eaf7ee;
+}
+*,*::before,*::after{box-sizing:border-box;margin:0;padding:0;}
+body{font-family:'Noto Sans JP',sans-serif;background:var(--paper);color:var(--ink);padding-bottom:60px;}
+
+/* TOPBAR */
+.topbar{background:var(--ink);display:flex;align-items:center;justify-content:space-between;padding:13px 20px;}
+.topbar-logo{font-family:'Syne',sans-serif;font-weight:800;font-size:16px;color:var(--paper);letter-spacing:.06em;}
+.topbar-step{font-size:11px;color:var(--accent);font-weight:500;}
+
+/* CONTENT */
+.wrap{max-width:600px;margin:0 auto;padding:24px 16px;}
+
+/* SUCCESS BANNER */
+.success-banner{
+  background:var(--ink);
+  border-radius:var(--radius);
+  padding:28px 24px;
+  text-align:center;
+  margin-bottom:20px;
+}
+.success-icon{
+  width:56px;height:56px;
+  background:var(--accent);
+  border-radius:50%;
+  display:flex;align-items:center;justify-content:center;
+  font-size:26px;
+  margin:0 auto 14px;
+}
+.success-title{
+  font-family:'Syne',sans-serif;
+  font-size:22px;font-weight:800;
+  color:var(--paper);
+  margin-bottom:6px;
+}
+.success-sub{font-size:13px;color:rgba(255,255,255,.5);line-height:1.7;}
+.order-id-badge{
+  display:inline-block;
+  margin-top:14px;
+  padding:6px 16px;
+  background:rgba(255,255,255,.08);
+  border:1px solid rgba(255,255,255,.15);
+  border-radius:30px;
+  font-family:monospace;
+  font-size:14px;
+  color:var(--paper);
+  letter-spacing:.08em;
+}
+.submitted-at{
+  font-size:11px;color:rgba(255,255,255,.3);
+  margin-top:8px;
+}
+
+/* SECTION CARD */
+.card{
+  background:#fff;
+  border-radius:var(--radius);
+  border:1.5px solid var(--border);
+  margin-bottom:14px;
+  overflow:hidden;
+}
+.card-head{
+  padding:12px 16px;
+  background:var(--cream);
+  border-bottom:1px solid var(--border);
+  font-size:12px;font-weight:700;
+  letter-spacing:.06em;text-transform:uppercase;
+  color:var(--muted);
+  display:flex;align-items:center;gap:8px;
+}
+.card-body{padding:16px;}
+
+/* ROWS */
+.row{
+  display:flex;align-items:flex-start;justify-content:space-between;
+  padding:10px 0;border-bottom:1px solid var(--cream);gap:16px;
+}
+.row:last-child{border-bottom:none;padding-bottom:0;}
+.row-label{font-size:12px;color:var(--muted);flex-shrink:0;padding-top:1px;}
+.row-val{font-size:13px;font-weight:500;text-align:right;word-break:break-all;}
+.badge{
+  display:inline-block;font-size:11px;padding:2px 8px;
+  border-radius:20px;font-weight:500;
+}
+.badge-yes{background:#fde8e0;color:var(--accent);}
+.badge-no{background:var(--cream);color:var(--muted);}
+.badge-green{background:var(--green-bg);color:var(--green);}
+
+/* COLOR SWATCH inline */
+.color-dot{
+  display:inline-block;
+  width:14px;height:14px;
+  border-radius:50%;
+  border:1.5px solid rgba(0,0,0,.12);
+  vertical-align:middle;
+  margin-right:5px;
+}
+
+/* IMAGE PREVIEWS */
+.img-row{
+  display:flex;gap:16px;flex-wrap:wrap;
+  padding:4px 0;
+}
+.img-block{text-align:center;flex:1;min-width:120px;}
+.img-block label{
+  display:block;font-size:11px;color:var(--muted);
+  margin-bottom:6px;letter-spacing:.04em;
+}
+.img-block canvas{
+  display:block;
+  width:100%;max-width:140px;
+  margin:0 auto;
+  border-radius:10px;
+  border:1.5px solid var(--border);
+}
+
+/* QR POSITION MINI MAP */
+.qr-mini{
+  position:relative;
+  width:80px;height:80px;
+  background:var(--cream);
+  border:1.5px solid var(--border);
+  border-radius:8px;
+  flex-shrink:0;
+}
+.qr-mini-dot{
+  position:absolute;
+  width:14px;height:14px;
+  background:var(--accent);
+  border:2px solid #fff;
+  border-radius:3px;
+  transform:translate(-50%,-50%);
+  box-shadow:0 1px 4px rgba(0,0,0,.2);
+}
+.qr-info-row{display:flex;align-items:center;gap:12px;}
+.qr-info-text{font-size:12px;color:var(--muted);line-height:1.7;}
+
+/* ATTACH MINI */
+.attach-mini{
+  position:relative;
+  width:80px;height:80px;
+  background:#18181a;
+  border-radius:8px;
+  overflow:hidden;
+  flex-shrink:0;
+}
+.attach-mini canvas{position:absolute;inset:0;width:100%;height:100%;}
+
+/* ACTIONS */
+.actions{display:flex;flex-direction:column;gap:10px;margin-top:20px;}
+.btn{
+  display:block;width:100%;padding:14px;
+  border:none;border-radius:var(--radius);
+  font-family:'Noto Sans JP',sans-serif;
+  font-size:14px;font-weight:500;
+  cursor:pointer;text-align:center;
+  text-decoration:none;
+}
+.btn-primary{background:var(--ink);color:#fff;}
+.btn-primary:hover{background:#333;}
+.btn-secondary{
+  background:transparent;
+  border:1.5px solid var(--border);
+  color:var(--ink);
+}
+.btn-secondary:hover{border-color:var(--ink);}
+
+/* PRINT HINT */
+.print-hint{
+  font-size:11px;color:var(--muted);
+  text-align:center;margin-top:12px;line-height:1.6;
+}
+@media print{
+  .topbar,.actions,.print-hint{display:none;}
+  .success-banner{background:#f0f0f0!important;-webkit-print-color-adjust:exact;}
+}
+</style>
+</head>
+<body>
+
+<div class="topbar">
+  <div class="topbar-logo">NFC ORDER</div>
+  <div class="topbar-step">注文確認</div>
+</div>
+
+<div class="wrap">
+
+  <!-- SUCCESS BANNER -->
+  <div class="success-banner">
+    <div class="success-icon">✓</div>
+    <div class="success-title">注文を受け付けました</div>
+    <div class="success-sub">内容をご確認ください。<br>制作完了後、別途ご連絡いたします。</div>
+    <div class="order-id-badge" id="dispOrderId">—</div>
+    <div class="submitted-at" id="dispDate"></div>
+  </div>
+
+  <!-- 基本情報 -->
+  <div class="card">
+    <div class="card-head">📋 基本情報</div>
+    <div class="card-body">
+      <div class="row">
+        <span class="row-label">注文番号</span>
+        <span class="row-val" id="diOid">—</span>
+      </div>
+      <div class="row">
+        <span class="row-label">土台カラー</span>
+        <span class="row-val" id="diColor">—</span>
+      </div>
+      <div class="row">
+        <span class="row-label">形状</span>
+        <span class="row-val" id="diShape">—</span>
+      </div>
+      <div class="row">
+        <span class="row-label">サイズ（長辺）</span>
+        <span class="row-val" id="diSize">—</span>
+      </div>
+      <div class="row">
+        <span class="row-label">厚さ</span>
+        <span class="row-val" id="diThick">—</span>
+      </div>
+    </div>
+  </div>
+
+  <!-- オプション -->
+  <div class="card">
+    <div class="card-head">⚙️ オプション</div>
+    <div class="card-body">
+      <div class="row">
+        <span class="row-label">NFCタグ</span>
+        <span class="row-val" id="diNfc">—</span>
+      </div>
+      <div class="row" id="nfcUrlRow" style="display:none;">
+        <span class="row-label">登録URL</span>
+        <span class="row-val" id="diNfcUrl" style="font-size:12px;word-break:break-all;">—</span>
+      </div>
+      <div class="row">
+        <span class="row-label">裏面印刷</span>
+        <span class="row-val" id="diBack">—</span>
+      </div>
+      <div class="row">
+        <span class="row-label">QRコード</span>
+        <span class="row-val" id="diQr">—</span>
+      </div>
+    </div>
+  </div>
+
+  <!-- 画像 -->
+  <div class="card" id="imgCard">
+    <div class="card-head">🖼️ キーホルダー画像</div>
+    <div class="card-body">
+      <div class="img-row" id="imgRow"></div>
+    </div>
+  </div>
+
+  <!-- QR位置 -->
+  <div class="card" id="qrPosCard" style="display:none;">
+    <div class="card-head">📍 QRコードの位置</div>
+    <div class="card-body" id="qrPosBody"></div>
+  </div>
+
+  <!-- 穴位置 -->
+  <div class="card">
+    <div class="card-head">🔩 穴・アタッチメントの位置</div>
+    <div class="card-body">
+      <div class="qr-info-row">
+        <div class="attach-mini">
+          <canvas id="attachMiniCv"></canvas>
+        </div>
+        <div class="qr-info-text">
+          <div>X: <strong id="diAttX">—</strong>%　Y: <strong id="diAttY">—</strong>%</div>
+          <div>角度: <strong id="diAttA">—</strong>°</div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ACTIONS -->
+  <div class="actions">
+    <button class="btn btn-primary" onclick="window.print()">🖨 この内容を印刷・保存</button>
+    <a href="page1.html" class="btn btn-secondary">← 最初からやり直す</a>
+  </div>
+  <div class="print-hint">※ 「印刷」→「PDFとして保存」でファイルに保存できます</div>
+
+</div><!-- /wrap -->
+
+<script>
+// ─── データ読み込み ───
+let O = null;
+try {
+  const raw = sessionStorage.getItem('orderData');
+  if (raw) O = JSON.parse(raw);
+} catch(e) {}
+
+if (!O) {
+  document.body.innerHTML = '<div style="padding:40px;text-align:center;"><p>注文データが見つかりません。</p><a href="page1.html" style="color:#d4522a;">最初からやり直す</a></div>';
+  throw new Error('no order data');
+}
+
+// 画像が分割保存されていた場合
+if (O.imgFront === '__large__') O.imgFront = sessionStorage.getItem('orderImgFront') || null;
+if (O.imgBack  === '__large__') O.imgBack  = sessionStorage.getItem('orderImgBack')  || null;
+
+// ─── 基本情報 ───
+document.getElementById('dispOrderId').textContent = O.orderId || '—';
+document.getElementById('dispDate').textContent    = O.submittedAt || '';
+document.getElementById('diOid').textContent       = O.orderId || '—';
+
+// カラー
+const colorEl = document.getElementById('diColor');
+if (O.colorHex) {
+  const dot = document.createElement('span');
+  dot.className = 'color-dot';
+  dot.style.background = O.colorHex;
+  if (O.colorHex === '#FFFFFF') dot.style.border = '1.5px solid #ccc';
+  colorEl.appendChild(dot);
+  colorEl.appendChild(document.createTextNode(O.color || '—'));
+} else {
+  colorEl.textContent = O.color || '—';
+}
+
+// 形状
+const shapeNames = { circle:'丸型', square:'四角形', diecut:'ダイアカット' };
+document.getElementById('diShape').textContent  = shapeNames[O.shape] || O.shape || '—';
+document.getElementById('diSize').textContent   = (O.sizeCm  || '—') + ' cm';
+document.getElementById('diThick').textContent  = (O.thickCm || '—') + ' cm';
+
+// ─── オプション ───
+const nfcEl = document.getElementById('diNfc');
+if (O.nfc) {
+  nfcEl.innerHTML = '<span class="badge badge-yes">あり +¥300</span>';
+  document.getElementById('nfcUrlRow').style.display = '';
+  document.getElementById('diNfcUrl').textContent = O.nfcUrl || '（URL未入力）';
+} else {
+  nfcEl.innerHTML = '<span class="badge badge-no">なし</span>';
+}
+
+const backEl = document.getElementById('diBack');
+backEl.innerHTML = O.backPrint
+  ? '<span class="badge badge-yes">あり +¥100</span>'
+  : '<span class="badge badge-no">なし</span>';
+
+const qrEl = document.getElementById('diQr');
+if (O.qr) {
+  const sideText = { front:'おもて面', back:'うら面', both:'両面' }[O.qrSide] || O.qrSide || '';
+  qrEl.innerHTML = `<span class="badge badge-yes">あり</span> <span style="font-size:12px;color:var(--muted);">${sideText}</span>`;
+} else {
+  qrEl.innerHTML = '<span class="badge badge-no">なし</span>';
+}
+
+// ─── 画像プレビュー ───
+function drawImgCanvas(canvasEl, src, shape) {
+  canvasEl.width = 200; canvasEl.height = 200;
+  canvasEl.style.borderRadius = shape === 'circle' ? '50%' : '10px';
+  const ctx = canvasEl.getContext('2d');
+  if (!src) {
+    ctx.fillStyle = '#eee'; ctx.fillRect(0,0,200,200);
+    ctx.fillStyle = '#aaa'; ctx.font = '13px sans-serif';
+    ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+    ctx.fillText('画像なし', 100, 100);
+    return;
+  }
+  const img = new Image(); img.src = src;
+  img.onload = () => ctx.drawImage(img, 0, 0, 200, 200);
+}
+
+const imgRow = document.getElementById('imgRow');
+const frontBlock = document.createElement('div');
+frontBlock.className = 'img-block';
+frontBlock.innerHTML = O.backPrint ? '<label>おもて面</label>' : '';
+const cvFront = document.createElement('canvas');
+frontBlock.appendChild(cvFront);
+imgRow.appendChild(frontBlock);
+drawImgCanvas(cvFront, O.imgFront, O.shape);
+
+if (O.backPrint) {
+  const backBlock = document.createElement('div');
+  backBlock.className = 'img-block';
+  backBlock.innerHTML = '<label>うら面</label>';
+  const cvBack = document.createElement('canvas');
+  backBlock.appendChild(cvBack);
+  imgRow.appendChild(backBlock);
+  drawImgCanvas(cvBack, O.imgBack, O.shape);
+}
+
+// ─── QR位置ミニマップ ───
+if (O.qr && O.qrSide) {
+  const card = document.getElementById('qrPosCard');
+  card.style.display = '';
+  const body = document.getElementById('qrPosBody');
+
+  function makeQRMiniMap(label, qrData, imgSrc) {
+    const wrap = document.createElement('div');
+    wrap.style.cssText = 'margin-bottom:14px;';
+
+    const lbl = document.createElement('div');
+    lbl.style.cssText = 'font-size:11px;font-weight:500;color:var(--muted);text-transform:uppercase;letter-spacing:.06em;margin-bottom:8px;';
+    lbl.textContent = label;
+    wrap.appendChild(lbl);
+
+    const row = document.createElement('div');
+    row.className = 'qr-info-row';
+
+    // ミニマップ（画像＋QR枠）
+    const mini = document.createElement('canvas');
+    mini.width = 100; mini.height = 100;
+    mini.style.cssText = 'width:100px;height:100px;border-radius:8px;border:1.5px solid var(--border);flex-shrink:0;';
+    row.appendChild(mini);
+
+    // テキスト情報
+    const info = document.createElement('div');
+    info.className = 'qr-info-text';
+    info.innerHTML = `
+      <div>サイズ: <strong>${qrData.cm.toFixed(1)} cm</strong></div>
+      <div>位置 X: <strong>${Math.round(qrData.x)}%</strong>　Y: <strong>${Math.round(qrData.y)}%</strong></div>
+      <div style="font-size:11px;margin-top:4px;color:var(--muted);">（キーホルダー領域内の座標）</div>
+    `;
+    row.appendChild(info);
+    wrap.appendChild(row);
+
+    // キャンバスに描画
+    const ctx = mini.getContext('2d');
+    const mw = 100, mh = 100;
+    const margin = 8;
+    const kw = mw - margin*2, kh = mh - margin*2;
+    const ox = margin, oy = margin;
+
+    function drawMini(imgEl) {
+      ctx.clearRect(0,0,mw,mh);
+      // キーホルダー輪郭
+      ctx.save();
+      ctx.beginPath();
+      if (O.shape === 'circle') ctx.arc(ox+kw/2, oy+kh/2, Math.min(kw,kh)/2, 0, Math.PI*2);
+      else { ctx.rect(ox,oy,kw,kh); }
+      if (imgEl) {
+        ctx.clip();
+        const ir = imgEl.naturalWidth/imgEl.naturalHeight;
+        const kr = kw/kh;
+        let dw,dh,dx,dy;
+        if(ir>kr){dh=kh;dw=dh*ir;dx=ox-(dw-kw)/2;dy=oy;}
+        else{dw=kw;dh=dw/ir;dy=oy-(dh-kh)/2;dx=ox;}
+        ctx.drawImage(imgEl,dx,dy,dw,dh);
+      } else {
+        ctx.fillStyle='#e8e5dc'; ctx.fill();
+      }
+      ctx.restore();
+      // 外枠
+      ctx.strokeStyle='rgba(0,0,0,.15)'; ctx.lineWidth=1;
+      ctx.beginPath();
+      if (O.shape==='circle') ctx.arc(ox+kw/2,oy+kh/2,Math.min(kw,kh)/2,0,Math.PI*2);
+      else ctx.rect(ox,oy,kw,kh);
+      ctx.stroke();
+      // QR枠
+      const pxPerCm = kw / (O.sizeCm || 7);
+      const qpx = Math.max(8, qrData.cm * pxPerCm);
+      const qx  = ox + kw * qrData.x/100 - qpx/2;
+      const qy  = oy + kh * qrData.y/100 - qpx/2;
+      ctx.fillStyle   = 'rgba(255,255,255,.85)';
+      ctx.strokeStyle = '#d4522a'; ctx.lineWidth=1.5;
+      ctx.fillRect(qx,qy,qpx,qpx);
+      ctx.strokeRect(qx,qy,qpx,qpx);
+      ctx.fillStyle='#d4522a'; ctx.font='bold 7px sans-serif';
+      ctx.textAlign='center'; ctx.textBaseline='middle';
+      ctx.fillText('QR',qx+qpx/2,qy+qpx/2);
+    }
+
+    if (imgSrc) {
+      const img = new Image(); img.src = imgSrc;
+      img.onload = () => drawMini(img);
+    } else { drawMini(null); }
+
+    body.appendChild(wrap);
+  }
+
+  if (O.qrSide === 'front' || O.qrSide === 'both') {
+    makeQRMiniMap('おもて面', O.qrFront, O.imgFront);
+  }
+  if (O.qrSide === 'back' || O.qrSide === 'both') {
+    makeQRMiniMap('うら面', O.qrBack, O.imgBack);
+  }
+}
+
+// ─── 穴位置 ───
+document.getElementById('diAttX').textContent = Math.round(O.attX || 50);
+document.getElementById('diAttY').textContent = Math.round(O.attY || 10);
+document.getElementById('diAttA').textContent = O.attAngle || 0;
+
+// 穴ミニマップ
+(function drawAttach(){
+  const cv = document.getElementById('attachMiniCv');
+  const aw = 80, ah = 80;
+  cv.width = aw; cv.height = ah;
+  const ctx = cv.getContext('2d');
+  ctx.clearRect(0,0,aw,ah);
+  // 形状輪郭
+  ctx.strokeStyle='rgba(255,255,255,.2)'; ctx.lineWidth=1.5;
+  const pw=aw*.55, ph=ah*.7, ox=(aw-pw)/2, oy=(ah-ph)/2;
+  ctx.beginPath();
+  if (O.shape==='circle') ctx.arc(aw/2,ah/2,Math.min(pw,ph)/2,0,Math.PI*2);
+  else { ctx.moveTo(ox+4,oy);ctx.lineTo(ox+pw-4,oy);ctx.arcTo(ox+pw,oy,ox+pw,oy+4,4);ctx.lineTo(ox+pw,oy+ph-4);ctx.arcTo(ox+pw,oy+ph,ox+pw-4,oy+ph,4);ctx.lineTo(ox+4,oy+ph);ctx.arcTo(ox,oy+ph,ox,oy+ph-4,4);ctx.lineTo(ox,oy+4);ctx.arcTo(ox,oy,ox+4,oy,4);ctx.closePath(); }
+  ctx.stroke();
+  // 点と方向線
+  const dx=aw*(O.attX||50)/100, dy=ah*(O.attY||10)/100;
+  const ang=(O.attAngle||0)*Math.PI/180;
+  ctx.strokeStyle='rgba(212,82,42,.9)'; ctx.lineWidth=1.5;
+  ctx.beginPath(); ctx.moveTo(dx,dy); ctx.lineTo(dx+Math.cos(ang)*16,dy+Math.sin(ang)*16); ctx.stroke();
+  ctx.fillStyle='#d4522a'; ctx.beginPath(); ctx.arc(dx,dy,3,0,Math.PI*2); ctx.fill();
+})();
+</script>
+</body>
+</html>
