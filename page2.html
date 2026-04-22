@@ -120,7 +120,7 @@ body{font-family:'Noto Sans JP',sans-serif;background:var(--paper);color:var(--i
 /* ATTACH */
 .attach-wrap{position:relative;width:100%;height:180px;background:#18181a;border-radius:12px;overflow:hidden;margin:10px 0 8px;}
 .attach-wrap canvas{position:absolute;inset:0;width:100%;height:100%;pointer-events:none;}
-.attach-dot{position:absolute;width:22px;height:22px;background:var(--accent);border:3px solid #fff;border-radius:50%;transform:translate(-50%,-50%);cursor:grab;z-index:5;box-shadow:0 2px 8px rgba(0,0,0,.5);}
+.attach-dot{position:absolute;width:36px;height:52px;cursor:grab;z-index:5;transform:translate(-50%,-50%);filter:drop-shadow(0 2px 4px rgba(0,0,0,.6));transition:transform .1s;}
 .attach-dot:active{cursor:grabbing;}
 .attach-ctrl{display:flex;align-items:center;gap:8px;margin-top:2px;}
 .attach-ctrl label{font-size:11px;color:var(--muted);width:36px;flex-shrink:0;}
@@ -293,6 +293,7 @@ body{font-family:'Noto Sans JP',sans-serif;background:var(--paper);color:var(--i
     <div class="preview-wrap" id="pw-front">
       <canvas id="cv-front" width="200" height="200"></canvas>
       <button class="retake-btn" onclick="resetImg('front')">選び直す</button>
+      <button class="retake-btn" style="color:var(--ink);" onclick="reopenCrop('front')">✏ 再調整</button>
     </div>
     <!-- 裏面 -->
     <div id="backArea" style="display:none;">
@@ -307,6 +308,7 @@ body{font-family:'Noto Sans JP',sans-serif;background:var(--paper);color:var(--i
       <div class="preview-wrap" id="pw-back">
         <canvas id="cv-back" width="200" height="200"></canvas>
         <button class="retake-btn" onclick="resetImg('back')">選び直す</button>
+      <button class="retake-btn" style="color:var(--ink);" onclick="reopenCrop('back')">✏ 再調整</button>
       </div>
     </div>
   </div>
@@ -425,26 +427,31 @@ body{font-family:'Noto Sans JP',sans-serif;background:var(--paper);color:var(--i
 <div class="sec" id="sec7">
   <div class="sec-head" onclick="toggle(7)">
     <div class="sec-num" id="sn7">7</div>
-    <div class="sec-title">穴・アタッチメントの位置</div>
+    <div class="sec-title">穴</div>
     <div class="sec-status" id="ss7">未設定</div>
   </div>
   <div class="sec-body hidden" id="sb7">
-    <div style="font-size:12px;color:var(--muted);margin-bottom:4px;">赤い点をドラッグして穴の位置を指定してください。</div>
+    <div style="font-size:12px;color:var(--muted);margin-bottom:10px;line-height:1.7;">これはキーホルダーのチェーンを通すための穴です。<br>金具アイコンをドラッグして穴の位置を指定してください。</div>
+    <!-- 面切り替えボタン -->
+    <div style="display:flex;gap:6px;margin-bottom:8px;">
+      <button id="attViewFront" onclick="setAttachView('front')" style="flex:1;padding:7px;border:1.5px solid var(--accent);border-radius:8px;background:var(--accent);color:#fff;font-size:12px;cursor:pointer;font-family:'Noto Sans JP',sans-serif;">おもて面</button>
+      <button id="attViewBack" onclick="setAttachView('back')" style="flex:1;padding:7px;border:1.5px solid var(--border);border-radius:8px;background:#fff;color:var(--muted);font-size:12px;cursor:pointer;font-family:'Noto Sans JP',sans-serif;">うら面</button>
+    </div>
     <div class="attach-wrap" id="attachWrap">
       <canvas id="attachCv"></canvas>
       <div class="attach-dot" id="attachDot"></div>
     </div>
     <div class="attach-ctrl">
       <label>角度</label>
-      <input type="range" id="attachAngle" min="0" max="360" step="1" value="90" oninput="onAttachAngle()">
+      <input type="range" id="attachAngle" min="0" max="360" step="1" value="0" oninput="onAttachAngle()">
       <div class="num-step">
         <button onclick="stepAngle(-1)">−</button>
-        <input type="number" id="attachAngleN" min="0" max="360" value="90" oninput="onAttachAngleN()">
+        <input type="number" id="attachAngleN" min="0" max="360" value="0" oninput="onAttachAngleN()">
         <span class="unit">°</span>
         <button onclick="stepAngle(1)">＋</button>
       </div>
     </div>
-    <div class="attach-info">X:<span id="attX">50</span>% Y:<span id="attY">10</span>% 角度:<span id="attA">90</span>°</div>
+    <div class="attach-info">X:<span id="attX">50</span>% Y:<span id="attY">10</span>% 角度:<span id="attA">0</span>°</div>
   </div>
 </div>
 
@@ -540,11 +547,14 @@ const S = {
   nfc: false, nfcUrl: '',
   backPrint: false,
   imgFront: null, imgBack: null,
+  imgFrontSrc: null, imgBackSrc: null, // オリジナルソース（再調整用）
+  cropStateFront: null, cropStateBack: null, // 前回のクロップ設定
   qr: false, qrSide: null, qrUrl: '',
   qrFront: { x: 50, y: 50, cm: 2 },
   qrBack:  { x: 50, y: 50, cm: 2 },
   sizeCm: 7, thickCm: 2,
-  attX: 50, attY: 10, attAngle: 90,
+  attX: 50, attY: 10, attAngle: 0,
+  attachView: 'front', // 穴エディタの表示面
 };
 let cropTarget = 'front';
 
@@ -717,6 +727,58 @@ function resetImg(target) {
   rebuild3D();
 }
 
+// 再調整（オリジナルから再度クロップモーダルを開く）
+function reopenCrop(target) {
+  cropTarget = target;
+  // オリジナル画像（カット前）から再調整
+  const src       = target === 'back' ? S.imgBackSrc    : S.imgFrontSrc;
+  const prevState = target === 'back' ? S.cropStateBack : S.cropStateFront;
+  if (!src) { toast('先に画像を設定してください'); return; }
+  C.originalSrc = src;
+  const img = document.getElementById('cropImg');
+  const doOpen = () => {
+    const ca = document.getElementById('cropArea');
+    const cw = ca.offsetWidth || 360, ch = ca.offsetHeight || 290;
+    C.imgW = img.naturalWidth; C.imgH = img.naturalHeight;
+
+    if (prevState && prevState.imgW === C.imgW && prevState.imgH === C.imgH) {
+      // 前回の設定を復元
+      C.scale    = prevState.scale;
+      C.rot      = prevState.rot;
+      C.x        = prevState.x;
+      C.y        = prevState.y;
+      C.fitScale = prevState.fitScale;
+      // スライダーUIも復元
+      const pct = Math.round(C.scale / C.fitScale * 100);
+      setCropSz(pct, false);
+      setCropRot(C.rot, false);
+    } else {
+      // 初回は50%で開く
+      const fw = cw * .78, fh = ch * .78;
+      C.fitScale = Math.min(fw / C.imgW, fh / C.imgH);
+      const initPct = 50;
+      C.scale = initPct / 100 * C.fitScale;
+      setCropSz(initPct, false);
+      setCropRot(0, false);
+      C.x = (cw - C.imgW * C.scale) / 2;
+      C.y = (ch - C.imgH * C.scale) / 2;
+    }
+
+    posImg(); drawMask();
+    const sh = S.shape || 'circle';
+    document.getElementById('dicutBar').style.display = sh === 'diecut' ? 'block' : 'none';
+    document.getElementById('rotRow').style.display = (sh === 'circle' || sh === 'square') ? 'flex' : 'none';
+    document.getElementById('cropTitle').textContent = '画像を再調整（元の画像から）';
+    document.getElementById('cropModal').classList.add('open');
+  };
+  if (img.src === src && img.complete && img.naturalWidth > 0) {
+    requestAnimationFrame(doOpen);
+  } else {
+    img.onload = () => requestAnimationFrame(doOpen);
+    img.src = src;
+  }
+}
+
 // ═══════════════════════════════
 // CROP
 // ═══════════════════════════════
@@ -731,6 +793,13 @@ function openDicutCrop() {
 }
 
 function openCrop(src) {
+  // オリジナルソースを保存（カット前の元画像）
+  C.originalSrc = src;
+  if (cropTarget === 'back') {
+    S.imgBackSrc = src;
+  } else {
+    S.imgFrontSrc = src;
+  }
   const img = document.getElementById('cropImg');
   img.onload = openCropModal;
   img.src = src;
@@ -795,10 +864,20 @@ function stepCropRot(d)    { setCropRot((+document.getElementById('cropRotN').va
 
 function posImg() {
   const img = document.getElementById('cropImg');
+  const ca  = document.getElementById('cropArea');
+  const cw  = ca.offsetWidth || 360, ch = ca.offsetHeight || 290;
+  const iw  = C.imgW * C.scale;
+  const ih  = C.imgH * C.scale;
+  // 枠中央を回転軸にする: transform-originをpx指定
+  // 枠中央の、画像左上からの相対位置
+  const cx  = cw / 2, cy = ch / 2;
+  const ox  = cx - C.x; // 画像左上から枠中央までのX
+  const oy  = cy - C.y; // 画像左上から枠中央までのY
   img.style.left   = C.x + 'px';
   img.style.top    = C.y + 'px';
-  img.style.width  = C.imgW * C.scale + 'px';
-  img.style.height = C.imgH * C.scale + 'px';
+  img.style.width  = iw + 'px';
+  img.style.height = ih + 'px';
+  img.style.transformOrigin = ox + 'px ' + oy + 'px';
   img.style.transform = 'rotate(' + C.rot + 'deg)';
 }
 
@@ -885,19 +964,50 @@ function applyCrop() {
   else if (sh==='diecut') dicutPath(ctx,out/2,out/2,out);
   else rrect(ctx,0,0,out,out,out*.06);
   ctx.clip();
-  ctx.save(); ctx.translate(out/2,out/2); ctx.rotate(C.rot*Math.PI/180);
+  // 枠中央を基準に回転して描画
+  // transform-origin = 枠中央(cx,cy) で回転しているのと同じ変換をcanvasで再現
   const imgEl = document.getElementById('cropImg');
-  const srcX = (cx-size/2-C.x)/C.scale, srcY=(cy-size/2-C.y)/C.scale, srcW=size/C.scale;
-  ctx.drawImage(imgEl, srcX,srcY,srcW,srcW, -out/2,-out/2,out,out);
+  ctx.save();
+  // 1. 出力canvasの中央を原点に
+  ctx.translate(out/2, out/2);
+  // 2. 回転
+  ctx.rotate(C.rot * Math.PI / 180);
+  // 3. 枠中央から見た画像の位置（スケール補正）
+  const drawX = (C.x - cx) / C.scale;
+  const drawY = (C.y - cy) / C.scale;
+  const drawW = C.imgW; // 元画像の幅
+  const drawH = C.imgH;
+  // 4. 枠に相当するサイズ（元画像ピクセル換算）
+  const frameSrc = size / C.scale;
+  // 5. 描画（-out/2 ~ +out/2の範囲にframeSrcを描く）
+  ctx.drawImage(imgEl,
+    -drawX - frameSrc/2,
+    -drawY - frameSrc/2,
+    frameSrc, frameSrc,
+    -out/2, -out/2, out, out);
   ctx.restore();
   const url = cv.toDataURL('image/png');
+  // クロップ設定を保存（再調整時に復元）
+  const savedState = {
+    scale: C.scale,
+    rot:   C.rot,
+    x:     C.x,
+    y:     C.y,
+    fitScale: C.fitScale,
+    imgW:  C.imgW,
+    imgH:  C.imgH,
+  };
   if (cropTarget === 'back') {
     S.imgBack = url;
+    S.cropStateBack = savedState;
+    // S.imgBackSrc はopenCrop時のオリジナルを保持
     drawPreview('back');
     document.getElementById('uz-back').style.display = 'none';
     document.getElementById('pw-back').classList.add('show');
   } else {
     S.imgFront = url;
+    S.cropStateFront = savedState;
+    // S.imgFrontSrc はopenCrop時のオリジナルを保持
     drawPreview('front');
     document.getElementById('uz-front').style.display = 'none';
     document.getElementById('pw-front').classList.add('show');
@@ -1126,31 +1236,103 @@ setSz(7); setTh(2);
 // ═══════════════════════════════
 // ATTACHMENT
 // ═══════════════════════════════
+// 面切り替え
+function setAttachView(side) {
+  S.attachView = side;
+  document.getElementById('attViewFront').style.background = side==='front' ? 'var(--accent)' : '#fff';
+  document.getElementById('attViewFront').style.color      = side==='front' ? '#fff' : 'var(--muted)';
+  document.getElementById('attViewFront').style.borderColor= side==='front' ? 'var(--accent)' : 'var(--border)';
+  document.getElementById('attViewBack').style.background  = side==='back'  ? 'var(--accent)' : '#fff';
+  document.getElementById('attViewBack').style.color       = side==='back'  ? '#fff' : 'var(--muted)';
+  document.getElementById('attViewBack').style.borderColor = side==='back'  ? 'var(--accent)' : 'var(--border)';
+  if(window._redrawAttach) window._redrawAttach();
+}
+
 (function initAttach(){
   const wrap = document.getElementById('attachWrap');
   const dot  = document.getElementById('attachDot');
   const cv   = document.getElementById('attachCv');
+
+  // 金具SVGをSTL形状に合わせたシルエットに設定
+  dot.innerHTML = `<svg width="28" height="44" viewBox="0 0 28 44" fill="none" xmlns="http://www.w3.org/2000/svg">
+    <!-- 穴の輪（上部） -->
+    <circle cx="14" cy="10" r="8" fill="none" stroke="#d0d0d0" stroke-width="4.5"/>
+    <circle cx="14" cy="10" r="4.5" fill="#111"/>
+    <!-- 本体（下部・角丸長方形） -->
+    <rect x="3" y="16" width="22" height="26" rx="4" fill="#c8c8c8" stroke="#aaa" stroke-width="1"/>
+    <!-- ハイライト -->
+    <rect x="6" y="19" width="16" height="2" rx="1" fill="rgba(255,255,255,0.4)"/>
+  </svg>`;
+
   function redraw() {
-    const aw=wrap.offsetWidth||200, ah=wrap.offsetHeight||180;
-    cv.width=aw; cv.height=ah;
-    const ctx=cv.getContext('2d'); ctx.clearRect(0,0,aw,ah);
-    ctx.strokeStyle='rgba(255,255,255,.15)'; ctx.lineWidth=1.5;
-    const pw=aw*.55, ph=ah*.72, ox=(aw-pw)/2, oy=(ah-ph)/2;
-    ctx.beginPath();
-    if (S.shape==='circle') ctx.arc(aw/2,ah/2,Math.min(pw,ph)/2,0,Math.PI*2);
-    else rrect(ctx,ox,oy,pw,ph,6);
-    ctx.stroke();
-    const dx=aw*S.attX/100, dy=ah*S.attY/100, ang=S.attAngle*Math.PI/180;
-    ctx.strokeStyle='rgba(212,82,42,.85)'; ctx.lineWidth=2;
-    ctx.beginPath(); ctx.moveTo(dx,dy); ctx.lineTo(dx+Math.cos(ang)*26,dy+Math.sin(ang)*26); ctx.stroke();
-    dot.style.left=dx+'px'; dot.style.top=dy+'px';
-    document.getElementById('attX').textContent=Math.round(S.attX);
-    document.getElementById('attY').textContent=Math.round(S.attY);
-    document.getElementById('attA').textContent=S.attAngle;
-    document.getElementById('ss7').textContent='X:'+Math.round(S.attX)+'% Y:'+Math.round(S.attY)+'%';
+    const rect = wrap.getBoundingClientRect();
+    const aw = rect.width  || wrap.clientWidth  || 200;
+    const ah = rect.height || wrap.clientHeight || 180;
+    if (aw === 0) { setTimeout(redraw, 50); return; }
+    cv.width = aw; cv.height = ah;
+    const ctx = cv.getContext('2d');
+    ctx.clearRect(0,0,aw,ah);
+
+    // 背景：選択中の面の画像を表示
+    const imgSrc = S.attachView === 'back' ? S.imgBack : S.imgFront;
+    const margin = 16;
+    const ksize = Math.min(aw - margin*2, ah - margin*2);
+    const kox = (aw - ksize) / 2, koy = (ah - ksize) / 2;
+
+    function drawKH(imgEl) {
+      ctx.save();
+      ctx.beginPath();
+      if (S.shape === 'circle') ctx.arc(aw/2, ah/2, ksize/2, 0, Math.PI*2);
+      else rrect(ctx, kox, koy, ksize, ksize, 8);
+      if (imgEl) {
+        ctx.clip();
+        const ir = imgEl.naturalWidth/imgEl.naturalHeight;
+        let dw,dh,dx,dy;
+        if(ir>1){dh=ksize;dw=dh*ir;dx=kox-(dw-ksize)/2;dy=koy;}
+        else{dw=ksize;dh=dw/ir;dy=koy-(dh-ksize)/2;dx=kox;}
+        ctx.drawImage(imgEl,dx,dy,dw,dh);
+      } else {
+        ctx.fillStyle = S.colorHex || '#ddddcc';
+        ctx.fill();
+      }
+      ctx.restore();
+      // 枠線
+      ctx.strokeStyle = 'rgba(255,255,255,.3)'; ctx.lineWidth = 1.5;
+      ctx.beginPath();
+      if (S.shape === 'circle') ctx.arc(aw/2, ah/2, ksize/2, 0, Math.PI*2);
+      else rrect(ctx, kox, koy, ksize, ksize, 8);
+      ctx.stroke();
+      // 面ラベル
+      ctx.fillStyle = 'rgba(255,255,255,.5)';
+      ctx.font = '11px sans-serif'; ctx.textAlign = 'right'; ctx.textBaseline = 'bottom';
+      ctx.fillText(S.attachView === 'back' ? 'うら面' : 'おもて面', aw - 8, ah - 6);
+    }
+
+    if (imgSrc) {
+      const img = new Image(); img.onload = () => { drawKH(img); updateDot(); }; img.src = imgSrc;
+    } else {
+      drawKH(null); updateDot();
+    }
+  }
+
+  function updateDot() {
+    const rect = wrap.getBoundingClientRect();
+    const aw = rect.width || 200, ah = rect.height || 180;
+    const dx = aw * S.attX/100;
+    const dy = ah * S.attY/100;
+    // dotを穴の位置に配置し、角度に合わせて回転
+    dot.style.left = dx + 'px';
+    dot.style.top  = dy + 'px';
+    dot.style.transform = `translate(-50%,-50%) rotate(${S.attAngle}deg)`;
+    document.getElementById('attX').textContent = Math.round(S.attX);
+    document.getElementById('attY').textContent = Math.round(S.attY);
+    document.getElementById('attA').textContent = S.attAngle;
+    document.getElementById('ss7').textContent  = 'X:'+Math.round(S.attX)+'% Y:'+Math.round(S.attY)+'%';
     done(7); updateProg();
   }
-  window._redrawAttach = redraw;
+
+  window._redrawAttach = () => { redraw(); };
+
   let drag=false;
   dot.addEventListener('mousedown', e=>{drag=true;e.preventDefault();e.stopPropagation();});
   dot.addEventListener('touchstart',e=>{drag=true;e.preventDefault();},{passive:false});
@@ -1159,35 +1341,39 @@ setSz(7); setTh(2);
     const r=wrap.getBoundingClientRect();
     S.attX=Math.min(100,Math.max(0,(e.clientX-r.left)/r.width*100));
     S.attY=Math.min(100,Math.max(0,(e.clientY-r.top)/r.height*100));
-    redraw();
+    updateDot(); rebuild3D();
   });
   window.addEventListener('touchmove',e=>{
     if(!drag)return;
     const t=e.touches[0],r=wrap.getBoundingClientRect();
     S.attX=Math.min(100,Math.max(0,(t.clientX-r.left)/r.width*100));
     S.attY=Math.min(100,Math.max(0,(t.clientY-r.top)/r.height*100));
-    redraw();
+    updateDot(); rebuild3D();
   },{passive:true});
   window.addEventListener('mouseup',()=>drag=false);
   window.addEventListener('touchend',()=>drag=false);
-  setTimeout(redraw,100);
+  new ResizeObserver(redraw).observe(wrap);
+  setTimeout(redraw, 100);
 })();
 
 function onAttachAngle() {
   S.attAngle=+document.getElementById('attachAngle').value;
   document.getElementById('attachAngleN').value=S.attAngle;
   if(window._redrawAttach)window._redrawAttach();
+  rebuild3D();
 }
 function onAttachAngleN() {
   S.attAngle=Math.min(360,Math.max(0,+document.getElementById('attachAngleN').value||0));
   document.getElementById('attachAngle').value=S.attAngle;
   if(window._redrawAttach)window._redrawAttach();
+  rebuild3D();
 }
 function stepAngle(d) {
   S.attAngle=Math.min(360,Math.max(0,(+document.getElementById('attachAngleN').value||0)+d));
   document.getElementById('attachAngle').value=S.attAngle;
   document.getElementById('attachAngleN').value=S.attAngle;
   if(window._redrawAttach)window._redrawAttach();
+  rebuild3D();
 }
 
 // ═══════════════════════════════
@@ -1219,9 +1405,11 @@ updateProg();
   const dl = new THREE.DirectionalLight(0xffffff, 1.2); dl.position.set(3, 5, 4); scene.add(dl);
   const pl = new THREE.PointLight(0xffddaa, .6, 20); pl.position.set(-2, 3, 2); scene.add(pl);
 
-  let mesh = null, tex = null, texBack = null;
+  let mesh = null, tex = null, texBack = null, attachMesh = null;
 
-  function buildQROverlay() {
+  function buildAttachMesh() { /* 無効化 */ }
+
+    function buildQROverlay() {
     // 既存QRメッシュをmeshから削除
     if (!mesh) return;
     mesh.children.slice().forEach(c => mesh.remove(c));
@@ -1255,7 +1443,14 @@ updateProg();
   }
 
   function build() {
-    if (mesh) { scene.remove(mesh); mesh.geometry.dispose(); }
+    // attachMeshをnullにリセット（meshの子なのでmesh削除と一緒に消える）
+    attachMesh = null;
+    if (mesh) {
+      // 子を全部削除してからsceneから除去
+      while (mesh.children.length > 0) mesh.remove(mesh.children[0]);
+      scene.remove(mesh);
+      mesh.geometry.dispose();
+    }
     const sz = S.sizeCm / 10, th = S.thickCm / 20;
     const matSide = new THREE.MeshStandardMaterial({
       color: new THREE.Color(S.colorHex || '#ddddcc'),
@@ -1265,14 +1460,12 @@ updateProg();
       ? new THREE.CylinderGeometry(sz/2, sz/2, th, 64)
       : new THREE.BoxGeometry(sz, th, sz);
 
-    // マテリアル配列: circle=[side, top, bottom], box=[right,left,top,bottom,front,back]
     let mats;
     if (S.shape === 'circle') {
       const mTop    = tex     ? new THREE.MeshStandardMaterial({map: tex,     roughness:.3, transparent:true}) : matSide;
       const mBottom = texBack ? new THREE.MeshStandardMaterial({map: texBack, roughness:.3, transparent:true}) : matSide;
       mats = [matSide, mTop, mBottom];
     } else {
-      // BoxGeometry: index 2=top(+Y), index 3=bottom(-Y)
       const mTop    = tex     ? new THREE.MeshStandardMaterial({map: tex,     roughness:.3, transparent:true}) : matSide;
       const mBottom = texBack ? new THREE.MeshStandardMaterial({map: texBack, roughness:.3, transparent:true}) : matSide;
       mats = [matSide, matSide, mTop, mBottom, matSide, matSide];
@@ -1281,6 +1474,7 @@ updateProg();
     mesh.castShadow = true;
     scene.add(mesh);
     buildQROverlay();
+    buildAttachMesh();
   }
   build();
 
@@ -1355,7 +1549,7 @@ updateProg();
     if (mesh) {
       mesh.rotation.y = ry;
       mesh.rotation.x = rx;
-      // 子のQR枠はmeshの子なので自動で追従
+      // QR枠・金具はmeshの子なので自動追従
     }
     renderer.render(scene, camera);
   })();
@@ -1376,7 +1570,17 @@ updateProg();
     if (S.imgBack) {
       pending++;
       const img2 = new Image(); img2.src = S.imgBack;
-      img2.onload = () => { texBack = new THREE.CanvasTexture(img2); pending--; tryBuild(); };
+      img2.onload = () => {
+        // 裏面テクスチャを180度回転してから適用
+        const cv2 = document.createElement('canvas');
+        cv2.width = img2.naturalWidth; cv2.height = img2.naturalHeight;
+        const ctx2 = cv2.getContext('2d');
+        ctx2.translate(cv2.width/2, cv2.height/2);
+        ctx2.rotate(Math.PI);
+        ctx2.drawImage(img2, -cv2.width/2, -cv2.height/2);
+        texBack = new THREE.CanvasTexture(cv2);
+        pending--; tryBuild();
+      };
       img2.onerror = () => { texBack = null; pending--; tryBuild(); };
     } else { texBack = null; }
 
@@ -1394,29 +1598,54 @@ function doSubmit() {
   if (!S.imgFront) { toast('おもて面の画像を設定してください'); document.getElementById('sb4').classList.remove('hidden'); document.getElementById('sec4').scrollIntoView({behavior:'smooth',block:'center'}); return; }
   if (S.backPrint && !S.imgBack) { toast('うら面の画像を設定してください'); document.getElementById('sec4').scrollIntoView({behavior:'smooth',block:'center'}); return; }
 
-  const orderData = {
-    orderId:    S.orderId,
-    color:      S.color,
-    colorHex:   S.colorHex,
-    shape:      S.shape,
-    nfc:        S.nfc,
-    nfcUrl:     S.nfcUrl,
-    backPrint:  S.backPrint,
-    imgFront:   S.imgFront,
-    imgBack:    S.imgBack || null,
-    qr:         S.qr,
-    qrSide:     S.qrSide,
-    qrUrl:      S.qrUrl,
-    qrFront:    { ...QRS.front },
-    qrBack:     { ...QRS.back },
-    sizeCm:     S.sizeCm,
-    thickCm:    S.thickCm,
-    attX:       S.attX,
-    attY:       S.attY,
-    attAngle:   S.attAngle,
-    submittedAt: new Date().toLocaleString('ja-JP'),
-  };
+  // NFC・QR URLの未入力を警告（確認ダイアログ）
+  const warnings = [];
+  if (S.nfc && !S.nfcUrl.trim()) warnings.push('・NFCタグのURL が未入力です');
+  if (S.qr  && !S.qrUrl.trim())  warnings.push('・QRコードのURL が未入力です');
+  if (warnings.length > 0) {
+    showUrlWarning(warnings, function(proceed) {
+      if (proceed) { submitOrder(orderData); }
+      else {
+        if (S.nfc && !S.nfcUrl.trim()) {
+          document.getElementById('sb3').classList.remove('hidden');
+          document.getElementById('sec3').scrollIntoView({behavior:'smooth',block:'center'});
+        } else {
+          document.getElementById('sb5').classList.remove('hidden');
+          document.getElementById('sec5').scrollIntoView({behavior:'smooth',block:'center'});
+        }
+      }
+    });
+    return;
+  }
+  submitOrder(orderData);
+}
 
+function showUrlWarning(warnings, callback) {
+  // 既存のダイアログがあれば削除
+  const ex = document.getElementById('urlWarnDialog');
+  if (ex) ex.remove();
+  const d = document.createElement('div');
+  d.id = 'urlWarnDialog';
+  d.style.cssText = 'position:fixed;inset:0;background:rgba(0,0,0,.7);z-index:500;display:flex;align-items:center;justify-content:center;padding:20px;';
+  d.innerHTML = `
+    <div style="background:#fff;border-radius:16px;padding:24px;max-width:340px;width:100%;">
+      <div style="font-size:16px;font-weight:700;margin-bottom:12px;color:#0f0f0d;">⚠ URL未入力</div>
+      <div style="font-size:13px;color:#6b6860;line-height:1.8;margin-bottom:16px;">
+        ${warnings.map(w => w).join('<br>')}
+        <br><br>URLを入力せずに送信しますか？<br>
+        <span style="font-size:11px;">（後から管理画面で変更できます）</span>
+      </div>
+      <div style="display:flex;gap:8px;">
+        <button id="warnOk" style="flex:1;padding:12px;border:1.5px solid #ccc;border-radius:10px;background:#fff;cursor:pointer;font-family:'Noto Sans JP',sans-serif;font-size:13px;color:#6b6860;">このまま送信</button>
+        <button id="warnCancel" style="flex:1;padding:12px;background:#d4522a;border:none;border-radius:10px;color:#fff;cursor:pointer;font-family:'Noto Sans JP',sans-serif;font-size:13px;font-weight:500;">URLを入力する</button>
+      </div>
+    </div>`;
+  document.body.appendChild(d);
+  document.getElementById('warnOk').onclick     = () => { d.remove(); callback(true); };
+  document.getElementById('warnCancel').onclick  = () => { d.remove(); callback(false); };
+}
+
+function submitOrder(orderData) {
   // ① sessionStorageに保存（確認ページ用）
   try {
     sessionStorage.setItem('orderData', JSON.stringify(orderData));
