@@ -1598,6 +1598,30 @@ function doSubmit() {
   if (!S.imgFront) { toast('おもて面の画像を設定してください'); document.getElementById('sb4').classList.remove('hidden'); document.getElementById('sec4').scrollIntoView({behavior:'smooth',block:'center'}); return; }
   if (S.backPrint && !S.imgBack) { toast('うら面の画像を設定してください'); document.getElementById('sec4').scrollIntoView({behavior:'smooth',block:'center'}); return; }
 
+  // 注文データを作成
+  const orderData = {
+    orderId:    S.orderId,
+    color:      S.color,
+    colorHex:   S.colorHex,
+    shape:      S.shape,
+    nfc:        S.nfc,
+    nfcUrl:     S.nfcUrl,
+    backPrint:  S.backPrint,
+    imgFront:   S.imgFront,
+    imgBack:    S.imgBack || null,
+    qr:         S.qr,
+    qrSide:     S.qrSide,
+    qrUrl:      S.qrUrl,
+    qrFront:    { ...QRS.front },
+    qrBack:     { ...QRS.back },
+    sizeCm:     S.sizeCm,
+    thickCm:    S.thickCm,
+    attX:       S.attX,
+    attY:       S.attY,
+    attAngle:   S.attAngle,
+    submittedAt: new Date().toLocaleString('ja-JP'),
+  };
+
   // NFC・QR URLの未入力を警告（確認ダイアログ）
   const warnings = [];
   if (S.nfc && !S.nfcUrl.trim()) warnings.push('・NFCタグのURL が未入力です');
