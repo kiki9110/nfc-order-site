@@ -1388,10 +1388,6 @@ function rebuild3D() { if (window._rebuild3D) window._rebuild3D(); }
 // ═══════════════════════════════
 // SUBMIT
 // ═══════════════════════════════
-// ★ここにApps ScriptのデプロイURLを貼る★
-// ★Google Apps ScriptをデプロイしたらここのURLを貼り替えてください★
-const APPS_SCRIPT_URL = 'https://script.google.com/macros/s/AKfycbxthN8iyFDfGEU2Q1mT2NZi_uQtS9Rv1xvsb9tnrqTyV2fXDOv48IsJkPxGXXZ3PoQ/exec';
-
 function doSubmit() {
   if (!S.color)    { toast('土台カラーを選択してください'); document.getElementById('sb1').classList.remove('hidden'); document.getElementById('sec1').scrollIntoView({behavior:'smooth',block:'center'}); return; }
   if (!S.shape)    { toast('形状を選択してください'); document.getElementById('sb2').classList.remove('hidden'); document.getElementById('sec2').scrollIntoView({behavior:'smooth',block:'center'}); return; }
@@ -1431,49 +1427,35 @@ function doSubmit() {
     sessionStorage.setItem('orderImgBack',  S.imgBack  || '');
   }
 
-  // ② ボタンを送信中に変更
+  // ② 全部送信完了後（最大3秒）に遷移
   const btn = document.querySelector('.submit-btn');
   if (btn) { btn.textContent = '送信中...'; btn.disabled = true; }
 
-  // ③ Cloudflare KV と Apps Script に並行送信してから遷移
-  const saves = [];
-
-  // KV保存（詳細ページ用・画像含む）
-  saves.push(
-    fetch('https://buki-booth.com/api/save-order', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify(orderData),
-    }).catch(() => {})
-  );
-
-  // Apps Script送信（スプレッドシート記録用）
-  if (APPS_SCRIPT_URL && !APPS_SCRIPT_URL.includes('YOUR_SCRIPT_ID')) {
-    const sendData = { ...orderData, imgFront: orderData.imgFront ? '✓' : null, imgBack: orderData.imgBack ? '✓' : null };
-    const form = document.createElement('form');
-    form.method = 'POST';
-    form.action = APPS_SCRIPT_URL;
-    form.target = 'hidden_iframe';
-    const input = document.createElement('input');
-    input.type = 'hidden'; input.name = 'data';
-    input.value = JSON.stringify(sendData);
-    form.appendChild(input);
-    let iframe = document.getElementById('hidden_iframe');
-    if (!iframe) {
-      iframe = document.createElement('iframe');
-      iframe.name = 'hidden_iframe';
-      iframe.style.display = 'none';
-      document.body.appendChild(iframe);
-    }
-    document.body.appendChild(form);
-    form.submit();
-    form.remove();
-  }
-
-  // 全部送信完了後（最大3秒）に遷移
+  // Cloudflare Worker に直接送信（管理画面に自動登録 + KVに注文データ保存）
   Promise.race([
-    Promise.all(saves),
-    new Promise(r => setTimeout(r, 3000))
+    Promise.all([
+      // 注文データ保存（詳細ページ用・画像含む）
+      fetch('https://buki-booth.com/api/save-order', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(orderData),
+      }).catch(() => {}),
+      // 管理画面に自動登録（NFC・QR）
+      fetch('https://buki-booth.com/api/register', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': 'Bearer Kiki.n0825'
+        },
+        body: JSON.stringify({
+          orderId: orderData.orderId,
+          nfcUrl:  orderData.nfcUrl  || '',
+          qrUrl:   orderData.qrUrl   || '',
+          label:   (orderData.color || '') + ' / ' + (orderData.shape || ''),
+        }),
+      }).catch(() => {}),
+    ]),
+    new Promise(r => setTimeout(r, 4000))
   ]).then(() => {
     window.location.href = 'page3.html';
   });
