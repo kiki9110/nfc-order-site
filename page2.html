@@ -222,7 +222,9 @@ body{font-family:'Noto Sans JP',sans-serif;background:var(--paper);color:var(--i
             <circle cx="20" cy="14" r="4" fill="#ccc8be"/>
           </svg>
         </div>
-        <div class="shape-name">ダイアカット</div><div class="shape-sub">輪郭切抜</div>
+        <div class="shape-name">ダイアカット</div>
+        <div class="shape-sub">輪郭切抜</div>
+        <div style="display:inline-block;margin-top:4px;font-size:10px;font-weight:700;padding:2px 7px;background:#fde8e0;color:var(--accent);border-radius:20px;">+¥150</div>
       </button>
     </div>
     <div id="diecut-note" style="display:none;margin-top:12px;padding:10px;background:#fffbf0;border:1.5px solid #f0d080;border-radius:9px;font-size:12px;color:#7a6020;line-height:1.7;">
@@ -235,7 +237,7 @@ body{font-family:'Noto Sans JP',sans-serif;background:var(--paper);color:var(--i
 <div class="sec" id="sec3">
   <div class="sec-head" onclick="toggle(3)">
     <div class="sec-num" id="sn3">3</div>
-    <div class="sec-title">NFC タグ<span class="extra-tag">+¥300</span></div>
+    <div class="sec-title">NFC タグ<span class="extra-tag">+¥100</span></div>
     <div class="sec-status" id="ss3">なし</div>
   </div>
   <div class="sec-body hidden" id="sb3">
@@ -243,7 +245,7 @@ body{font-family:'Noto Sans JP',sans-serif;background:var(--paper);color:var(--i
     <div class="yn-row">
       <button class="yn-btn" id="nfc-yes" onclick="setNFC(true)">
         あり
-        <div class="yn-sub">+¥300</div>
+        <div class="yn-sub">+¥100</div>
       </button>
       <button class="yn-btn sel" id="nfc-no" onclick="setNFC(false)">
         なし
@@ -324,6 +326,14 @@ body{font-family:'Noto Sans JP',sans-serif;background:var(--paper);color:var(--i
       <button class="yn-btn sel" id="qr-no" onclick="setQR(false)">なし</button>
     </div>
     <div id="qrOptions" style="display:none;">
+      <!-- QR URL入力欄 -->
+      <div style="margin-bottom:14px;">
+        <div class="url-box show" style="margin-top:0;">
+          <label>QRコードに登録するURL</label>
+          <input type="url" id="qrUrl" placeholder="https://example.com" oninput="S.qrUrl=this.value">
+          <div class="url-hint">※ SNS・作品ページ・ポートフォリオなど</div>
+        </div>
+      </div>
       <div class="section-label" style="margin-bottom:8px;">印刷する面</div>
       <div class="yn-row" style="margin-bottom:14px;">
         <button class="yn-btn" id="qrs-front" onclick="setQRSide('front')">おもて面</button>
@@ -426,15 +436,15 @@ body{font-family:'Noto Sans JP',sans-serif;background:var(--paper);color:var(--i
     </div>
     <div class="attach-ctrl">
       <label>角度</label>
-      <input type="range" id="attachAngle" min="0" max="360" step="1" value="0" oninput="onAttachAngle()">
+      <input type="range" id="attachAngle" min="0" max="360" step="1" value="90" oninput="onAttachAngle()">
       <div class="num-step">
         <button onclick="stepAngle(-1)">−</button>
-        <input type="number" id="attachAngleN" min="0" max="360" value="0" oninput="onAttachAngleN()">
+        <input type="number" id="attachAngleN" min="0" max="360" value="90" oninput="onAttachAngleN()">
         <span class="unit">°</span>
         <button onclick="stepAngle(1)">＋</button>
       </div>
     </div>
-    <div class="attach-info">X:<span id="attX">50</span>% Y:<span id="attY">10</span>% 角度:<span id="attA">0</span>°</div>
+    <div class="attach-info">X:<span id="attX">50</span>% Y:<span id="attY">10</span>% 角度:<span id="attA">90</span>°</div>
   </div>
 </div>
 
@@ -530,11 +540,11 @@ const S = {
   nfc: false, nfcUrl: '',
   backPrint: false,
   imgFront: null, imgBack: null,
-  qr: false, qrSide: null,
+  qr: false, qrSide: null, qrUrl: '',
   qrFront: { x: 50, y: 50, cm: 2 },
   qrBack:  { x: 50, y: 50, cm: 2 },
   sizeCm: 7, thickCm: 2,
-  attX: 50, attY: 10, attAngle: 0,
+  attX: 50, attY: 10, attAngle: 90,
 };
 let cropTarget = 'front';
 
@@ -645,7 +655,7 @@ function setNFC(val) {
   document.getElementById('nfc-yes').classList.toggle('sel', val);
   document.getElementById('nfc-no').classList.toggle('sel', !val);
   document.getElementById('nfcUrl-box').classList.toggle('show', val);
-  document.getElementById('ss3').textContent = val ? 'あり (+¥300)' : 'なし';
+  document.getElementById('ss3').textContent = val ? 'あり (+¥100)' : 'なし';
   done(3); updateProg();
 }
 
@@ -1380,7 +1390,7 @@ function rebuild3D() { if (window._rebuild3D) window._rebuild3D(); }
 // ═══════════════════════════════
 // ★ここにApps ScriptのデプロイURLを貼る★
 // ★Google Apps ScriptをデプロイしたらここのURLを貼り替えてください★
-const APPS_SCRIPT_URL = 'https://script.google.com/macros/s/AKfycbxthN8iyFDfGEU2Q1mT2NZi_uQtS9Rv1xvsb9tnrqTyV2fXDOv48IsJkPxGXXZ3PoQ/exec';
+const APPS_SCRIPT_URL = 'https://script.google.com/macros/library/d/16gD9Jn8HANJhVOExH1ELIdr-LB-pJWbL0zny5iH_1JU-_XWaQcvl6dil/1';
 
 function doSubmit() {
   if (!S.color)    { toast('土台カラーを選択してください'); document.getElementById('sb1').classList.remove('hidden'); document.getElementById('sec1').scrollIntoView({behavior:'smooth',block:'center'}); return; }
@@ -1400,6 +1410,7 @@ function doSubmit() {
     imgBack:    S.imgBack || null,
     qr:         S.qr,
     qrSide:     S.qrSide,
+    qrUrl:      S.qrUrl,
     qrFront:    { ...QRS.front },
     qrBack:     { ...QRS.back },
     sizeCm:     S.sizeCm,
@@ -1421,15 +1432,30 @@ function doSubmit() {
   }
 
   // ② Google Apps Script に送信（スプレッドシートに記録）
-  //    URL が設定されていれば送信、未設定でもページ遷移はする
+  // 画像データを除いた軽量版を送信（画像はサイズが大きすぎるため）
   if (APPS_SCRIPT_URL && !APPS_SCRIPT_URL.includes('YOUR_SCRIPT_ID')) {
-    // no-corsで送信（レスポンスは受け取れないがサーバー側に届く）
-    fetch(APPS_SCRIPT_URL, {
-      method: 'POST',
-      mode:   'no-cors',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify(orderData),
-    }).catch(() => {}); // エラーでもページ遷移は続ける
+    const sendData = { ...orderData, imgFront: orderData.imgFront ? '✓' : null, imgBack: orderData.imgBack ? '✓' : null };
+    // フォームで送信（no-corsの制限を回避）
+    const form = document.createElement('form');
+    form.method = 'POST';
+    form.action = APPS_SCRIPT_URL;
+    form.target = 'hidden_iframe'; // 別フレームに送信してページ遷移を防ぐ
+    const input = document.createElement('input');
+    input.type = 'hidden';
+    input.name = 'data';
+    input.value = JSON.stringify(sendData);
+    form.appendChild(input);
+    // 非表示iframeを作成
+    let iframe = document.getElementById('hidden_iframe');
+    if (!iframe) {
+      iframe = document.createElement('iframe');
+      iframe.name = 'hidden_iframe';
+      iframe.style.display = 'none';
+      document.body.appendChild(iframe);
+    }
+    document.body.appendChild(form);
+    form.submit();
+    form.remove();
   }
 
   // ③ 確認ページへ遷移
