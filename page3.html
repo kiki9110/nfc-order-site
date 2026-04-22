@@ -271,7 +271,7 @@ body{font-family:'Noto Sans JP',sans-serif;background:var(--paper);color:var(--i
 
   <!-- 穴位置 -->
   <div class="card">
-    <div class="card-head">🔩 穴・アタッチメントの位置</div>
+    <div class="card-head">🔩 穴の位置</div>
     <div class="card-body">
       <div class="qr-info-row">
         <div class="attach-mini">
@@ -498,23 +498,87 @@ document.getElementById('diAttA').textContent = O.attAngle || 0;
 // 穴ミニマップ
 (function drawAttach(){
   const cv = document.getElementById('attachMiniCv');
-  const aw = 80, ah = 80;
+  const aw = 200, ah = 200;
   cv.width = aw; cv.height = ah;
+  cv.style.width = '200px'; cv.style.height = '200px';
+  cv.style.borderRadius = '10px';
   const ctx = cv.getContext('2d');
-  ctx.clearRect(0,0,aw,ah);
-  // 形状輪郭
-  ctx.strokeStyle='rgba(255,255,255,.2)'; ctx.lineWidth=1.5;
-  const pw=aw*.55, ph=ah*.7, ox=(aw-pw)/2, oy=(ah-ph)/2;
-  ctx.beginPath();
-  if (O.shape==='circle') ctx.arc(aw/2,ah/2,Math.min(pw,ph)/2,0,Math.PI*2);
-  else { ctx.moveTo(ox+4,oy);ctx.lineTo(ox+pw-4,oy);ctx.arcTo(ox+pw,oy,ox+pw,oy+4,4);ctx.lineTo(ox+pw,oy+ph-4);ctx.arcTo(ox+pw,oy+ph,ox+pw-4,oy+ph,4);ctx.lineTo(ox+4,oy+ph);ctx.arcTo(ox,oy+ph,ox,oy+ph-4,4);ctx.lineTo(ox,oy+4);ctx.arcTo(ox,oy,ox+4,oy,4);ctx.closePath(); }
-  ctx.stroke();
-  // 点と方向線
-  const dx=aw*(O.attX||50)/100, dy=ah*(O.attY||10)/100;
-  const ang=(O.attAngle||0)*Math.PI/180;
-  ctx.strokeStyle='rgba(212,82,42,.9)'; ctx.lineWidth=1.5;
-  ctx.beginPath(); ctx.moveTo(dx,dy); ctx.lineTo(dx+Math.cos(ang)*16,dy+Math.sin(ang)*16); ctx.stroke();
-  ctx.fillStyle='#d4522a'; ctx.beginPath(); ctx.arc(dx,dy,3,0,Math.PI*2); ctx.fill();
+  ctx.fillStyle = '#18181a';
+  ctx.fillRect(0,0,aw,ah);
+
+  // キーホルダー形状
+  const m = 20, kw = aw-m*2, kh = ah-m*2;
+  const ox = m, oy = m;
+
+  // 画像があれば背景に表示
+  if (O.imgFront) {
+    const img = new Image();
+    img.onload = function() {
+      ctx.save();
+      ctx.beginPath();
+      if (O.shape==='circle') ctx.arc(aw/2,ah/2,kw/2,0,Math.PI*2);
+      else { ctx.moveTo(ox+8,oy);ctx.lineTo(ox+kw-8,oy);ctx.arcTo(ox+kw,oy,ox+kw,oy+8,8);ctx.lineTo(ox+kw,oy+kh-8);ctx.arcTo(ox+kw,oy+kh,ox+kw-8,oy+kh,8);ctx.lineTo(ox+8,oy+kh);ctx.arcTo(ox,oy+kh,ox,oy+kh-8,8);ctx.lineTo(ox,oy+8);ctx.arcTo(ox,oy,ox+8,oy,8);ctx.closePath(); }
+      ctx.clip();
+      const ir=img.naturalWidth/img.naturalHeight;
+      let dw,dh,dx2,dy2;
+      if(ir>1){dh=kh;dw=dh*ir;dx2=ox-(dw-kw)/2;dy2=oy;}
+      else{dw=kw;dh=dw/ir;dy2=oy-(dh-kh)/2;dx2=ox;}
+      ctx.drawImage(img,dx2,dy2,dw,dh);
+      ctx.restore();
+      drawOverlay();
+    };
+    img.src = O.imgFront;
+  } else {
+    // カラーで塗る
+    ctx.save();
+    ctx.beginPath();
+    if (O.shape==='circle') ctx.arc(aw/2,ah/2,kw/2,0,Math.PI*2);
+    else { ctx.moveTo(ox+8,oy);ctx.lineTo(ox+kw-8,oy);ctx.arcTo(ox+kw,oy,ox+kw,oy+8,8);ctx.lineTo(ox+kw,oy+kh-8);ctx.arcTo(ox+kw,oy+kh,ox+kw-8,oy+kh,8);ctx.lineTo(ox+8,oy+kh);ctx.arcTo(ox,oy+kh,ox,oy+kh-8,8);ctx.lineTo(ox,oy+8);ctx.arcTo(ox,oy,ox+8,oy,8);ctx.closePath(); }
+    ctx.fillStyle = '#ddd';
+    ctx.fill();
+    ctx.restore();
+    drawOverlay();
+  }
+
+  function drawOverlay() {
+    // 枠線
+    ctx.strokeStyle='rgba(255,255,255,.3)'; ctx.lineWidth=1.5;
+    ctx.beginPath();
+    if (O.shape==='circle') ctx.arc(aw/2,ah/2,kw/2,0,Math.PI*2);
+    else { ctx.moveTo(ox+8,oy);ctx.lineTo(ox+kw-8,oy);ctx.arcTo(ox+kw,oy,ox+kw,oy+8,8);ctx.lineTo(ox+kw,oy+kh-8);ctx.arcTo(ox+kw,oy+kh,ox+kw-8,oy+kh,8);ctx.lineTo(ox+8,oy+kh);ctx.arcTo(ox,oy+kh,ox,oy+kh-8,8);ctx.lineTo(ox,oy+8);ctx.arcTo(ox,oy,ox+8,oy,8);ctx.closePath(); }
+    ctx.stroke();
+
+    // 金具位置
+    const dx = ox + kw*(O.attX||50)/100;
+    const dy = oy + kh*(O.attY||10)/100;
+    const ang = (O.attAngle||0)*Math.PI/180;
+
+    // 金具シルエット（SVG相当をcanvasで描画）
+    ctx.save();
+    ctx.translate(dx, dy);
+    ctx.rotate(ang);
+    // 本体
+    ctx.fillStyle='rgba(200,200,200,0.9)';
+    ctx.strokeStyle='rgba(150,150,150,0.8)';
+    ctx.lineWidth=1;
+    ctx.beginPath();
+    ctx.roundRect(-8, 0, 16, 24, 3);
+    ctx.fill(); ctx.stroke();
+    // 穴の輪
+    ctx.beginPath();
+    ctx.arc(0, -8, 7, 0, Math.PI*2);
+    ctx.strokeStyle='rgba(200,200,200,0.9)';
+    ctx.lineWidth=4;
+    ctx.stroke();
+    ctx.beginPath();
+    ctx.arc(0, -8, 4, 0, Math.PI*2);
+    ctx.fillStyle='#18181a';
+    ctx.fill();
+    // ハイライト
+    ctx.fillStyle='rgba(255,255,255,0.3)';
+    ctx.fillRect(-6, 2, 12, 2);
+    ctx.restore();
+  }
 })();
 </script>
 </body>
