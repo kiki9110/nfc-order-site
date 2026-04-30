@@ -498,16 +498,17 @@ document.getElementById('diAttA').textContent = O.attAngle || 0;
 // 穴ミニマップ
 (function drawAttach(){
   const cv = document.getElementById('attachMiniCv');
-  const aw = 200, ah = 200;
+  // バッキングバッファを240×240に拡張（CSS表示は80×80のまま縮小される）
+  // page2の wrap と同じ比率にすることで、タグ型インジケータが端付近で見切れないよう確保
+  const aw = 240, ah = 240;
   cv.width = aw; cv.height = ah;
-  cv.style.width = '200px'; cv.style.height = '200px';
   cv.style.borderRadius = '10px';
   const ctx = cv.getContext('2d');
   ctx.fillStyle = '#18181a';
   ctx.fillRect(0,0,aw,ah);
 
-  // キーホルダー形状
-  const m = 20, kw = aw-m*2, kh = ah-m*2;
+  // キーホルダー形状（page2 と同じ余白40px）
+  const m = 40, kw = aw-m*2, kh = ah-m*2;
   const ox = m, oy = m;
 
   // 画像があれば背景に表示
@@ -548,35 +549,53 @@ document.getElementById('diAttA').textContent = O.attAngle || 0;
     else { ctx.moveTo(ox+8,oy);ctx.lineTo(ox+kw-8,oy);ctx.arcTo(ox+kw,oy,ox+kw,oy+8,8);ctx.lineTo(ox+kw,oy+kh-8);ctx.arcTo(ox+kw,oy+kh,ox+kw-8,oy+kh,8);ctx.lineTo(ox+8,oy+kh);ctx.arcTo(ox,oy+kh,ox,oy+kh-8,8);ctx.lineTo(ox,oy+8);ctx.arcTo(ox,oy,ox+8,oy,8);ctx.closePath(); }
     ctx.stroke();
 
-    // 金具位置
+    // 穴の中心位置（キーホルダー領域内の%として解釈・page2と統一）
     const dx = ox + kw*(O.attX||50)/100;
     const dy = oy + kh*(O.attY||10)/100;
     const ang = (O.attAngle||0)*Math.PI/180;
 
-    // 金具シルエット（SVG相当をcanvasで描画）
+    // タグ型シルエット（page2のSVGと完全に同じ形状）を canvas で描画
+    // 座標系：穴の中心を原点(0,0)とする。回転は穴中心が軸
+    // タグ寸法：幅32（半径16）／可視高さ56 → 比率 1:1.75（リファレンス画像と一致）
+    // 穴位置：原点。ドーム頂点は y=-14、ドーム底は y=+2、タグ底辺は y=+42
     ctx.save();
     ctx.translate(dx, dy);
     ctx.rotate(ang);
-    // 本体
-    ctx.fillStyle='rgba(200,200,200,0.9)';
-    ctx.strokeStyle='rgba(150,150,150,0.8)';
-    ctx.lineWidth=1;
-    ctx.beginPath();
-    ctx.roundRect(-8, 0, 16, 24, 3);
-    ctx.fill(); ctx.stroke();
-    // 穴の輪
-    ctx.beginPath();
-    ctx.arc(0, -8, 7, 0, Math.PI*2);
-    ctx.strokeStyle='rgba(200,200,200,0.9)';
-    ctx.lineWidth=4;
+    ctx.lineJoin = 'round';
+
+    // タグのパスを定義する関数（halo描画と本体描画で2回使う）
+    const tracePath = () => {
+      ctx.beginPath();
+      // 左側のドーム基部から開始（穴のすぐ下のレベル）
+      ctx.moveTo(-16, 2);
+      // ドーム（半円）：anticlockwise=false（デフォルト）でπ→2πを時計回り、頂点(0,-14)を経由
+      ctx.arc(0, 2, 16, Math.PI, 2*Math.PI);
+      // 右側→底辺→左側で長方形部を閉じる
+      ctx.lineTo(16, 42);
+      ctx.lineTo(-16, 42);
+      ctx.closePath();
+    };
+
+    // ハロー（白い太線）：暗い背景に埋もれないよう輪郭の外側を白く縁取る
+    tracePath();
+    ctx.lineWidth = 4;
+    ctx.strokeStyle = 'rgba(255,255,255,0.75)';
     ctx.stroke();
-    ctx.beginPath();
-    ctx.arc(0, -8, 4, 0, Math.PI*2);
-    ctx.fillStyle='#18181a';
+
+    // タグ本体：白塗り＋黒い細縁
+    tracePath();
+    ctx.fillStyle = '#fff';
     ctx.fill();
-    // ハイライト
-    ctx.fillStyle='rgba(255,255,255,0.3)';
-    ctx.fillRect(-6, 2, 12, 2);
+    ctx.lineWidth = 1.5;
+    ctx.strokeStyle = '#111';
+    ctx.stroke();
+
+    // 中心の穴（黒で塗りつぶし）
+    ctx.beginPath();
+    ctx.arc(0, 0, 6, 0, Math.PI*2);
+    ctx.fillStyle = '#111';
+    ctx.fill();
+
     ctx.restore();
   }
 })();
