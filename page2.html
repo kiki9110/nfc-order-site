@@ -118,10 +118,14 @@ body{font-family:'Noto Sans JP',sans-serif;background:var(--paper);color:var(--i
 .slider-row input[type=range]{flex:1;accent-color:var(--accent);}
 
 /* ATTACH */
-.attach-wrap{position:relative;width:100%;height:180px;background:#18181a;border-radius:12px;overflow:hidden;margin:10px 0 8px;}
+.attach-wrap{position:relative;width:100%;height:240px;background:#18181a;border-radius:12px;overflow:hidden;margin:10px 0 8px;}
 .attach-wrap canvas{position:absolute;inset:0;width:100%;height:100%;pointer-events:none;}
-.attach-dot{position:absolute;width:36px;height:52px;cursor:grab;z-index:5;transform:translate(-50%,-50%);filter:drop-shadow(0 2px 4px rgba(0,0,0,.6));transition:transform .1s;}
+/* 穴インジケータ：タグ型シルエットのフラットイラスト（drop-shadowなし） */
+/* width 32 / height 84 でSVG中心(=穴の中心)が要素の中央になる設計 */
+.attach-dot{position:absolute;width:32px;height:84px;cursor:grab;z-index:5;transform:translate(-50%,-50%);transition:transform .1s;pointer-events:auto;}
 .attach-dot:active{cursor:grabbing;}
+/* SVGの白halo部分が要素境界を少しはみ出すため、overflow:visibleで切らさない */
+.attach-dot svg{overflow:visible;display:block;}
 .attach-ctrl{display:flex;align-items:center;gap:8px;margin-top:2px;}
 .attach-ctrl label{font-size:11px;color:var(--muted);width:36px;flex-shrink:0;}
 .attach-ctrl input[type=range]{flex:1;accent-color:var(--accent);}
@@ -1253,21 +1257,26 @@ function setAttachView(side) {
   const dot  = document.getElementById('attachDot');
   const cv   = document.getElementById('attachCv');
 
-  // 金具SVGをSTL形状に合わせたシルエットに設定
-  dot.innerHTML = `<svg width="28" height="44" viewBox="0 0 28 44" fill="none" xmlns="http://www.w3.org/2000/svg">
-    <!-- 穴の輪（上部） -->
-    <circle cx="14" cy="10" r="8" fill="none" stroke="#d0d0d0" stroke-width="4.5"/>
-    <circle cx="14" cy="10" r="4.5" fill="#111"/>
-    <!-- 本体（下部・角丸長方形） -->
-    <rect x="3" y="16" width="22" height="26" rx="4" fill="#c8c8c8" stroke="#aaa" stroke-width="1"/>
-    <!-- ハイライト -->
-    <rect x="6" y="19" width="16" height="2" rx="1" fill="rgba(255,255,255,0.4)"/>
+  // 穴インジケータ：タグ型シルエット（リファレンス画像と同じ縦長比率）
+  // viewBox 32×84 のうち、可視のシェイプは Y=28〜84（高さ56）。比率 32:56 = 1:1.75
+  // 穴は (16, 42) ＝SVG中央＝ドット中心 になるよう設計
+  // 上半分のY=0〜28は意図的に空白：これにより穴位置（タグの上部）を要素中央に配置できる
+  // → CSSの transform:translate(-50%,-50%) でドット中心が穴中心になり、回転軸も穴中心
+  dot.innerHTML = `<svg width="32" height="84" viewBox="0 0 32 84" xmlns="http://www.w3.org/2000/svg">
+    <!-- 白いハロー（背景に埋もれないための縁取り） -->
+    <path d="M 0 44 A 16 16 0 0 1 32 44 V 84 H 0 Z"
+          fill="none" stroke="#fff" stroke-width="4" stroke-linejoin="round"/>
+    <!-- タグ本体（白塗り＋黒い細縁） -->
+    <path d="M 0 44 A 16 16 0 0 1 32 44 V 84 H 0 Z"
+          fill="#fff" stroke="#111" stroke-width="1.5" stroke-linejoin="round"/>
+    <!-- 穴（ドーム底部付近、SVG中央に配置） -->
+    <circle cx="16" cy="42" r="6" fill="#111"/>
   </svg>`;
 
   function redraw() {
     const rect = wrap.getBoundingClientRect();
     const aw = rect.width  || wrap.clientWidth  || 200;
-    const ah = rect.height || wrap.clientHeight || 180;
+    const ah = rect.height || wrap.clientHeight || 240;
     if (aw === 0) { setTimeout(redraw, 50); return; }
     cv.width = aw; cv.height = ah;
     const ctx = cv.getContext('2d');
@@ -1275,7 +1284,8 @@ function setAttachView(side) {
 
     // 背景：選択中の面の画像を表示
     const imgSrc = S.attachView === 'back' ? S.imgBack : S.imgFront;
-    const margin = 16;
+    // marginを40に拡大：タグ型インジケータが端で見切れないよう余白を確保
+    const margin = 40;
     const ksize = Math.min(aw - margin*2, ah - margin*2);
     const kox = (aw - ksize) / 2, koy = (ah - ksize) / 2;
 
@@ -1317,9 +1327,16 @@ function setAttachView(side) {
 
   function updateDot() {
     const rect = wrap.getBoundingClientRect();
-    const aw = rect.width || 200, ah = rect.height || 180;
-    const dx = aw * S.attX/100;
-    const dy = ah * S.attY/100;
+    const aw = rect.width || 200, ah = rect.height || 240;
+    // キーホルダー領域を再計算（redraw()と同じロジック）
+    // 重要: attX/attYはこの正方形領域内のパーセンテージとして解釈する
+    // こうすることで page3.html の表示と完全に一致する
+    const margin = 40;
+    const ksize = Math.min(aw - margin*2, ah - margin*2);
+    const kox = (aw - ksize) / 2, koy = (ah - ksize) / 2;
+    // キーホルダー領域内の%として穴の位置を算出
+    const dx = kox + ksize * S.attX/100;
+    const dy = koy + ksize * S.attY/100;
     // dotを穴の位置に配置し、角度に合わせて回転
     dot.style.left = dx + 'px';
     dot.style.top  = dy + 'px';
@@ -1339,15 +1356,26 @@ function setAttachView(side) {
   window.addEventListener('mousemove',e=>{
     if(!drag)return;
     const r=wrap.getBoundingClientRect();
-    S.attX=Math.min(100,Math.max(0,(e.clientX-r.left)/r.width*100));
-    S.attY=Math.min(100,Math.max(0,(e.clientY-r.top)/r.height*100));
+    // キーホルダー領域を計算（updateDot/redrawと同じロジック）
+    const aw=r.width, ah=r.height;
+    const margin=40;
+    const ksize=Math.min(aw-margin*2, ah-margin*2);
+    const kox=(aw-ksize)/2, koy=(ah-ksize)/2;
+    // マウス位置をキーホルダー領域内の%に変換（領域外でも0〜100にクランプ）
+    S.attX=Math.min(100,Math.max(0,(e.clientX-r.left-kox)/ksize*100));
+    S.attY=Math.min(100,Math.max(0,(e.clientY-r.top -koy)/ksize*100));
     updateDot(); rebuild3D();
   });
   window.addEventListener('touchmove',e=>{
     if(!drag)return;
     const t=e.touches[0],r=wrap.getBoundingClientRect();
-    S.attX=Math.min(100,Math.max(0,(t.clientX-r.left)/r.width*100));
-    S.attY=Math.min(100,Math.max(0,(t.clientY-r.top)/r.height*100));
+    // タッチ位置もキーホルダー領域基準に変換
+    const aw=r.width, ah=r.height;
+    const margin=40;
+    const ksize=Math.min(aw-margin*2, ah-margin*2);
+    const kox=(aw-ksize)/2, koy=(ah-ksize)/2;
+    S.attX=Math.min(100,Math.max(0,(t.clientX-r.left-kox)/ksize*100));
+    S.attY=Math.min(100,Math.max(0,(t.clientY-r.top -koy)/ksize*100));
     updateDot(); rebuild3D();
   },{passive:true});
   window.addEventListener('mouseup',()=>drag=false);
