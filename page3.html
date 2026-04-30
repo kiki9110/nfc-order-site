@@ -149,7 +149,8 @@ body{font-family:'Noto Sans JP',sans-serif;background:var(--paper);color:var(--i
 /* ATTACH MINI */
 .attach-mini{
   position:relative;
-  width:80px;height:80px;
+  /* 80→200に拡大：タグ型インジケータをはっきり見せて、極端な位置でも切れずに表示 */
+  width:200px;height:200px;
   background:#18181a;
   border-radius:8px;
   overflow:hidden;
@@ -280,6 +281,7 @@ body{font-family:'Noto Sans JP',sans-serif;background:var(--paper);color:var(--i
         <div class="qr-info-text">
           <div>X: <strong id="diAttX">—</strong>%　Y: <strong id="diAttY">—</strong>%</div>
           <div>角度: <strong id="diAttA">—</strong>°</div>
+          <div>サイズ: <strong id="diAttS">—</strong>mm</div>
         </div>
       </div>
     </div>
@@ -494,21 +496,23 @@ if (O.qr && O.qrSide) {
 document.getElementById('diAttX').textContent = Math.round(O.attX || 50);
 document.getElementById('diAttY').textContent = Math.round(O.attY || 10);
 document.getElementById('diAttA').textContent = O.attAngle || 0;
+document.getElementById('diAttS').textContent = O.attSize || 6;
 
 // 穴ミニマップ
 (function drawAttach(){
   const cv = document.getElementById('attachMiniCv');
-  // バッキングバッファを240×240に拡張（CSS表示は80×80のまま縮小される）
-  // page2の wrap と同じ比率にすることで、タグ型インジケータが端付近で見切れないよう確保
-  const aw = 240, ah = 240;
+  // バッキングバッファを360×360に拡張（CSS表示は200×200・約1.8:1の鮮明な縮小表示）
+  // 余白100pxはインジケータ最大半径42pxを超えるため、Y=-25%/125%の極端な位置でも
+  // タグ型インジケータが完全に canvas 内に収まり、見切れない
+  const aw = 360, ah = 360;
   cv.width = aw; cv.height = ah;
   cv.style.borderRadius = '10px';
   const ctx = cv.getContext('2d');
   ctx.fillStyle = '#18181a';
   ctx.fillRect(0,0,aw,ah);
 
-  // キーホルダー形状（page2 と同じ余白40px）
-  const m = 40, kw = aw-m*2, kh = ah-m*2;
+  // キーホルダー形状（margin=100で外側に十分な余裕を確保。ksize=160は前と同じサイズ感）
+  const m = 100, kw = aw-m*2, kh = ah-m*2;
   const ox = m, oy = m;
 
   // 画像があれば背景に表示
@@ -558,9 +562,12 @@ document.getElementById('diAttA').textContent = O.attAngle || 0;
     // 座標系：穴の中心を原点(0,0)とする。回転は穴中心が軸
     // タグ寸法：幅32（半径16）／可視高さ56 → 比率 1:1.75（リファレンス画像と一致）
     // 穴位置：原点。ドーム頂点は y=-14、ドーム底は y=+2、タグ底辺は y=+42
+    // attSize(mm) / 6mm(基準) でスケール。大きい金具 = 大きいシルエット
+    const scale = (O.attSize || 6) / 6;
     ctx.save();
     ctx.translate(dx, dy);
     ctx.rotate(ang);
+    ctx.scale(scale, scale); // 穴の中心を軸にサイズ変更
     ctx.lineJoin = 'round';
 
     // タグのパスを定義する関数（halo描画と本体描画で2回使う）
