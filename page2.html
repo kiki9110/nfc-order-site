@@ -455,7 +455,18 @@ body{font-family:'Noto Sans JP',sans-serif;background:var(--paper);color:var(--i
         <button onclick="stepAngle(1)">＋</button>
       </div>
     </div>
-    <div class="attach-info">X:<span id="attX">50</span>% Y:<span id="attY">10</span>% 角度:<span id="attA">0</span>°</div>
+    <!-- 金具サイズ：mm単位で3〜12mm。6mmが標準サイズ -->
+    <div class="attach-ctrl">
+      <label>サイズ</label>
+      <input type="range" id="attachSize" min="3" max="12" step="0.5" value="6" oninput="onAttachSize()">
+      <div class="num-step">
+        <button onclick="stepSize(-0.5)">−</button>
+        <input type="number" id="attachSizeN" min="3" max="12" step="0.5" value="6" oninput="onAttachSizeN()">
+        <span class="unit">mm</span>
+        <button onclick="stepSize(0.5)">＋</button>
+      </div>
+    </div>
+    <div class="attach-info">X:<span id="attX">50</span>% Y:<span id="attY">10</span>% 角度:<span id="attA">0</span>° サイズ:<span id="attS">6</span>mm</div>
   </div>
 </div>
 
@@ -557,7 +568,7 @@ const S = {
   qrFront: { x: 50, y: 50, cm: 2 },
   qrBack:  { x: 50, y: 50, cm: 2 },
   sizeCm: 7, thickCm: 2,
-  attX: 50, attY: 10, attAngle: 0,
+  attX: 50, attY: 10, attAngle: 0, attSize: 6, // 穴の位置・角度・サイズ(mm)
   attachView: 'front', // 穴エディタの表示面
 };
 let cropTarget = 'front';
@@ -1337,13 +1348,16 @@ function setAttachView(side) {
     // キーホルダー領域内の%として穴の位置を算出
     const dx = kox + ksize * S.attX/100;
     const dy = koy + ksize * S.attY/100;
-    // dotを穴の位置に配置し、角度に合わせて回転
+    // dotを穴の位置に配置し、角度・サイズに合わせてtransform
+    // scale(s)：6mmを基準(s=1.0)として穴の中心を軸にサイズを拡縮する
+    const scale = (S.attSize || 6) / 6;
     dot.style.left = dx + 'px';
     dot.style.top  = dy + 'px';
-    dot.style.transform = `translate(-50%,-50%) rotate(${S.attAngle}deg)`;
+    dot.style.transform = `translate(-50%,-50%) rotate(${S.attAngle}deg) scale(${scale})`;
     document.getElementById('attX').textContent = Math.round(S.attX);
     document.getElementById('attY').textContent = Math.round(S.attY);
     document.getElementById('attA').textContent = S.attAngle;
+    document.getElementById('attS').textContent = S.attSize;
     document.getElementById('ss7').textContent  = 'X:'+Math.round(S.attX)+'% Y:'+Math.round(S.attY)+'%';
     done(7); updateProg();
   }
@@ -1403,6 +1417,33 @@ function stepAngle(d) {
   document.getElementById('attachAngle').value=S.attAngle;
   document.getElementById('attachAngleN').value=S.attAngle;
   if(window._redrawAttach)window._redrawAttach();
+  rebuild3D();
+}
+
+// 金具サイズ（mm）のハンドラ群（角度ハンドラと同じ構造）
+// ※ updateDot() は IIFE 内のローカル関数なのでグローバルから直接呼べない
+//   角度ハンドラと同じく window._redrawAttach() 経由で呼ぶ（中で updateDot も走る）
+function onAttachSize() {
+  S.attSize = parseFloat(document.getElementById('attachSize').value);
+  document.getElementById('attachSizeN').value = S.attSize;
+  if(window._redrawAttach) window._redrawAttach();
+  rebuild3D();
+}
+function onAttachSizeN() {
+  const v = Math.min(12, Math.max(3, parseFloat(document.getElementById('attachSizeN').value) || 6));
+  S.attSize = v;
+  document.getElementById('attachSize').value = v;
+  document.getElementById('attachSizeN').value = v;
+  if(window._redrawAttach) window._redrawAttach();
+  rebuild3D();
+}
+function stepSize(d) {
+  // 0.5mm刻みで増減、3〜12mmの範囲にクランプ
+  const v = Math.round(Math.min(12, Math.max(3, (S.attSize || 6) + d)) * 2) / 2;
+  S.attSize = v;
+  document.getElementById('attachSize').value = v;
+  document.getElementById('attachSizeN').value = v;
+  if(window._redrawAttach) window._redrawAttach();
   rebuild3D();
 }
 
@@ -1649,6 +1690,7 @@ function doSubmit() {
     attX:       S.attX,
     attY:       S.attY,
     attAngle:   S.attAngle,
+    attSize:    S.attSize,   // 金具サイズ(mm)
     submittedAt: new Date().toLocaleString('ja-JP'),
   };
 
