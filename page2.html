@@ -118,14 +118,10 @@ body{font-family:'Noto Sans JP',sans-serif;background:var(--paper);color:var(--i
 .slider-row input[type=range]{flex:1;accent-color:var(--accent);}
 
 /* ATTACH */
-.attach-wrap{position:relative;width:100%;height:240px;background:#18181a;border-radius:12px;overflow:hidden;margin:10px 0 8px;}
+.attach-wrap{position:relative;width:100%;height:180px;background:#18181a;border-radius:12px;overflow:hidden;margin:10px 0 8px;}
 .attach-wrap canvas{position:absolute;inset:0;width:100%;height:100%;pointer-events:none;}
-/* 穴インジケータ：タグ型シルエットのフラットイラスト（drop-shadowなし） */
-/* width 32 / height 84 でSVG中心(=穴の中心)が要素の中央になる設計 */
-.attach-dot{position:absolute;width:32px;height:84px;cursor:grab;z-index:5;transform:translate(-50%,-50%);transition:transform .1s;pointer-events:auto;}
+.attach-dot{position:absolute;width:36px;height:52px;cursor:grab;z-index:5;transform:translate(-50%,-50%);filter:drop-shadow(0 2px 4px rgba(0,0,0,.6));transition:transform .1s;}
 .attach-dot:active{cursor:grabbing;}
-/* SVGの白halo部分が要素境界を少しはみ出すため、overflow:visibleで切らさない */
-.attach-dot svg{overflow:visible;display:block;}
 .attach-ctrl{display:flex;align-items:center;gap:8px;margin-top:2px;}
 .attach-ctrl label{font-size:11px;color:var(--muted);width:36px;flex-shrink:0;}
 .attach-ctrl input[type=range]{flex:1;accent-color:var(--accent);}
@@ -213,11 +209,11 @@ body{font-family:'Noto Sans JP',sans-serif;background:var(--paper);color:var(--i
     <div class="shape-row">
       <button class="shape-btn" id="sh-circle" onclick="pickShape('circle')">
         <div class="sh-icon"><div class="sh-circle"></div></div>
-        <div class="shape-name">丸型</div><div class="shape-sub">φ 50mm</div>
+        <div class="shape-name">丸型</div><div class="shape-sub">最大φ120mm</div>
       </button>
       <button class="shape-btn" id="sh-square" onclick="pickShape('square')">
         <div class="sh-icon"><div class="sh-square"></div></div>
-        <div class="shape-name">四角形</div><div class="shape-sub">50×50mm</div>
+        <div class="shape-name">四角形</div><div class="shape-sub">最大120×120mm</div>
       </button>
       <button class="shape-btn" id="sh-diecut" onclick="pickShape('diecut')">
         <div class="sh-icon">
@@ -402,10 +398,10 @@ body{font-family:'Noto Sans JP',sans-serif;background:var(--paper);color:var(--i
     <div class="slider-group">
       <label>長辺（最長部分）</label>
       <div class="slider-row">
-        <input type="range" id="szSlider" min="5" max="15" step="0.5" value="7" oninput="onSzSlider()">
+        <input type="range" id="szSlider" min="5" max="12" step="0.5" value="7" oninput="onSzSlider()"><!-- 最大12cm（長辺制限） -->
         <div class="num-step">
           <button onclick="stepSz(-0.5)">−</button>
-          <input type="number" id="szN" min="5" max="15" step="0.5" value="7" oninput="onSzInput()">
+          <input type="number" id="szN" min="5" max="12" step="0.5" value="7" oninput="onSzInput()"><!-- 最大12cm -->
           <span class="unit">cm</span>
           <button onclick="stepSz(0.5)">＋</button>
         </div>
@@ -423,7 +419,7 @@ body{font-family:'Noto Sans JP',sans-serif;background:var(--paper);color:var(--i
         </div>
       </div>
     </div>
-    <div style="font-size:11px;color:var(--muted);margin-top:4px;line-height:1.6;">※ 長辺でのサイズ指定。3Dプレビューに反映されます。</div>
+    <div id="szNote" style="font-size:11px;color:var(--muted);margin-top:4px;line-height:1.6;">※ 長辺でのサイズ指定（最大12cm）。3Dプレビューに反映されます。</div>
   </div>
 </div>
 
@@ -455,18 +451,7 @@ body{font-family:'Noto Sans JP',sans-serif;background:var(--paper);color:var(--i
         <button onclick="stepAngle(1)">＋</button>
       </div>
     </div>
-    <!-- 金具サイズ：mm単位で3〜12mm。6mmが標準サイズ -->
-    <div class="attach-ctrl">
-      <label>サイズ</label>
-      <input type="range" id="attachSize" min="3" max="12" step="0.5" value="6" oninput="onAttachSize()">
-      <div class="num-step">
-        <button onclick="stepSize(-0.5)">−</button>
-        <input type="number" id="attachSizeN" min="3" max="12" step="0.5" value="6" oninput="onAttachSizeN()">
-        <span class="unit">mm</span>
-        <button onclick="stepSize(0.5)">＋</button>
-      </div>
-    </div>
-    <div class="attach-info">X:<span id="attX">50</span>% Y:<span id="attY">10</span>% 角度:<span id="attA">0</span>° サイズ:<span id="attS">6</span>mm</div>
+    <div class="attach-info">X:<span id="attX">50</span>% Y:<span id="attY">10</span>% 角度:<span id="attA">0</span>°</div>
   </div>
 </div>
 
@@ -568,7 +553,7 @@ const S = {
   qrFront: { x: 50, y: 50, cm: 2 },
   qrBack:  { x: 50, y: 50, cm: 2 },
   sizeCm: 7, thickCm: 2,
-  attX: 50, attY: 10, attAngle: 0, attSize: 6, // 穴の位置・角度・サイズ(mm)
+  attX: 50, attY: 10, attAngle: 0,
   attachView: 'front', // 穴エディタの表示面
 };
 let cropTarget = 'front';
@@ -635,6 +620,14 @@ function pickShape(sh) {
   document.getElementById('upBadge').style.display = isCircle ? 'block' : 'none';
   document.getElementById('upBadgeBack').style.display = isCircle ? 'block' : 'none';
   done(2);
+  // 形状ごとにサイズ上限を切り替え（ダイアカット15cm、その他12cm）
+  const max = sh === 'diecut' ? 15 : 12;
+  document.getElementById('szSlider').max = max;
+  document.getElementById('szN').max = max;
+  document.getElementById('szNote').textContent =
+    `※ 長辺でのサイズ指定（最大${max}cm）。3Dプレビューに反映されます。`;
+  // 現在値が新しい上限を超えていたら丸め込む
+  setSz(S.sizeCm || 7);
   // セクションを閉じる（選択済みを示す）
   document.getElementById('sb2').classList.add('hidden');
   updateLock(); updateProg(); rebuild3D();
@@ -1217,7 +1210,9 @@ function resyncQR(side) {
 // ═══════════════════════════════
 // SIZE
 // ═══════════════════════════════
-function clampSz(v) { return Math.min(15,Math.max(5,Math.round(v*10)/10)); }
+// 長辺上限：ダイアカット=15cm、丸型・四角形=12cm
+function szMax() { return S.shape === 'diecut' ? 15 : 12; }
+function clampSz(v) { return Math.min(szMax(), Math.max(5, Math.round(v*10)/10)); }
 function clampTh(v) { return Math.min(4, Math.max(1, Math.round(v*10)/10)); }
 function setSz(v) {
   v = clampSz(v);
@@ -1268,26 +1263,21 @@ function setAttachView(side) {
   const dot  = document.getElementById('attachDot');
   const cv   = document.getElementById('attachCv');
 
-  // 穴インジケータ：タグ型シルエット（リファレンス画像と同じ縦長比率）
-  // viewBox 32×84 のうち、可視のシェイプは Y=28〜84（高さ56）。比率 32:56 = 1:1.75
-  // 穴は (16, 42) ＝SVG中央＝ドット中心 になるよう設計
-  // 上半分のY=0〜28は意図的に空白：これにより穴位置（タグの上部）を要素中央に配置できる
-  // → CSSの transform:translate(-50%,-50%) でドット中心が穴中心になり、回転軸も穴中心
-  dot.innerHTML = `<svg width="32" height="84" viewBox="0 0 32 84" xmlns="http://www.w3.org/2000/svg">
-    <!-- 白いハロー（背景に埋もれないための縁取り） -->
-    <path d="M 0 44 A 16 16 0 0 1 32 44 V 84 H 0 Z"
-          fill="none" stroke="#fff" stroke-width="4" stroke-linejoin="round"/>
-    <!-- タグ本体（白塗り＋黒い細縁） -->
-    <path d="M 0 44 A 16 16 0 0 1 32 44 V 84 H 0 Z"
-          fill="#fff" stroke="#111" stroke-width="1.5" stroke-linejoin="round"/>
-    <!-- 穴（ドーム底部付近、SVG中央に配置） -->
-    <circle cx="16" cy="42" r="6" fill="#111"/>
+  // 金具SVGをSTL形状に合わせたシルエットに設定
+  dot.innerHTML = `<svg width="28" height="44" viewBox="0 0 28 44" fill="none" xmlns="http://www.w3.org/2000/svg">
+    <!-- 穴の輪（上部） -->
+    <circle cx="14" cy="10" r="8" fill="none" stroke="#d0d0d0" stroke-width="4.5"/>
+    <circle cx="14" cy="10" r="4.5" fill="#111"/>
+    <!-- 本体（下部・角丸長方形） -->
+    <rect x="3" y="16" width="22" height="26" rx="4" fill="#c8c8c8" stroke="#aaa" stroke-width="1"/>
+    <!-- ハイライト -->
+    <rect x="6" y="19" width="16" height="2" rx="1" fill="rgba(255,255,255,0.4)"/>
   </svg>`;
 
   function redraw() {
     const rect = wrap.getBoundingClientRect();
     const aw = rect.width  || wrap.clientWidth  || 200;
-    const ah = rect.height || wrap.clientHeight || 240;
+    const ah = rect.height || wrap.clientHeight || 180;
     if (aw === 0) { setTimeout(redraw, 50); return; }
     cv.width = aw; cv.height = ah;
     const ctx = cv.getContext('2d');
@@ -1295,8 +1285,7 @@ function setAttachView(side) {
 
     // 背景：選択中の面の画像を表示
     const imgSrc = S.attachView === 'back' ? S.imgBack : S.imgFront;
-    // marginを40に拡大：タグ型インジケータが端で見切れないよう余白を確保
-    const margin = 40;
+    const margin = 16;
     const ksize = Math.min(aw - margin*2, ah - margin*2);
     const kox = (aw - ksize) / 2, koy = (ah - ksize) / 2;
 
@@ -1338,26 +1327,16 @@ function setAttachView(side) {
 
   function updateDot() {
     const rect = wrap.getBoundingClientRect();
-    const aw = rect.width || 200, ah = rect.height || 240;
-    // キーホルダー領域を再計算（redraw()と同じロジック）
-    // 重要: attX/attYはこの正方形領域内のパーセンテージとして解釈する
-    // こうすることで page3.html の表示と完全に一致する
-    const margin = 40;
-    const ksize = Math.min(aw - margin*2, ah - margin*2);
-    const kox = (aw - ksize) / 2, koy = (ah - ksize) / 2;
-    // キーホルダー領域内の%として穴の位置を算出
-    const dx = kox + ksize * S.attX/100;
-    const dy = koy + ksize * S.attY/100;
-    // dotを穴の位置に配置し、角度・サイズに合わせてtransform
-    // scale(s)：6mmを基準(s=1.0)として穴の中心を軸にサイズを拡縮する
-    const scale = (S.attSize || 6) / 6;
+    const aw = rect.width || 200, ah = rect.height || 180;
+    const dx = aw * S.attX/100;
+    const dy = ah * S.attY/100;
+    // dotを穴の位置に配置し、角度に合わせて回転
     dot.style.left = dx + 'px';
     dot.style.top  = dy + 'px';
-    dot.style.transform = `translate(-50%,-50%) rotate(${S.attAngle}deg) scale(${scale})`;
+    dot.style.transform = `translate(-50%,-50%) rotate(${S.attAngle}deg)`;
     document.getElementById('attX').textContent = Math.round(S.attX);
     document.getElementById('attY').textContent = Math.round(S.attY);
     document.getElementById('attA').textContent = S.attAngle;
-    document.getElementById('attS').textContent = S.attSize;
     document.getElementById('ss7').textContent  = 'X:'+Math.round(S.attX)+'% Y:'+Math.round(S.attY)+'%';
     done(7); updateProg();
   }
@@ -1370,28 +1349,15 @@ function setAttachView(side) {
   window.addEventListener('mousemove',e=>{
     if(!drag)return;
     const r=wrap.getBoundingClientRect();
-    // キーホルダー領域を計算（updateDot/redrawと同じロジック）
-    const aw=r.width, ah=r.height;
-    const margin=40;
-    const ksize=Math.min(aw-margin*2, ah-margin*2);
-    const kox=(aw-ksize)/2, koy=(ah-ksize)/2;
-    // マウス位置をキーホルダー領域内の%に変換
-    // -25〜125 にクランプ：金具がキーホルダーの外（端や少し外側）にも置けるように
-    // この範囲は margin=40, ksize=160 のとき wrap 端いっぱいまでドラッグできる最大値
-    S.attX=Math.min(125,Math.max(-25,(e.clientX-r.left-kox)/ksize*100));
-    S.attY=Math.min(125,Math.max(-25,(e.clientY-r.top -koy)/ksize*100));
+    S.attX=Math.min(100,Math.max(0,(e.clientX-r.left)/r.width*100));
+    S.attY=Math.min(100,Math.max(0,(e.clientY-r.top)/r.height*100));
     updateDot(); rebuild3D();
   });
   window.addEventListener('touchmove',e=>{
     if(!drag)return;
     const t=e.touches[0],r=wrap.getBoundingClientRect();
-    // タッチ位置もキーホルダー領域基準に変換
-    const aw=r.width, ah=r.height;
-    const margin=40;
-    const ksize=Math.min(aw-margin*2, ah-margin*2);
-    const kox=(aw-ksize)/2, koy=(ah-ksize)/2;
-    S.attX=Math.min(125,Math.max(-25,(t.clientX-r.left-kox)/ksize*100));
-    S.attY=Math.min(125,Math.max(-25,(t.clientY-r.top -koy)/ksize*100));
+    S.attX=Math.min(100,Math.max(0,(t.clientX-r.left)/r.width*100));
+    S.attY=Math.min(100,Math.max(0,(t.clientY-r.top)/r.height*100));
     updateDot(); rebuild3D();
   },{passive:true});
   window.addEventListener('mouseup',()=>drag=false);
@@ -1417,33 +1383,6 @@ function stepAngle(d) {
   document.getElementById('attachAngle').value=S.attAngle;
   document.getElementById('attachAngleN').value=S.attAngle;
   if(window._redrawAttach)window._redrawAttach();
-  rebuild3D();
-}
-
-// 金具サイズ（mm）のハンドラ群（角度ハンドラと同じ構造）
-// ※ updateDot() は IIFE 内のローカル関数なのでグローバルから直接呼べない
-//   角度ハンドラと同じく window._redrawAttach() 経由で呼ぶ（中で updateDot も走る）
-function onAttachSize() {
-  S.attSize = parseFloat(document.getElementById('attachSize').value);
-  document.getElementById('attachSizeN').value = S.attSize;
-  if(window._redrawAttach) window._redrawAttach();
-  rebuild3D();
-}
-function onAttachSizeN() {
-  const v = Math.min(12, Math.max(3, parseFloat(document.getElementById('attachSizeN').value) || 6));
-  S.attSize = v;
-  document.getElementById('attachSize').value = v;
-  document.getElementById('attachSizeN').value = v;
-  if(window._redrawAttach) window._redrawAttach();
-  rebuild3D();
-}
-function stepSize(d) {
-  // 0.5mm刻みで増減、3〜12mmの範囲にクランプ
-  const v = Math.round(Math.min(12, Math.max(3, (S.attSize || 6) + d)) * 2) / 2;
-  S.attSize = v;
-  document.getElementById('attachSize').value = v;
-  document.getElementById('attachSizeN').value = v;
-  if(window._redrawAttach) window._redrawAttach();
   rebuild3D();
 }
 
@@ -1690,7 +1629,6 @@ function doSubmit() {
     attX:       S.attX,
     attY:       S.attY,
     attAngle:   S.attAngle,
-    attSize:    S.attSize,   // 金具サイズ(mm)
     submittedAt: new Date().toLocaleString('ja-JP'),
   };
 
