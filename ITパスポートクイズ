@@ -1,0 +1,422 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>ITパスポート 語源クイズ</title>
+<style>
+*{box-sizing:border-box;margin:0;padding:0}
+body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;background:#f5f5f0;padding:1rem;min-height:100vh}
+#app{max-width:680px;margin:0 auto;padding:1rem 0}
+.header{display:flex;justify-content:space-between;align-items:center;margin-bottom:1rem}
+.title{font-size:18px;font-weight:600;color:#111}
+.score-badge{font-size:13px;color:#666;background:#e8e8e4;padding:4px 12px;border-radius:20px}
+.mode-select{display:flex;gap:8px;margin-bottom:1rem}
+.mode-btn{flex:1;padding:9px;font-size:13px;border:1px solid #ccc;border-radius:8px;background:#fff;color:#666;cursor:pointer;transition:all 0.15s}
+.mode-btn.active{border-color:#0F6E56;color:#0F6E56;background:#E1F5EE;font-weight:500}
+.progress-bar-wrap{height:4px;background:#ddd;border-radius:2px;margin-bottom:1.25rem}
+.progress-bar{height:4px;background:#1D9E75;border-radius:2px;transition:width 0.4s ease}
+.question-card{background:#fff;border:1px solid #e0e0d8;border-radius:12px;padding:1.25rem 1.5rem;margin-bottom:0.75rem}
+.q-num{font-size:12px;color:#aaa;margin-bottom:6px}
+.q-text{font-size:15px;line-height:1.75;color:#222}
+.options{display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:0.75rem}
+.opt-btn{background:#fff;border:1px solid #ccc;border-radius:8px;padding:10px 14px;font-size:14px;font-weight:500;color:#222;cursor:pointer;transition:all 0.15s;text-align:center;line-height:1.5}
+.opt-btn:hover:not(:disabled){background:#f5f5f0}
+.opt-btn.correct{background:#E1F5EE;border-color:#0F6E56;color:#085041}
+.opt-btn.wrong{background:#FCEBEB;border-color:#A32D2D;color:#791F1F}
+.opt-btn.reveal{background:#E1F5EE;border-color:#0F6E56;color:#085041}
+.opt-btn:disabled{cursor:default}
+.exp-card{background:#fff;border:1px solid #e0e0d8;border-radius:12px;padding:1.25rem 1.5rem;margin-bottom:0.75rem;display:none}
+.result-label{font-size:13px;font-weight:600;margin-bottom:1rem;padding-bottom:0.75rem;border-bottom:1px solid #eee}
+.result-label.ok{color:#085041}
+.result-label.ng{color:#791F1F}
+.abbr-full{font-size:13px;color:#666;margin-bottom:0.75rem}
+.abbr-full strong{color:#222}
+.letter-grid{display:flex;flex-direction:column;gap:8px;margin-bottom:1rem}
+.letter-row{display:flex;align-items:center;gap:0}
+.letter-char{font-size:22px;font-weight:600;color:#1D9E75;min-width:50px;line-height:1}
+.divider{width:1px;height:16px;background:#ddd;margin:0 10px}
+.letter-en{font-size:13px;color:#888;min-width:160px}
+.letter-ja{font-size:14px;color:#222;font-weight:500}
+.memo-box{background:#f5f5f0;border-radius:8px;padding:10px 14px;font-size:13px;line-height:1.7;color:#555;border-left:3px solid #1D9E75}
+.next-btn{width:100%;padding:12px;background:#fff;border:1px solid #ccc;border-radius:8px;font-size:14px;color:#222;cursor:pointer;display:none;margin-top:4px}
+.next-btn:hover{background:#f5f5f0}
+.result-card{background:#fff;border:1px solid #e0e0d8;border-radius:12px;padding:2rem;text-align:center}
+.result-score{font-size:52px;font-weight:600;color:#1D9E75;margin-bottom:8px}
+.result-msg{font-size:15px;color:#666;margin-bottom:1.5rem}
+.restart-btn{padding:10px 24px;background:#fff;border:1px solid #ccc;border-radius:8px;font-size:14px;cursor:pointer}
+.restart-btn:hover{background:#f5f5f0}
+</style>
+</head>
+<body>
+<div id="app">
+<div class="header">
+  <span class="title">ITパスポート 語源クイズ</span>
+  <span class="score-badge" id="score-display">正解: 0 / 0</span>
+</div>
+<div class="mode-select">
+  <button class="mode-btn active" onclick="setMode('def-to-abbr',this)">説明 → 略語</button>
+  <button class="mode-btn" onclick="setMode('abbr-to-def',this)">略語 → 説明</button>
+</div>
+<div class="progress-bar-wrap"><div class="progress-bar" id="progress" style="width:0%"></div></div>
+<div id="quiz-area"></div>
+</div>
+
+<script>
+const TERMS = [
+  {abbr:"CEO",full:"Chief Executive Officer",
+   letters:[{c:"C",en:"Chief",ja:"最高"},{c:"E",en:"Executive",ja:"経営（執行）"},{c:"O",en:"Officer",ja:"責任者"}],
+   def:"最高経営責任者。会社の経営方針全体に責任を負う役職",
+   memo:"C=最高、E=経営、O=責任者　→　最高「経営」責任者"},
+  {abbr:"CFO",full:"Chief Financial Officer",
+   letters:[{c:"C",en:"Chief",ja:"最高"},{c:"F",en:"Financial",ja:"財務"},{c:"O",en:"Officer",ja:"責任者"}],
+   def:"企業の財務部門を統括し、財務戦略の立案と実施に責任を負う役職",
+   memo:"C=最高、F=財務、O=責任者　→　最高「財務」責任者"},
+  {abbr:"CTO",full:"Chief Technology Officer",
+   letters:[{c:"C",en:"Chief",ja:"最高"},{c:"T",en:"Technology",ja:"技術"},{c:"O",en:"Officer",ja:"責任者"}],
+   def:"企業の技術部門を統括し、技術研究の立案と実施の責任を負う役職",
+   memo:"C=最高、T=技術、O=責任者　→　最高「技術」責任者"},
+  {abbr:"CIO",full:"Chief Information Officer",
+   letters:[{c:"C",en:"Chief",ja:"最高"},{c:"I",en:"Information",ja:"情報"},{c:"O",en:"Officer",ja:"責任者"}],
+   def:"IT化の方向性を考え情報戦略を立案し、IT投資計画策定に最終的な責任を持つ役職",
+   memo:"C=最高、I=情報、O=責任者　→　最高「情報」責任者"},
+  {abbr:"COO",full:"Chief Operating Officer",
+   letters:[{c:"C",en:"Chief",ja:"最高"},{c:"O",en:"Operating",ja:"執行"},{c:"O",en:"Officer",ja:"責任者"}],
+   def:"最高執行責任者。会社の実務に対して責任を負う役職",
+   memo:"C=最高、O=執行、O=責任者　→　最高「執行」責任者"},
+  {abbr:"KPI",full:"Key Performance Indicator",
+   letters:[{c:"K",en:"Key",ja:"重要な・鍵となる"},{c:"P",en:"Performance",ja:"業績評価"},{c:"I",en:"Indicator",ja:"指標"}],
+   def:"目標達成のために行う活動の実施状況をモニタリングするための指標。重要業績評価指標",
+   memo:"K=重要、P=業績、I=指標　→　先生の解説通り！「重要な業績評価指標」"},
+  {abbr:"KGI",full:"Key Goal Indicator",
+   letters:[{c:"K",en:"Key",ja:"重要な・鍵となる"},{c:"G",en:"Goal",ja:"目標"},{c:"I",en:"Indicator",ja:"指標"}],
+   def:"達成すべき到達目標を定量的・測定可能な数値で表したもの。重要目標達成指標",
+   memo:"KPIとの違い：G=Goal（目標そのもの）。KGIが最終ゴール、KPIは途中指標"},
+  {abbr:"CSF",full:"Critical Success Factors",
+   letters:[{c:"C",en:"Critical",ja:"重要な・致命的な"},{c:"S",en:"Success",ja:"成功"},{c:"F",en:"Factors",ja:"要因"}],
+   def:"経営目標を達成するために重要な影響を及ぼす成功因子",
+   memo:"C=重要、S=成功、F=要因　→　「重要成功要因」"},
+  {abbr:"ROI",full:"Return On Investment",
+   letters:[{c:"R",en:"Return",ja:"利益・リターン"},{c:"O",en:"On",ja:"〜に対する"},{c:"I",en:"Investment",ja:"投資"}],
+   def:"投資利益率。利益÷投資資本×100",
+   memo:"R=リターン、O=on、I=投資　→　「投資に対するリターン」"},
+  {abbr:"ROA",full:"Return On Assets",
+   letters:[{c:"R",en:"Return",ja:"利益・リターン"},{c:"O",en:"On",ja:"〜に対する"},{c:"A",en:"Assets",ja:"総資産"}],
+   def:"総資産利益率。当期純利益÷総資産×100",
+   memo:"R=リターン、A=資産（アセット）　→　「資産に対するリターン」"},
+  {abbr:"ROE",full:"Return On Equity",
+   letters:[{c:"R",en:"Return",ja:"利益・リターン"},{c:"O",en:"On",ja:"〜に対する"},{c:"E",en:"Equity",ja:"自己資本"}],
+   def:"自己資本利益率。純利益÷自己資本（純資産）",
+   memo:"R=リターン、E=エクイティ（自己資本）　→　「自己資本に対するリターン」"},
+  {abbr:"RFP",full:"Request For Proposal",
+   letters:[{c:"R",en:"Request",ja:"要求・依頼"},{c:"F",en:"For",ja:"〜のための"},{c:"P",en:"Proposal",ja:"提案書"}],
+   def:"ベンダー企業にシステムの導入目的や機能概要などを示し、提案書の提出を求めるもの",
+   memo:"R=リクエスト、P=プロポーザル（提案）　→　「提案を求める」"},
+  {abbr:"RFI",full:"Request For Information",
+   letters:[{c:"R",en:"Request",ja:"要求・依頼"},{c:"F",en:"For",ja:"〜のための"},{c:"I",en:"Information",ja:"情報"}],
+   def:"ベンダー企業から情報収集を行い、システムの技術的な課題や実現性を把握するもの",
+   memo:"RFPの前段階。I=情報収集　→　まず情報集め（RFI）、次に提案依頼（RFP）"},
+  {abbr:"RPA",full:"Robotic Process Automation",
+   letters:[{c:"R",en:"Robotic",ja:"ロボット的な"},{c:"P",en:"Process",ja:"プロセス"},{c:"A",en:"Automation",ja:"自動化"}],
+   def:"人間が手作業で行っていた定型的なPC作業をソフトウェアロボットにより自動化する仕組み",
+   memo:"R=ロボット、A=オートメーション（自動化）　→　ロボットがPCを自動操作"},
+  {abbr:"BPR",full:"Business Process Reengineering",
+   letters:[{c:"B",en:"Business",ja:"ビジネス"},{c:"P",en:"Process",ja:"プロセス"},{c:"R",en:"Reengineering",ja:"再設計"}],
+   def:"既存の組織やビジネスルールを抜本的に見直し、業務フロー・情報システムを再設計する手法",
+   memo:"R=リエンジニアリング（根本的な再設計）　→　「抜本的」がキーワード"},
+  {abbr:"BPO",full:"Business Process Outsourcing",
+   letters:[{c:"B",en:"Business",ja:"ビジネス"},{c:"P",en:"Process",ja:"プロセス"},{c:"O",en:"Outsourcing",ja:"外部委託"}],
+   def:"自社のコアビジネス以外の業務の全部または一部を外部の業者に委託すること",
+   memo:"O=アウトソーシング（外部委託）　→　業務を外に出す"},
+  {abbr:"BPMN",full:"Business Process Model and Notation",
+   letters:[{c:"B",en:"Business",ja:"ビジネス"},{c:"P",en:"Process",ja:"プロセス"},{c:"M",en:"Model",ja:"モデル"},{c:"N",en:"Notation",ja:"表記法"}],
+   def:"11個の基本要素を用いてビジネスプロセスをワークフローとして視覚的に表現するための手法",
+   memo:"N=ノーテーション（表記法）　→　業務の流れを図で表す"},
+  {abbr:"MRP",full:"Material Requirements Planning",
+   letters:[{c:"M",en:"Material",ja:"資材"},{c:"R",en:"Requirements",ja:"所要量"},{c:"P",en:"Planning",ja:"計画"}],
+   def:"部品表と生産計画をもとに必要な資材の所要量を求め、在庫・発注・納入管理を支援するシステム",
+   memo:"M=マテリアル（資材）　→　「資材所要量計画」とそのまま訳せる"},
+  {abbr:"MOT",full:"Management of Technology",
+   letters:[{c:"M",en:"Management",ja:"経営・管理"},{c:"O",en:"of",ja:"〜の"},{c:"T",en:"Technology",ja:"技術"}],
+   def:"技術開発の成果によって事業利益を獲得することを目的とした経営手法。技術経営ともいわれる",
+   memo:"M=マネジメント、T=テクノロジー　→　「技術経営」"},
+  {abbr:"FAQ",full:"Frequently Asked Questions",
+   letters:[{c:"F",en:"Frequently",ja:"頻繁に"},{c:"A",en:"Asked",ja:"質問される"},{c:"Q",en:"Questions",ja:"質問"}],
+   def:"何回も繰り返し質問される項目とその質問への回答をまとめたコンテンツ",
+   memo:"F=フリークエントリー（頻繁）　→　「よくある質問」"},
+  {abbr:"SLA",full:"Service Level Agreement",
+   letters:[{c:"S",en:"Service",ja:"サービス"},{c:"L",en:"Level",ja:"レベル"},{c:"A",en:"Agreement",ja:"合意・契約"}],
+   def:"提供者と顧客の間でサービスの品質に関して結ぶ契約。ペナルティ事項も盛り込まれる",
+   memo:"A=アグリーメント（合意）　→　サービス品質の「合意書」"},
+  {abbr:"SLM",full:"Service Level Management",
+   letters:[{c:"S",en:"Service",ja:"サービス"},{c:"L",en:"Level",ja:"レベル"},{c:"M",en:"Management",ja:"管理"}],
+   def:"顧客要件を満たすITサービスの提供を実現し、品質の継続的な改善に必要なプロセスを構築する管理活動",
+   memo:"SLAが「契約」、SLMが「管理活動」　→　SLAを守るための管理がSLM"},
+  {abbr:"ISMS",full:"Information Security Management System",
+   letters:[{c:"I",en:"Information",ja:"情報"},{c:"S",en:"Security",ja:"セキュリティ"},{c:"M",en:"Management",ja:"管理"},{c:"S",en:"System",ja:"システム"}],
+   def:"情報の機密性・完全性・可用性を適切に管理する体制を構築・運用・改善する情報セキュリティマネジメントシステム",
+   memo:"I=情報、S=セキュリティ、M=マネジメント　→　「情報セキュリティ管理システム」"},
+  {abbr:"IDS",full:"Intrusion Detection System",
+   letters:[{c:"I",en:"Intrusion",ja:"侵入"},{c:"D",en:"Detection",ja:"検知"},{c:"S",en:"System",ja:"システム"}],
+   def:"ネットワークに対する不正アクセスやその予兆を検知し、管理者に通知するシステム",
+   memo:"D=ディテクション（検知のみ）　→　IDSは「検知して通知」、IPSは「検知＋ブロック」"},
+  {abbr:"IPS",full:"Intrusion Prevention System",
+   letters:[{c:"I",en:"Intrusion",ja:"侵入"},{c:"P",en:"Prevention",ja:"防止・遮断"},{c:"S",en:"System",ja:"システム"}],
+   def:"不正・異常な通信を検知して管理者に通知するとともに、その通信をブロックするシステム",
+   memo:"P=プリベンション（防止）　→　IDSとの違い：IPSは「ブロックまでする」"},
+  {abbr:"ITIL",full:"IT Infrastructure Library",
+   letters:[{c:"IT",en:"Information Technology",ja:"情報技術"},{c:"I",en:"Infrastructure",ja:"インフラ"},{c:"L",en:"Library",ja:"ライブラリ（知識集）"}],
+   def:"ITサービスマネジメントのベストプラクティスを集めたフレームワーク",
+   memo:"L=ライブラリ（本の集まり）　→　ITサービス運用の「虎の巻」"},
+  {abbr:"RFID",full:"Radio Frequency IDentification",
+   letters:[{c:"R",en:"Radio",ja:"無線"},{c:"F",en:"Frequency",ja:"周波数"},{c:"ID",en:"IDentification",ja:"識別"}],
+   def:"ICチップと電磁界や電波を用いることで、数cmから数mの範囲で無線により情報のやり取りを行う技術",
+   memo:"R=ラジオ（電波）、ID=識別　→　電波で非接触識別。Suicaや社員証に使われる"},
+  {abbr:"PSK",full:"Pre-Shared Key",
+   letters:[{c:"P",en:"Pre",ja:"事前に"},{c:"S",en:"Shared",ja:"共有された"},{c:"K",en:"Key",ja:"鍵（パスフレーズ）"}],
+   def:"Wi-Fiアクセスポイントへの接続認証に使うパスフレーズ。PCごとに暗号化キーが生成される",
+   memo:"P=プレ（事前）、K=キー（鍵）　→　「事前に共有する鍵」＝Wi-Fiパスワード"},
+  {abbr:"SSID",full:"Service Set IDentifier",
+   letters:[{c:"SS",en:"Service Set",ja:"サービスセット（無線LANのグループ）"},{c:"ID",en:"IDentifier",ja:"識別子・名前"}],
+   def:"Wi-Fiにおけるアクセスポイントの識別名。最大32文字の英数字で任意に設定できる",
+   memo:"ID=識別子　→　Wi-Fiの「ネットワーク名」のこと"},
+  {abbr:"VoIP",full:"Voice over Internet Protocol",
+   letters:[{c:"V",en:"Voice",ja:"音声"},{c:"o",en:"over",ja:"〜経由"},{c:"I",en:"Internet",ja:"インターネット"},{c:"P",en:"Protocol",ja:"プロトコル"}],
+   def:"スマートフォンなどで、インターネットを介した音声通話を行うときに利用される技術",
+   memo:"V=ボイス（音声）、o=経由　→　「インターネット経由で音声通話」。LINEやZoomが使用"},
+  {abbr:"MVNO",full:"Mobile Virtual Network Operator",
+   letters:[{c:"M",en:"Mobile",ja:"モバイル"},{c:"V",en:"Virtual",ja:"仮想"},{c:"N",en:"Network",ja:"ネットワーク"},{c:"O",en:"Operator",ja:"事業者"}],
+   def:"自身では無線通信回線設備を保有せず、通信事業者の回線を間借りして移動通信サービスを提供する事業者",
+   memo:"V=バーチャル（仮想）　→　設備を持たない「仮想」通信事業者。格安SIMのこと"},
+  {abbr:"PKI",full:"Public Key Infrastructure",
+   letters:[{c:"P",en:"Public",ja:"公開"},{c:"K",en:"Key",ja:"鍵"},{c:"I",en:"Infrastructure",ja:"基盤"}],
+   def:"認証局（CA）によって公開鍵証明書の発行や失効を行い、鍵の正当性を保証する公開鍵基盤",
+   memo:"P=パブリック（公開）、K=キー（鍵）　→　「公開鍵の基盤インフラ」"},
+  {abbr:"PLC",full:"Power Line Communication",
+   letters:[{c:"P",en:"Power",ja:"電力"},{c:"L",en:"Line",ja:"線・回線"},{c:"C",en:"Communication",ja:"通信"}],
+   def:"電力線に高周波の通信用信号を乗せて伝送させることで、電力線を伝送路としても使用する技術",
+   memo:"P=パワー（電力）、L=ライン（線）　→　「電力線を通信にも使う」技術"},
+  {abbr:"BCP",full:"Business Continuity Plan",
+   letters:[{c:"B",en:"Business",ja:"ビジネス・事業"},{c:"C",en:"Continuity",ja:"継続"},{c:"P",en:"Plan",ja:"計画"}],
+   def:"予期せぬ重大災害が発生した場合に、必要最低限の事業を継続しつつ業務を早期に復旧・再開するための行動計画",
+   memo:"C=コンティニュイティ（継続）　→　「事業継続計画」。災害時の備え"},
+  {abbr:"NDA",full:"Non-Disclosure Agreement",
+   letters:[{c:"N",en:"Non",ja:"非・否定"},{c:"D",en:"Disclosure",ja:"開示・漏洩"},{c:"A",en:"Agreement",ja:"合意・契約"}],
+   def:"秘密保持契約（守秘義務契約）。情報の開示目的・範囲・管理方法・禁止事項などを明確にするために締結される契約",
+   memo:"N=ノン（非）、D=ディスクロージャー（開示）　→　「情報を開示しない契約」"},
+  {abbr:"IPO",full:"Initial Public Offering",
+   letters:[{c:"I",en:"Initial",ja:"最初の・新規"},{c:"P",en:"Public",ja:"公開"},{c:"O",en:"Offering",ja:"提供・売出"}],
+   def:"株式会社が事業に必要な資金の調達を目的として、自己の株式を株式市場に新規公開すること",
+   memo:"I=イニシャル（新規）、P=パブリック（公開）　→　株の「新規公開」＝上場"},
+  {abbr:"TOB",full:"Take-Over Bid",
+   letters:[{c:"T",en:"Take",ja:"取る"},{c:"O",en:"Over",ja:"〜を超えて（買収）"},{c:"B",en:"Bid",ja:"買付（入札）"}],
+   def:"公開株式買付。不特定多数の株式から株式市場外で株式等を買い集める制度",
+   memo:"B=ビッド（入札）　→　市場外で株を大量に買い集める「公開買付」"},
+  {abbr:"LBO",full:"Leveraged BuyOut",
+   letters:[{c:"L",en:"Leveraged",ja:"てこ（借入金）を使った"},{c:"B",en:"Buy",ja:"買収"},{c:"O",en:"Out",ja:"アウト（完全取得）"}],
+   def:"買収のための自己資金がない場合に、買収対象企業の資産または将来キャッシュフローを担保に資金を調達すること",
+   memo:"L=レバレッジ（借金でてこの力を使う）　→　お金を借りて企業を買収する手法"},
+  {abbr:"O2O",full:"Online to Offline",
+   letters:[{c:"O",en:"Online",ja:"オンライン（ネット）"},{c:"2",en:"to",ja:"〜へ"},{c:"O",en:"Offline",ja:"オフライン（実店舗）"}],
+   def:"インターネットで情報を知った顧客が、実店舗に足を運んでくれるように誘導する販売戦略",
+   memo:"2=to（ツー）　→　ネットで知って→店舗へ。クーポン配布などが代表例"},
+  {abbr:"M2M",full:"Machine to Machine",
+   letters:[{c:"M",en:"Machine",ja:"機械"},{c:"2",en:"to",ja:"〜へ"},{c:"M",en:"Machine",ja:"機械"}],
+   def:"機械同士が通信ネットワークを通じて情報をやりとりすることで、人間を介さずに自律的に管理・制御を行う仕組み",
+   memo:"2=to（ツー）　→　機械が機械と直接通話。IoTの前身"},
+  {abbr:"VC",full:"Venture Capital",
+   letters:[{c:"V",en:"Venture",ja:"ベンチャー（冒険的事業）"},{c:"C",en:"Capital",ja:"資本・資金"}],
+   def:"大きな成長の見込みがある未上場のスタートアップ・ベンチャー企業に出資する投資会社",
+   memo:"V=ベンチャー、C=キャピタル　→　リスクを取って新興企業に投資する会社"},
+  {abbr:"CVC",full:"Corporate Venture Capital",
+   letters:[{c:"C",en:"Corporate",ja:"事業会社（大企業）"},{c:"V",en:"Venture",ja:"ベンチャー"},{c:"C",en:"Capital",ja:"資本・投資"}],
+   def:"投資会社ではない事業会社がベンチャー企業やスタートアップ企業に出資すること",
+   memo:"VCとの違い：C=コーポレート（事業会社）　→　本業を持つ企業が行うVC活動"},
+  {abbr:"IVR",full:"Interactive Voice Response",
+   letters:[{c:"I",en:"Interactive",ja:"対話型"},{c:"V",en:"Voice",ja:"音声"},{c:"R",en:"Response",ja:"応答"}],
+   def:"電話自動音声応答システム。ガイダンスに従ってダイヤルするとFAQ担当オペレータに振り分けられる",
+   memo:"I=インタラクティブ（対話）　→　「1番を押してください」というあの自動音声"},
+  {abbr:"CTI",full:"Computer Telephony Integration",
+   letters:[{c:"C",en:"Computer",ja:"コンピュータ"},{c:"T",en:"Telephony",ja:"電話"},{c:"I",en:"Integration",ja:"統合"}],
+   def:"受信した電話番号から顧客情報・問合せ履歴を、データベースから呼び出してオペレータ画面に表示するシステム",
+   memo:"I=インテグレーション（統合）　→　電話とコンピュータを「つなぐ」システム"},
+  {abbr:"AML",full:"Anti-Money Laundering",
+   letters:[{c:"A",en:"Anti",ja:"対策・防止"},{c:"M",en:"Money",ja:"お金"},{c:"L",en:"Laundering",ja:"（お金の）洗浄"}],
+   def:"犯罪によって得た資金を正当な手段で得たように見せかける行為を防ぐために、金融機関などが実施する取り組み",
+   memo:"L=ローンダリング（洗浄）　→　「マネーロンダリング対策」"},
+  {abbr:"JIT",full:"Just In Time",
+   letters:[{c:"J",en:"Just",ja:"ちょうど"},{c:"I",en:"In",ja:"〜に"},{c:"T",en:"Time",ja:"時間"}],
+   def:"必要な時に必要な量だけを生産することで無駄のない効率的な生産を目指す方式",
+   memo:"「ちょうど間に合う時に」→ トヨタ生産方式の核心。在庫を持たない"},
+  {abbr:"MTBF",full:"Mean Time Between Failures",
+   letters:[{c:"M",en:"Mean",ja:"平均"},{c:"T",en:"Time",ja:"時間"},{c:"B",en:"Between",ja:"〜の間"},{c:"F",en:"Failures",ja:"故障"}],
+   def:"システムの稼働率を表す指標で、平均故障間隔といわれる",
+   memo:"F=フェイラー（故障）　→　「故障と故障の間の平均時間」＝長いほど優秀"},
+  {abbr:"MTBSI",full:"Mean Time Between System Incidents",
+   letters:[{c:"M",en:"Mean",ja:"平均"},{c:"T",en:"Time",ja:"時間"},{c:"B",en:"Between",ja:"〜の間"},{c:"S",en:"System",ja:"システム"},{c:"I",en:"Incidents",ja:"インシデント（障害）"}],
+   def:"システムに障害が発生した時点から、次に障害が発生した時点までの平均時間",
+   memo:"MTBFとの違い：S=システム、I=インシデント　→　サービス視点の平均インシデント間隔"},
+  {abbr:"MTRS",full:"Mean Time to Restore Service",
+   letters:[{c:"M",en:"Mean",ja:"平均"},{c:"T",en:"Time",ja:"時間"},{c:"R",en:"Restore",ja:"回復・復旧"},{c:"S",en:"Service",ja:"サービス"}],
+   def:"サービスの中断から回復までの平均時間（平均復旧時間）",
+   memo:"R=リストア（復旧）　→　「サービスを回復するまでの時間」＝短いほど優秀"},
+  {abbr:"UPS",full:"Uninterruptible Power Supply",
+   letters:[{c:"U",en:"Uninterruptible",ja:"無停電（中断しない）"},{c:"P",en:"Power",ja:"電源"},{c:"S",en:"Supply",ja:"供給"}],
+   def:"落雷などによる突発的な障害が発生したときに、サーバに電源を供給し続ける無停電電源装置",
+   memo:"U=アンインタラプティブル（中断しない）　→　停電してもしばらく電気を供給する装置"},
+  {abbr:"EA",full:"Enterprise Architecture",
+   letters:[{c:"E",en:"Enterprise",ja:"企業・組織"},{c:"A",en:"Architecture",ja:"構造・設計"}],
+   def:"業務と情報システムを最適化することを目的に、4つの階層で現状と理想との乖離を明確にし、改善活動を移行計画として定義する手法",
+   memo:"A=アーキテクチャ（設計）　→　企業全体のIT設計図"},
+  {abbr:"SCM",full:"Supply Chain Management",
+   letters:[{c:"S",en:"Supply",ja:"供給"},{c:"C",en:"Chain",ja:"連鎖・つながり"},{c:"M",en:"Management",ja:"管理"}],
+   def:"商品の生産・在庫・販売などの情報を部門や企業間で共有・管理し、流通在庫削減や顧客満足向上を図る仕組み",
+   memo:"C=チェーン（連鎖）　→　原料→製造→販売の「つながり」全体を管理"},
+  {abbr:"PoC",full:"Proof of Concept",
+   letters:[{c:"P",en:"Proof",ja:"証明・実証"},{c:"o",en:"of",ja:"〜の"},{c:"C",en:"Concept",ja:"概念・アイデア"}],
+   def:"新しい概念や理論を実証するために行われる小規模な実験・検証",
+   memo:"P=プルーフ（証明）　→　「このアイデアは実現できるか？」を小規模に試すこと"},
+  {abbr:"SoE",full:"System of Engagement",
+   letters:[{c:"S",en:"System",ja:"システム"},{c:"o",en:"of",ja:"〜の"},{c:"E",en:"Engagement",ja:"関与・つながり"}],
+   def:"顧客や企業との関係を深めるために構築されたITシステム",
+   memo:"E=エンゲージメント（つながり）　→　SNSやCRMなど「関係構築」のシステム"},
+  {abbr:"SoR",full:"System of Record",
+   letters:[{c:"S",en:"System",ja:"システム"},{c:"o",en:"of",ja:"〜の"},{c:"R",en:"Record",ja:"記録"}],
+   def:"ビジネス上のデータを正確に記録することを主眼とするITシステム",
+   memo:"R=レコード（記録）　→　会計・基幹システムなど「正確な記録」のシステム。SoEと対比"},
+  {abbr:"EUC",full:"End User Computing",
+   letters:[{c:"E",en:"End",ja:"エンド（最終）"},{c:"U",en:"User",ja:"ユーザ（利用者）"},{c:"C",en:"Computing",ja:"コンピューティング"}],
+   def:"システム利用者が主体的にシステム管理や運用を行うことで、ITリテラシーの向上やベンダー依存の軽減を実現する取り組み",
+   memo:"E=エンドユーザ　→　「利用者自身がIT活用する」取り組み"},
+  {abbr:"BABOK",full:"Business Analysis Body Of Knowledge",
+   letters:[{c:"BA",en:"Business Analysis",ja:"ビジネス分析"},{c:"BOK",en:"Body Of Knowledge",ja:"知識体系"}],
+   def:"ビジネス分析のノウハウやベストプラクティスを体系化した「ビジネスアナリシス知識体系ガイド」という書籍",
+   memo:"BOK=ボディオブナレッジ（知識体系）　→　PMBOKと同じく「〜知識体系」"},
+  {abbr:"PMBOK",full:"Project Management Body Of Knowledge",
+   letters:[{c:"PM",en:"Project Management",ja:"プロジェクト管理"},{c:"BOK",en:"Body Of Knowledge",ja:"知識体系"}],
+   def:"プロジェクトマネジメントに必要なプロセスを定義した書籍。QCD達成・全体最適を目的とする",
+   memo:"BABOKとの違い：PM=プロジェクト管理、BA=ビジネス分析　→　対象が違う"},
+  {abbr:"ISO9001",full:"ISO 9001（Quality Management System）",
+   letters:[{c:"ISO",en:"International Organization for Standardization",ja:"国際標準化機構"},{c:"9001",en:"Quality Management",ja:"品質マネジメント系の番号"}],
+   def:"品質マネジメントシステムに関する国際規格",
+   memo:"9000番台=品質関連　→　製品・サービスの品質管理の国際ルール"},
+  {abbr:"ISO Q 15001",full:"JIS Q 15001（個人情報保護マネジメントシステム）",
+   letters:[{c:"Q",en:"Quality（規格番号）",ja:"品質・規格系"},{c:"15001",en:"Personal Information Protection",ja:"個人情報保護の番号"}],
+   def:"プライバシーマーク制度のベースになっている、日本独自の個人情報保護マネジメントシステム規格",
+   memo:"日本独自！　→　プライバシーマーク取得に必要。海外のISO27001とは別もの"},
+  {abbr:"ISO/IEC 27017",full:"ISO/IEC 27017（Cloud Security Controls）",
+   letters:[{c:"ISO/IEC",en:"International Standard",ja:"国際標準化機構/国際電気標準会議"},{c:"27017",en:"Cloud Security Controls",ja:"クラウドセキュリティ管理策の番号"}],
+   def:"クラウドサービス向けの情報セキュリティ管理策のガイドラインを定めた国際規格",
+   memo:"27000番台=セキュリティ関連　→　クラウド専用のセキュリティ規格"},
+  {abbr:"ISO 14001",full:"ISO 14001（Environmental Management System）",
+   letters:[{c:"ISO",en:"International Organization for Standardization",ja:"国際標準化機構"},{c:"14001",en:"Environmental Management",ja:"環境マネジメント系の番号"}],
+   def:"国際標準化機構が定めた「環境マネジメントシステム」の国際規格",
+   memo:"14000番台=環境関連　→　企業の環境への取り組みを管理する規格"},
+];
+
+let mode='def-to-abbr', shuffled=[], current=0, correct=0, answered=false;
+
+function setMode(m,btn){
+  mode=m;
+  document.querySelectorAll('.mode-btn').forEach(b=>b.classList.remove('active'));
+  btn.classList.add('active');
+  startQuiz();
+}
+function shuffle(arr){
+  let a=[...arr];
+  for(let i=a.length-1;i>0;i--){let j=Math.floor(Math.random()*(i+1));[a[i],a[j]]=[a[j],a[i]];}
+  return a;
+}
+function startQuiz(){
+  shuffled=shuffle(TERMS);current=0;correct=0;answered=false;
+  updateScore();updateProgress();renderQuestion();
+}
+function updateScore(){document.getElementById('score-display').textContent=`正解: ${correct} / ${current}`;}
+function updateProgress(){
+  let pct=shuffled.length?(current/shuffled.length)*100:0;
+  document.getElementById('progress').style.width=pct+'%';
+}
+function getWrong(item,n){
+  return shuffle(TERMS.filter(t=>t.abbr!==item.abbr)).slice(0,n);
+}
+function renderQuestion(){
+  if(current>=shuffled.length){renderResult();return;}
+  answered=false;
+  let item=shuffled[current];
+  let opts=shuffle([item,...getWrong(item,3)]);
+  document.getElementById('quiz-area').innerHTML=`
+    <div class="question-card">
+      <div class="q-num">問題 ${current+1} / ${shuffled.length}</div>
+      <div class="q-text">${mode==='def-to-abbr'?item.def:'<span style="font-size:24px;font-weight:700;letter-spacing:3px">'+item.abbr+'</span>'}</div>
+    </div>
+    <div class="options" id="opts">
+      ${opts.map(o=>{
+        let label=mode==='def-to-abbr'
+          ?`<span style="font-size:17px;font-weight:700;letter-spacing:2px">${o.abbr}</span>`
+          :`<span style="font-size:12px;line-height:1.5">${o.def}</span>`;
+        return `<button class="opt-btn" onclick="answer(this,'${o.abbr}','${item.abbr}')">${label}</button>`;
+      }).join('')}
+    </div>
+    <div class="exp-card" id="exp-card"></div>
+    <button class="next-btn" id="next-btn" onclick="nextQ()">次の問題 →</button>
+  `;
+}
+function answer(btn,chosen,correctAbbr){
+  if(answered)return;
+  answered=true;
+  let isOK=chosen===correctAbbr;
+  if(isOK)correct++;
+  current++;
+  updateScore();updateProgress();
+  document.querySelectorAll('.opt-btn').forEach(b=>{
+    b.disabled=true;
+    let span=b.querySelector('span');
+    if(!span)return;
+    let val=span.textContent.trim();
+    if(mode==='def-to-abbr'){
+      if(val===correctAbbr){b.classList.add(b===btn&&isOK?'correct':'reveal');}
+      if(b===btn&&!isOK)b.classList.add('wrong');
+    } else {
+      let match=TERMS.find(t=>t.def===val);
+      if(match&&match.abbr===correctAbbr){b.classList.add(b===btn&&isOK?'correct':'reveal');}
+      if(b===btn&&!isOK)b.classList.add('wrong');
+    }
+  });
+  let term=TERMS.find(t=>t.abbr===correctAbbr);
+  showExp(term,isOK);
+  document.getElementById('next-btn').style.display='block';
+}
+function showExp(term,isOK){
+  let card=document.getElementById('exp-card');
+  card.style.display='block';
+  let lHTML=term.letters.map(l=>`
+    <div class="letter-row">
+      <span class="letter-char">${l.c}</span>
+      <span class="divider"></span>
+      <span class="letter-en">${l.en}</span>
+      <span class="divider"></span>
+      <span class="letter-ja">${l.ja}</span>
+    </div>
+  `).join('');
+  card.innerHTML=`
+    <div class="result-label ${isOK?'ok':'ng'}">${isOK?'✓ 正解！':'✗ 不正解'} — ${term.abbr}（${term.full}）</div>
+    <div class="letter-grid">${lHTML}</div>
+    <div class="memo-box">💡 ${term.memo}</div>
+  `;
+}
+function nextQ(){renderQuestion();}
+function renderResult(){
+  let pct=Math.round((correct/shuffled.length)*100);
+  let msg=pct>=80?'素晴らしい！合格圏内です 🎉':pct>=60?'もう少し！復習しよう 📚':'基礎から復習しよう 🔥';
+  document.getElementById('quiz-area').innerHTML=`
+    <div class="result-card">
+      <div class="result-score">${correct}/${shuffled.length}</div>
+      <div class="result-msg">正答率 ${pct}%　— ${msg}</div>
+      <button class="restart-btn" onclick="startQuiz()">もう一度挑戦する</button>
+    </div>
+  `;
+}
+startQuiz();
+</script>
+</body>
+</html>
