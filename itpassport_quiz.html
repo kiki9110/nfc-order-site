@@ -46,6 +46,20 @@ body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;backgrou
 .letter-en .hl-red{font-size:inherit}
 .next-btn{width:100%;padding:12px;background:#fff;border:1px solid #ccc;border-radius:8px;font-size:14px;color:#222;cursor:pointer;display:none;margin-top:4px}
 .next-btn:hover{background:#f5f5f0}
+.other-section-label{font-size:11px;font-weight:700;color:#aaa;letter-spacing:0.8px;text-transform:uppercase;margin:1.1rem 0 0.45rem;padding-left:2px}
+.mini-card{background:#fafafa;border:1px solid #e0e0d8;border-radius:10px;padding:0.85rem 1.1rem;margin-bottom:0.5rem}
+.mini-card.wrong-chosen{background:#FCEBEB;border-color:#C0392B}
+.mini-type-label{font-size:10px;font-weight:700;margin-bottom:5px;letter-spacing:0.3px;color:#791F1F}
+.mini-header{display:flex;align-items:baseline;gap:8px;margin-bottom:5px;flex-wrap:wrap}
+.mini-abbr{font-size:15px;font-weight:700;flex-shrink:0}
+.mini-full{font-size:11px;color:#999;line-height:1.4}
+.mini-letters{font-size:12px;color:#666;margin-bottom:5px;line-height:1.7}
+.mini-def{font-size:12px;color:#555;line-height:1.75;margin-bottom:5px;padding:5px 8px;background:rgba(0,0,0,0.03);border-radius:5px}
+.mini-letter-c{font-weight:700;color:#1D9E75}
+.mini-card.wrong-chosen .mini-letter-c{color:#A32D2D}
+.mini-sep{color:#ccc;margin:0 2px}
+.mini-memo{font-size:12px;color:#666;line-height:1.6;background:#ededea;border-radius:6px;padding:5px 9px}
+.mini-card.wrong-chosen .mini-memo{background:#f5dada}
 .result-card{background:#fff;border:1px solid #e0e0d8;border-radius:12px;padding:2rem;text-align:center}
 .result-score{font-size:52px;font-weight:600;color:#1D9E75;margin-bottom:8px}
 .result-msg{font-size:15px;color:#666;margin-bottom:1.5rem}
@@ -319,7 +333,7 @@ const TERMS = [
    memo:"14000番台=環境関連　→　企業の環境への取り組みを管理する規格"},
 ];
 
-let mode='def-to-abbr', shuffled=[], current=0, correct=0, answered=false;
+let mode='def-to-abbr', shuffled=[], current=0, correct=0, answered=false, currentOpts=[];
 
 function setMode(m,btn){
   mode=m;
@@ -369,6 +383,7 @@ function renderQuestion(){
   answered=false;
   let item=shuffled[current];
   let opts=shuffle([item,...getSimilar(item,5)]);
+  currentOpts=[...opts];
   // 略語選択モードは3列、定義選択モードは1列
   let gridStyle=mode==='def-to-abbr'
     ?'display:grid;grid-template-columns:1fr 1fr 1fr;gap:8px;margin-bottom:0.75rem'
@@ -388,6 +403,7 @@ function renderQuestion(){
     </div>
     <div class="exp-card" id="exp-card"></div>
     <button class="next-btn" id="next-btn" onclick="nextQ()">次の問題 →</button>
+    <div id="other-opts"></div>
   `;
 }
 function answer(btn,chosen,correctAbbr){
@@ -414,6 +430,7 @@ function answer(btn,chosen,correctAbbr){
   let term=TERMS.find(t=>t.abbr===correctAbbr);
   showExp(term,isOK);
   document.getElementById('next-btn').style.display='block';
+  showOtherOpts(chosen,correctAbbr);
 }
 // 英語の頭文字を赤くハイライト: "C" → "<hl>C</hl>hief"
 function hlEn(c,en){
@@ -479,6 +496,53 @@ function showExp(term,isOK){
     <div class="letter-grid">${lHTML}</div>
     <div class="memo-box">💡 ${term.memo}</div>
   `;
+}
+// 選択肢のミニ解説カードを生成
+function miniCard(term, type){
+  const isWrong=type==='wrong';
+  // 問題文（定義またはハイライト付き略語）
+  let qLine='';
+  if(mode==='def-to-abbr'){
+    const defHl=hlDef(term.def,term.letters);
+    qLine=`<div class="mini-def">${defHl}</div>`;
+  } else {
+    const abbrHl=term.abbr.split('').map(ch=>/[A-Z0-9]/.test(ch)?`<span class="hl-red">${ch}</span>`:ch).join('');
+    qLine=`<div class="mini-def" style="font-size:18px;font-weight:700;letter-spacing:3px">${abbrHl}</div>`;
+  }
+  // コンパクトな文字分解: "C=最高 / E=経営 / O=責任者"
+  const letterLine=term.letters.map(l=>{
+    const jaShort=l.ja.split(/[（・〜→]/)[0].trim();
+    return `<span class="mini-letter-c">${l.c}</span>=<span>${jaShort}</span>`;
+  }).join('<span class="mini-sep"> / </span>');
+  return `<div class="mini-card${isWrong?' wrong-chosen':''}">
+    ${isWrong?'<div class="mini-type-label">❌ あなたが選んだ答え</div>':''}
+    <div class="mini-header">
+      <span class="mini-abbr" style="color:${isWrong?'#A32D2D':'#1D9E75'}">${term.abbr}</span>
+      <span class="mini-full">${term.full}</span>
+    </div>
+    ${qLine}
+    <div class="mini-letters">${letterLine}</div>
+    <div class="mini-memo">💡 ${term.memo}</div>
+  </div>`;
+}
+// 次の問題ボタンの下に間違い選択肢・その他選択肢の解説を表示
+function showOtherOpts(chosen, correctAbbr){
+  const container=document.getElementById('other-opts');
+  if(!container)return;
+  const isWrong=chosen!==correctAbbr;
+  let html='';
+  // 間違えて選んだ選択肢の解説
+  if(isWrong){
+    const wrongTerm=TERMS.find(t=>t.abbr===chosen);
+    if(wrongTerm) html+=miniCard(wrongTerm,'wrong');
+  }
+  // 正解・間違い選択肢を除いた残りの選択肢の解説
+  const others=currentOpts.filter(t=>t.abbr!==correctAbbr&&t.abbr!==chosen);
+  if(others.length>0){
+    html+=`<div class="other-section-label">📚 その他の選択肢（${others.length}件）</div>`;
+    html+=others.map(t=>miniCard(t,'other')).join('');
+  }
+  container.innerHTML=html;
 }
 function nextQ(){renderQuestion();}
 function renderResult(){
