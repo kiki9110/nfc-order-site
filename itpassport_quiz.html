@@ -20,7 +20,7 @@ body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;backgrou
 .q-num{font-size:12px;color:#aaa;margin-bottom:6px}
 .q-text{font-size:15px;line-height:1.75;color:#222}
 .options{display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:0.75rem}
-.opt-btn{background:#fff;border:1px solid #ccc;border-radius:8px;padding:10px 14px;font-size:14px;font-weight:500;color:#222;cursor:pointer;transition:all 0.15s;text-align:center;line-height:1.5}
+.opt-btn{background:#fff;border:1px solid #ccc;border-radius:8px;padding:10px 14px;font-size:14px;font-weight:500;color:#222;cursor:pointer;transition:all 0.15s;text-align:center;line-height:1.5;width:100%}
 .opt-btn:hover:not(:disabled){background:#f5f5f0}
 .opt-btn.correct{background:#E1F5EE;border-color:#0F6E56;color:#085041}
 .opt-btn.wrong{background:#FCEBEB;border-color:#A32D2D;color:#791F1F}
@@ -39,6 +39,11 @@ body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;backgrou
 .letter-en{font-size:13px;color:#888;min-width:160px}
 .letter-ja{font-size:14px;color:#222;font-weight:500}
 .memo-box{background:#f5f5f0;border-radius:8px;padding:10px 14px;font-size:13px;line-height:1.7;color:#555;border-left:3px solid #1D9E75}
+.exp-qblock{background:#fdf8f0;border:1px solid #e8e0d0;border-radius:8px;padding:10px 14px;margin-bottom:1rem}
+.exp-qblock-label{font-size:10px;color:#bbb;font-weight:600;letter-spacing:1px;text-transform:uppercase;margin-bottom:5px}
+.exp-qblock-text{font-size:13px;line-height:1.85;color:#444}
+.hl-red{color:#C0392B;font-weight:800}
+.letter-en .hl-red{font-size:inherit}
 .next-btn{width:100%;padding:12px;background:#fff;border:1px solid #ccc;border-radius:8px;font-size:14px;color:#222;cursor:pointer;display:none;margin-top:4px}
 .next-btn:hover{background:#f5f5f0}
 .result-card{background:#fff;border:1px solid #e0e0d8;border-radius:12px;padding:2rem;text-align:center}
@@ -336,20 +341,44 @@ function updateProgress(){
   let pct=shuffled.length?(current/shuffled.length)*100:0;
   document.getElementById('progress').style.width=pct+'%';
 }
-function getWrong(item,n){
-  return shuffle(TERMS.filter(t=>t.abbr!==item.abbr)).slice(0,n);
+// 類似度スコアで「紛らわしい」選択肢を優先的に選ぶ
+function getSimilar(item, n) {
+  const others = TERMS.filter(t => t.abbr !== item.abbr);
+  const scored = others.map(t => {
+    let score = 0;
+    // 頭文字が同じ（最重要: CEO vs CFO, ROI vs ROA など）
+    if (t.abbr[0] === item.abbr[0]) score += 5;
+    // 2文字目が同じ
+    if (t.abbr.length > 1 && item.abbr.length > 1 && t.abbr[1] === item.abbr[1]) score += 4;
+    // 3文字目が同じ
+    if (t.abbr.length > 2 && item.abbr.length > 2 && t.abbr[2] === item.abbr[2]) score += 2;
+    // 略語の長さが同じ
+    if (t.abbr.length === item.abbr.length) score += 2;
+    // 末尾の文字が同じ
+    if (t.abbr.slice(-1) === item.abbr.slice(-1)) score += 1;
+    // ランダムノイズで毎回少し変化させる
+    score += Math.random() * 2;
+    return { term: t, score };
+  });
+  scored.sort((a, b) => b.score - a.score);
+  // 上位候補からシャッフルして取得（全部が最高スコアにならないよう上位n+4から選ぶ）
+  return shuffle(scored.slice(0, n + 4)).slice(0, n).map(s => s.term);
 }
 function renderQuestion(){
   if(current>=shuffled.length){renderResult();return;}
   answered=false;
   let item=shuffled[current];
-  let opts=shuffle([item,...getWrong(item,3)]);
+  let opts=shuffle([item,...getSimilar(item,5)]);
+  // 略語選択モードは3列、定義選択モードは1列
+  let gridStyle=mode==='def-to-abbr'
+    ?'display:grid;grid-template-columns:1fr 1fr 1fr;gap:8px;margin-bottom:0.75rem'
+    :'display:grid;grid-template-columns:1fr;gap:8px;margin-bottom:0.75rem';
   document.getElementById('quiz-area').innerHTML=`
     <div class="question-card">
       <div class="q-num">問題 ${current+1} / ${shuffled.length}</div>
       <div class="q-text">${mode==='def-to-abbr'?item.def:'<span style="font-size:24px;font-weight:700;letter-spacing:3px">'+item.abbr+'</span>'}</div>
     </div>
-    <div class="options" id="opts">
+    <div id="opts" style="${gridStyle}">
       ${opts.map(o=>{
         let label=mode==='def-to-abbr'
           ?`<span style="font-size:17px;font-weight:700;letter-spacing:2px">${o.abbr}</span>`
@@ -386,19 +415,66 @@ function answer(btn,chosen,correctAbbr){
   showExp(term,isOK);
   document.getElementById('next-btn').style.display='block';
 }
+// 英語の頭文字を赤くハイライト: "C" → "<hl>C</hl>hief"
+function hlEn(c,en){
+  const cLen=c.replace(/[\/\s]/g,'').length;
+  const words=en.split(/\s+/);
+  const R=s=>`<span class="hl-red">${s}</span>`;
+  if(words.length>=cLen){
+    return words.map((w,i)=>i<cLen?R(w[0])+w.slice(1):w).join(' ');
+  } else {
+    return R(en.slice(0,cLen))+en.slice(cLen);
+  }
+}
+// 定義文中の日本語キーワードを赤くハイライト
+function hlDef(def,letters){
+  let result=def;
+  const done=new Set();
+  letters.forEach(l=>{
+    // 例: "経営（執行）" → ["経営","執行"] から試す
+    const candidates=l.ja.split(/[（）・〜→\s、]/).map(s=>s.trim()).filter(s=>s.length>=2);
+    for(const kw of candidates){
+      if(!done.has(kw)&&result.includes(kw)){
+        done.add(kw);
+        result=result.replace(kw,`<span class="hl-red">${kw}</span>`);
+        break;
+      }
+    }
+  });
+  return result;
+}
 function showExp(term,isOK){
   let card=document.getElementById('exp-card');
   card.style.display='block';
+  // 問題文ブロック
+  let qHTML='';
+  if(mode==='def-to-abbr'){
+    // 定義文中のキーワードを赤く
+    const defHl=hlDef(term.def,term.letters);
+    qHTML=`<div class="exp-qblock">
+      <div class="exp-qblock-label">問題文（定義）</div>
+      <div class="exp-qblock-text">${defHl}</div>
+    </div>`;
+  } else {
+    // 略語の各大文字を赤く
+    const abbrHl=term.abbr.split('').map(ch=>/[A-Z0-9]/.test(ch)?`<span class="hl-red">${ch}</span>`:ch).join('');
+    qHTML=`<div class="exp-qblock">
+      <div class="exp-qblock-label">問題文（略語）</div>
+      <div class="exp-qblock-text" style="font-size:26px;font-weight:700;letter-spacing:4px;line-height:1.3">${abbrHl}</div>
+    </div>`;
+  }
+  // 文字分解グリッド（英語頭文字を赤く）
   let lHTML=term.letters.map(l=>`
     <div class="letter-row">
       <span class="letter-char">${l.c}</span>
       <span class="divider"></span>
-      <span class="letter-en">${l.en}</span>
+      <span class="letter-en">${hlEn(l.c,l.en)}</span>
       <span class="divider"></span>
       <span class="letter-ja">${l.ja}</span>
     </div>
   `).join('');
   card.innerHTML=`
+    ${qHTML}
     <div class="result-label ${isOK?'ok':'ng'}">${isOK?'✓ 正解！':'✗ 不正解'} — ${term.abbr}（${term.full}）</div>
     <div class="letter-grid">${lHTML}</div>
     <div class="memo-box">💡 ${term.memo}</div>
