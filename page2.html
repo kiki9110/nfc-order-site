@@ -7,8 +7,8 @@
 <style>
 @import url('https://fonts.googleapis.com/css2?family=Noto+Sans+JP:wght@400;500;700&family=Syne:wght@700;800&display=swap');
 :root{
-  --ink:#0f0f0d;--paper:#f5f2ec;--cream:#ece8df;
-  --accent:#d4522a;--muted:#6b6860;--border:#ccc8be;--radius:14px;
+  --ink:#0f172a;--paper:#f0f4f8;--cream:#e2e8f0;
+  --accent:#2563eb;--muted:#64748b;--border:#cbd5e1;--radius:14px;
 }
 *,*::before,*::after{box-sizing:border-box;margin:0;padding:0;}
 body{font-family:'Noto Sans JP',sans-serif;background:var(--paper);color:var(--ink);padding-bottom:100px;}
@@ -40,7 +40,7 @@ body{font-family:'Noto Sans JP',sans-serif;background:var(--paper);color:var(--i
 .sec-body.hidden{display:none;}
 .sec.locked .sec-body{display:none !important;}
 .sec.locked{opacity:.5;}
-.lock-bar{display:none;font-size:11px;color:var(--accent);padding:7px 16px;background:#fff8f5;border-top:1px solid #f5d0c0;cursor:pointer;}
+.lock-bar{display:none;font-size:11px;color:var(--accent);padding:7px 16px;background:#eff6ff;border-top:1px solid #bfdbfe;cursor:pointer;}
 .sec.locked .lock-bar{display:block;}
 
 /* COLOR SWATCHES */
@@ -55,11 +55,11 @@ body{font-family:'Noto Sans JP',sans-serif;background:var(--paper);color:var(--i
 .shape-row{display:flex;gap:8px;}
 .shape-btn{flex:1;padding:12px 6px;border:2px solid var(--border);border-radius:10px;background:#fff;cursor:pointer;text-align:center;transition:all .15s;}
 .shape-btn:hover{border-color:var(--ink);}
-.shape-btn.sel{border-color:var(--accent);background:#fff8f5;}
+.shape-btn.sel{border-color:var(--accent);background:#eff6ff;}
 .sh-icon{margin:0 auto 8px;display:flex;align-items:center;justify-content:center;width:44px;height:44px;}
 .sh-circle{width:40px;height:40px;border-radius:50%;border:2.5px solid var(--ink);background:var(--cream);}
 .sh-square{width:40px;height:40px;border-radius:4px;border:2.5px solid var(--ink);background:var(--cream);}
-.shape-btn.sel .sh-circle,.shape-btn.sel .sh-square{border-color:var(--accent);background:#fde8e0;}
+.shape-btn.sel .sh-circle,.shape-btn.sel .sh-square{border-color:var(--accent);background:#dbeafe;}
 .shape-name{font-size:12px;font-weight:500;}
 .shape-sub{font-size:10px;color:var(--muted);margin-top:2px;}
 
@@ -80,7 +80,7 @@ body{font-family:'Noto Sans JP',sans-serif;background:var(--paper);color:var(--i
 
 /* UPLOAD */
 .upload-zone{border:2px dashed var(--border);border-radius:10px;padding:26px 16px;text-align:center;cursor:pointer;position:relative;background:#fff;transition:all .15s;}
-.upload-zone:hover,.upload-zone.over{border-color:var(--accent);background:#fff8f5;}
+.upload-zone:hover,.upload-zone.over{border-color:var(--accent);background:#eff6ff;}
 .upload-zone input{position:absolute;inset:0;opacity:0;cursor:pointer;width:100%;height:100%;}
 .uz-icon{font-size:26px;margin-bottom:6px;}
 .uz-text{font-size:13px;color:var(--muted);}
@@ -92,7 +92,7 @@ body{font-family:'Noto Sans JP',sans-serif;background:var(--paper);color:var(--i
 .up-badge{display:inline-block;background:var(--accent);color:#fff;font-size:10px;font-weight:700;padding:2px 8px;border-radius:4px;margin-bottom:6px;}
 .section-label{font-size:11px;font-weight:500;color:var(--muted);text-transform:uppercase;letter-spacing:.06em;margin-bottom:8px;}
 .divider{height:1px;background:var(--cream);margin:14px 0;}
-.extra-tag{display:inline-block;font-size:10px;padding:1px 7px;background:#fde8e0;color:var(--accent);border-radius:20px;font-weight:500;margin-left:6px;}
+.extra-tag{display:inline-block;font-size:10px;padding:1px 7px;background:#dbeafe;color:var(--accent);border-radius:20px;font-weight:500;margin-left:6px;}
 
 /* QR EDITOR */
 .qr-editor{margin-top:14px;}
@@ -118,7 +118,7 @@ body{font-family:'Noto Sans JP',sans-serif;background:var(--paper);color:var(--i
 .slider-row input[type=range]{flex:1;accent-color:var(--accent);}
 
 /* ATTACH */
-.attach-wrap{position:relative;width:100%;height:180px;background:#18181a;border-radius:12px;overflow:hidden;margin:10px 0 8px;}
+.attach-wrap{position:relative;width:100%;height:180px;background:#0c1628;border-radius:12px;overflow:hidden;margin:10px 0 8px;}
 .attach-wrap canvas{position:absolute;inset:0;width:100%;height:100%;pointer-events:none;}
 .attach-dot{position:absolute;width:36px;height:52px;cursor:grab;z-index:5;transform:translate(-50%,-50%);filter:drop-shadow(0 2px 4px rgba(0,0,0,.6));transition:transform .1s;}
 .attach-dot:active{cursor:grabbing;}
@@ -209,22 +209,22 @@ body{font-family:'Noto Sans JP',sans-serif;background:var(--paper);color:var(--i
     <div class="shape-row">
       <button class="shape-btn" id="sh-circle" onclick="pickShape('circle')">
         <div class="sh-icon"><div class="sh-circle"></div></div>
-        <div class="shape-name">丸型</div><div class="shape-sub">最大φ120mm</div>
+        <div class="shape-name">丸型</div><div class="shape-sub">φ 50mm</div>
       </button>
       <button class="shape-btn" id="sh-square" onclick="pickShape('square')">
         <div class="sh-icon"><div class="sh-square"></div></div>
-        <div class="shape-name">四角形</div><div class="shape-sub">最大120×120mm</div>
+        <div class="shape-name">四角形</div><div class="shape-sub">50×50mm</div>
       </button>
       <button class="shape-btn" id="sh-diecut" onclick="pickShape('diecut')">
         <div class="sh-icon">
           <svg width="40" height="40" viewBox="0 0 40 40" fill="none">
-            <path d="M20 3C12 3 5 9 4 18c-1 8 4 15 9 17 2 1 5 1 7 0 6-2 10-9 9-17C28 9 28 3 20 3z" fill="#ece8df" stroke="#0f0f0d" stroke-width="2" stroke-dasharray="3 2"/>
-            <circle cx="20" cy="14" r="4" fill="#ccc8be"/>
+            <path d="M20 3C12 3 5 9 4 18c-1 8 4 15 9 17 2 1 5 1 7 0 6-2 10-9 9-17C28 9 28 3 20 3z" fill="#e2e8f0" stroke="#0f172a" stroke-width="2" stroke-dasharray="3 2"/>
+            <circle cx="20" cy="14" r="4" fill="#cbd5e1"/>
           </svg>
         </div>
         <div class="shape-name">ダイアカット</div>
         <div class="shape-sub">輪郭切抜</div>
-        <div style="display:inline-block;margin-top:4px;font-size:10px;font-weight:700;padding:2px 7px;background:#fde8e0;color:var(--accent);border-radius:20px;">+¥150</div>
+        <div style="display:inline-block;margin-top:4px;font-size:10px;font-weight:700;padding:2px 7px;background:#dbeafe;color:var(--accent);border-radius:20px;">+¥150</div>
       </button>
     </div>
     <div id="diecut-note" style="display:none;margin-top:12px;padding:10px;background:#fffbf0;border:1.5px solid #f0d080;border-radius:9px;font-size:12px;color:#7a6020;line-height:1.7;">
@@ -398,10 +398,10 @@ body{font-family:'Noto Sans JP',sans-serif;background:var(--paper);color:var(--i
     <div class="slider-group">
       <label>長辺（最長部分）</label>
       <div class="slider-row">
-        <input type="range" id="szSlider" min="5" max="12" step="0.5" value="7" oninput="onSzSlider()"><!-- 最大12cm（長辺制限） -->
+        <input type="range" id="szSlider" min="5" max="15" step="0.5" value="7" oninput="onSzSlider()">
         <div class="num-step">
           <button onclick="stepSz(-0.5)">−</button>
-          <input type="number" id="szN" min="5" max="12" step="0.5" value="7" oninput="onSzInput()"><!-- 最大12cm -->
+          <input type="number" id="szN" min="5" max="15" step="0.5" value="7" oninput="onSzInput()">
           <span class="unit">cm</span>
           <button onclick="stepSz(0.5)">＋</button>
         </div>
@@ -419,7 +419,7 @@ body{font-family:'Noto Sans JP',sans-serif;background:var(--paper);color:var(--i
         </div>
       </div>
     </div>
-    <div id="szNote" style="font-size:11px;color:var(--muted);margin-top:4px;line-height:1.6;">※ 長辺でのサイズ指定（最大12cm）。3Dプレビューに反映されます。</div>
+    <div style="font-size:11px;color:var(--muted);margin-top:4px;line-height:1.6;">※ 長辺でのサイズ指定。3Dプレビューに反映されます。</div>
   </div>
 </div>
 
@@ -575,7 +575,7 @@ function toggle(n) {
 const COLORS = [
   { name:'ホワイト', hex:'#FFFFFF', border:'#ccc' },
   { name:'ブラック', hex:'#1a1a18' },
-  { name:'ブルー',   hex:'#2563EB' },
+  { name:'ブルー',   hex:'#2563eb' },
   { name:'イエロー', hex:'#FACC15' },
   { name:'オレンジ', hex:'#F97316' },
   { name:'レッド',   hex:'#EF4444' },
@@ -620,14 +620,6 @@ function pickShape(sh) {
   document.getElementById('upBadge').style.display = isCircle ? 'block' : 'none';
   document.getElementById('upBadgeBack').style.display = isCircle ? 'block' : 'none';
   done(2);
-  // 形状ごとにサイズ上限を切り替え（ダイアカット15cm、その他12cm）
-  const max = sh === 'diecut' ? 15 : 12;
-  document.getElementById('szSlider').max = max;
-  document.getElementById('szN').max = max;
-  document.getElementById('szNote').textContent =
-    `※ 長辺でのサイズ指定（最大${max}cm）。3Dプレビューに反映されます。`;
-  // 現在値が新しい上限を超えていたら丸め込む
-  setSz(S.sizeCm || 7);
   // セクションを閉じる（選択済みを示す）
   document.getElementById('sb2').classList.add('hidden');
   updateLock(); updateProg(); rebuild3D();
@@ -914,7 +906,7 @@ function drawMask() {
   ctx.stroke(); ctx.setLineDash([]);
   // 丸型「上」マーカー
   if (sh === 'circle') {
-    ctx.fillStyle = 'rgba(212,82,42,.9)';
+    ctx.fillStyle = 'rgba(37,99,235,.9)';
     ctx.beginPath();
     ctx.moveTo(cx, cy - size / 2 - 14); ctx.lineTo(cx - 8, cy - size / 2 - 1); ctx.lineTo(cx + 8, cy - size / 2 - 1);
     ctx.closePath(); ctx.fill();
@@ -1210,9 +1202,7 @@ function resyncQR(side) {
 // ═══════════════════════════════
 // SIZE
 // ═══════════════════════════════
-// 長辺上限：ダイアカット=15cm、丸型・四角形=12cm
-function szMax() { return S.shape === 'diecut' ? 15 : 12; }
-function clampSz(v) { return Math.min(szMax(), Math.max(5, Math.round(v*10)/10)); }
+function clampSz(v) { return Math.min(15,Math.max(5,Math.round(v*10)/10)); }
 function clampTh(v) { return Math.min(4, Math.max(1, Math.round(v*10)/10)); }
 function setSz(v) {
   v = clampSz(v);
@@ -1663,15 +1653,15 @@ function showUrlWarning(warnings, callback) {
   d.style.cssText = 'position:fixed;inset:0;background:rgba(0,0,0,.7);z-index:500;display:flex;align-items:center;justify-content:center;padding:20px;';
   d.innerHTML = `
     <div style="background:#fff;border-radius:16px;padding:24px;max-width:340px;width:100%;">
-      <div style="font-size:16px;font-weight:700;margin-bottom:12px;color:#0f0f0d;">⚠ URL未入力</div>
-      <div style="font-size:13px;color:#6b6860;line-height:1.8;margin-bottom:16px;">
+      <div style="font-size:16px;font-weight:700;margin-bottom:12px;color:#0f172a;">⚠ URL未入力</div>
+      <div style="font-size:13px;color:#64748b;line-height:1.8;margin-bottom:16px;">
         ${warnings.map(w => w).join('<br>')}
         <br><br>URLを入力せずに送信しますか？<br>
         <span style="font-size:11px;">（後から管理画面で変更できます）</span>
       </div>
       <div style="display:flex;gap:8px;">
-        <button id="warnOk" style="flex:1;padding:12px;border:1.5px solid #ccc;border-radius:10px;background:#fff;cursor:pointer;font-family:'Noto Sans JP',sans-serif;font-size:13px;color:#6b6860;">このまま送信</button>
-        <button id="warnCancel" style="flex:1;padding:12px;background:#d4522a;border:none;border-radius:10px;color:#fff;cursor:pointer;font-family:'Noto Sans JP',sans-serif;font-size:13px;font-weight:500;">URLを入力する</button>
+        <button id="warnOk" style="flex:1;padding:12px;border:1.5px solid #ccc;border-radius:10px;background:#fff;cursor:pointer;font-family:'Noto Sans JP',sans-serif;font-size:13px;color:#64748b;">このまま送信</button>
+        <button id="warnCancel" style="flex:1;padding:12px;background:#2563eb;border:none;border-radius:10px;color:#fff;cursor:pointer;font-family:'Noto Sans JP',sans-serif;font-size:13px;font-weight:500;">URLを入力する</button>
       </div>
     </div>`;
   document.body.appendChild(d);
