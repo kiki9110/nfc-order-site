@@ -7,9 +7,9 @@
 <style>
 @import url('https://fonts.googleapis.com/css2?family=Noto+Sans+JP:wght@400;500;700&family=Syne:wght@700;800&display=swap');
 :root{
-  --ink:#0f0f0d;--paper:#f5f2ec;--cream:#ece8df;
-  --accent:#d4522a;--muted:#6b6860;--border:#ccc8be;--radius:14px;
-  --green:#22863a;--green-bg:#eaf7ee;
+  --ink:#0f172a;--paper:#f0f4f8;--cream:#e2e8f0;
+  --accent:#2563eb;--muted:#64748b;--border:#cbd5e1;--radius:14px;
+  --green:#0f766e;--green-bg:#ccfbf1;
 }
 *,*::before,*::after{box-sizing:border-box;margin:0;padding:0;}
 body{font-family:'Noto Sans JP',sans-serif;background:var(--paper);color:var(--ink);padding-bottom:60px;}
@@ -93,7 +93,7 @@ body{font-family:'Noto Sans JP',sans-serif;background:var(--paper);color:var(--i
   display:inline-block;font-size:11px;padding:2px 8px;
   border-radius:20px;font-weight:500;
 }
-.badge-yes{background:#fde8e0;color:var(--accent);}
+.badge-yes{background:#dbeafe;color:var(--accent);}
 .badge-no{background:var(--cream);color:var(--muted);}
 .badge-green{background:var(--green-bg);color:var(--green);}
 
@@ -149,9 +149,8 @@ body{font-family:'Noto Sans JP',sans-serif;background:var(--paper);color:var(--i
 /* ATTACH MINI */
 .attach-mini{
   position:relative;
-  /* 80→200に拡大：タグ型インジケータをはっきり見せて、極端な位置でも切れずに表示 */
-  width:200px;height:200px;
-  background:#18181a;
+  width:80px;height:80px;
+  background:#0c1628;
   border-radius:8px;
   overflow:hidden;
   flex-shrink:0;
@@ -281,7 +280,6 @@ body{font-family:'Noto Sans JP',sans-serif;background:var(--paper);color:var(--i
         <div class="qr-info-text">
           <div>X: <strong id="diAttX">—</strong>%　Y: <strong id="diAttY">—</strong>%</div>
           <div>角度: <strong id="diAttA">—</strong>°</div>
-          <div>サイズ: <strong id="diAttS">—</strong>mm</div>
         </div>
       </div>
     </div>
@@ -305,7 +303,7 @@ try {
 } catch(e) {}
 
 if (!O) {
-  document.body.innerHTML = '<div style="padding:40px;text-align:center;"><p>注文データが見つかりません。</p><a href="page1.html" style="color:#d4522a;">最初からやり直す</a></div>';
+  document.body.innerHTML = '<div style="padding:40px;text-align:center;"><p>注文データが見つかりません。</p><a href="page1.html" style="color:#2563eb;">最初からやり直す</a></div>';
   throw new Error('no order data');
 }
 
@@ -468,10 +466,10 @@ if (O.qr && O.qrSide) {
       const qx  = ox + kw * qrData.x/100 - qpx/2;
       const qy  = oy + kh * qrData.y/100 - qpx/2;
       ctx.fillStyle   = 'rgba(255,255,255,.85)';
-      ctx.strokeStyle = '#d4522a'; ctx.lineWidth=1.5;
+      ctx.strokeStyle = '#2563eb'; ctx.lineWidth=1.5;
       ctx.fillRect(qx,qy,qpx,qpx);
       ctx.strokeRect(qx,qy,qpx,qpx);
-      ctx.fillStyle='#d4522a'; ctx.font='bold 7px sans-serif';
+      ctx.fillStyle='#2563eb'; ctx.font='bold 7px sans-serif';
       ctx.textAlign='center'; ctx.textBaseline='middle';
       ctx.fillText('QR',qx+qpx/2,qy+qpx/2);
     }
@@ -496,23 +494,20 @@ if (O.qr && O.qrSide) {
 document.getElementById('diAttX').textContent = Math.round(O.attX || 50);
 document.getElementById('diAttY').textContent = Math.round(O.attY || 10);
 document.getElementById('diAttA').textContent = O.attAngle || 0;
-document.getElementById('diAttS').textContent = O.attSize || 6;
 
 // 穴ミニマップ
 (function drawAttach(){
   const cv = document.getElementById('attachMiniCv');
-  // バッキングバッファを360×360に拡張（CSS表示は200×200・約1.8:1の鮮明な縮小表示）
-  // 余白100pxはインジケータ最大半径42pxを超えるため、Y=-25%/125%の極端な位置でも
-  // タグ型インジケータが完全に canvas 内に収まり、見切れない
-  const aw = 360, ah = 360;
+  const aw = 200, ah = 200;
   cv.width = aw; cv.height = ah;
+  cv.style.width = '200px'; cv.style.height = '200px';
   cv.style.borderRadius = '10px';
   const ctx = cv.getContext('2d');
-  ctx.fillStyle = '#18181a';
+  ctx.fillStyle = '#0c1628';
   ctx.fillRect(0,0,aw,ah);
 
-  // キーホルダー形状（margin=100で外側に十分な余裕を確保。ksize=160は前と同じサイズ感）
-  const m = 100, kw = aw-m*2, kh = ah-m*2;
+  // キーホルダー形状
+  const m = 20, kw = aw-m*2, kh = ah-m*2;
   const ox = m, oy = m;
 
   // 画像があれば背景に表示
@@ -553,56 +548,35 @@ document.getElementById('diAttS').textContent = O.attSize || 6;
     else { ctx.moveTo(ox+8,oy);ctx.lineTo(ox+kw-8,oy);ctx.arcTo(ox+kw,oy,ox+kw,oy+8,8);ctx.lineTo(ox+kw,oy+kh-8);ctx.arcTo(ox+kw,oy+kh,ox+kw-8,oy+kh,8);ctx.lineTo(ox+8,oy+kh);ctx.arcTo(ox,oy+kh,ox,oy+kh-8,8);ctx.lineTo(ox,oy+8);ctx.arcTo(ox,oy,ox+8,oy,8);ctx.closePath(); }
     ctx.stroke();
 
-    // 穴の中心位置（キーホルダー領域内の%として解釈・page2と統一）
+    // 金具位置
     const dx = ox + kw*(O.attX||50)/100;
     const dy = oy + kh*(O.attY||10)/100;
     const ang = (O.attAngle||0)*Math.PI/180;
 
-    // タグ型シルエット（page2のSVGと完全に同じ形状）を canvas で描画
-    // 座標系：穴の中心を原点(0,0)とする。回転は穴中心が軸
-    // タグ寸法：幅32（半径16）／可視高さ56 → 比率 1:1.75（リファレンス画像と一致）
-    // 穴位置：原点。ドーム頂点は y=-14、ドーム底は y=+2、タグ底辺は y=+42
-    // attSize(mm) / 6mm(基準) でスケール。大きい金具 = 大きいシルエット
-    const scale = (O.attSize || 6) / 6;
+    // 金具シルエット（SVG相当をcanvasで描画）
     ctx.save();
     ctx.translate(dx, dy);
     ctx.rotate(ang);
-    ctx.scale(scale, scale); // 穴の中心を軸にサイズ変更
-    ctx.lineJoin = 'round';
-
-    // タグのパスを定義する関数（halo描画と本体描画で2回使う）
-    const tracePath = () => {
-      ctx.beginPath();
-      // 左側のドーム基部から開始（穴のすぐ下のレベル）
-      ctx.moveTo(-16, 2);
-      // ドーム（半円）：anticlockwise=false（デフォルト）でπ→2πを時計回り、頂点(0,-14)を経由
-      ctx.arc(0, 2, 16, Math.PI, 2*Math.PI);
-      // 右側→底辺→左側で長方形部を閉じる
-      ctx.lineTo(16, 42);
-      ctx.lineTo(-16, 42);
-      ctx.closePath();
-    };
-
-    // ハロー（白い太線）：暗い背景に埋もれないよう輪郭の外側を白く縁取る
-    tracePath();
-    ctx.lineWidth = 4;
-    ctx.strokeStyle = 'rgba(255,255,255,0.75)';
-    ctx.stroke();
-
-    // タグ本体：白塗り＋黒い細縁
-    tracePath();
-    ctx.fillStyle = '#fff';
-    ctx.fill();
-    ctx.lineWidth = 1.5;
-    ctx.strokeStyle = '#111';
-    ctx.stroke();
-
-    // 中心の穴（黒で塗りつぶし）
+    // 本体
+    ctx.fillStyle='rgba(200,200,200,0.9)';
+    ctx.strokeStyle='rgba(150,150,150,0.8)';
+    ctx.lineWidth=1;
     ctx.beginPath();
-    ctx.arc(0, 0, 6, 0, Math.PI*2);
-    ctx.fillStyle = '#111';
+    ctx.roundRect(-8, 0, 16, 24, 3);
+    ctx.fill(); ctx.stroke();
+    // 穴の輪
+    ctx.beginPath();
+    ctx.arc(0, -8, 7, 0, Math.PI*2);
+    ctx.strokeStyle='rgba(200,200,200,0.9)';
+    ctx.lineWidth=4;
+    ctx.stroke();
+    ctx.beginPath();
+    ctx.arc(0, -8, 4, 0, Math.PI*2);
+    ctx.fillStyle='#0c1628';
     ctx.fill();
-
+    // ハイライト
+    ctx.fillStyle='rgba(255,255,255,0.3)';
+    ctx.fillRect(-6, 2, 12, 2);
     ctx.restore();
   }
 })();
