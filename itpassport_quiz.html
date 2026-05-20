@@ -65,6 +65,23 @@ body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;backgrou
 .result-msg{font-size:15px;color:#666;margin-bottom:1.5rem}
 .restart-btn{padding:10px 24px;background:#fff;border:1px solid #ccc;border-radius:8px;font-size:14px;cursor:pointer}
 .restart-btn:hover{background:#f5f5f0}
+.cat-filter{display:flex;gap:6px;flex-wrap:wrap;margin-bottom:1rem}
+.cat-btn{padding:5px 12px;font-size:12px;border:1px solid #ccc;border-radius:20px;background:#fff;color:#666;cursor:pointer;white-space:nowrap;transition:all 0.15s}
+.cat-btn.active{background:#0F6E56;border-color:#0F6E56;color:#fff;font-weight:600}
+.cat-btn:hover:not(.active){background:#f5f5f0}
+.browse-card{background:#fff;border:1px solid #e0e0d8;border-radius:12px;padding:1.1rem 1.3rem;margin-bottom:0.65rem}
+.browse-card-top{display:flex;align-items:flex-start;justify-content:space-between;margin-bottom:4px;gap:8px}
+.browse-abbr{font-size:19px;font-weight:700;color:#1D9E75;flex-shrink:0}
+.browse-cat-tag{font-size:10px;color:#888;background:#f0f0ea;border-radius:10px;padding:2px 8px;white-space:nowrap;flex-shrink:0}
+.browse-full{font-size:11px;color:#999;margin-bottom:6px}
+.browse-def{font-size:13px;color:#333;line-height:1.85;margin-bottom:8px}
+.browse-letters{display:flex;flex-direction:column;gap:5px;margin-bottom:8px}
+.browse-letter-row{display:flex;align-items:center;font-size:12px}
+.browse-lc{font-size:15px;font-weight:700;color:#1D9E75;min-width:44px}
+.browse-div{width:1px;height:13px;background:#ddd;margin:0 8px}
+.browse-len{color:#888;min-width:120px}
+.browse-lj{color:#444;font-weight:500}
+.browse-memo{font-size:12px;color:#666;line-height:1.65;background:#f5f5f0;border-radius:6px;padding:6px 10px;border-left:3px solid #1D9E75}
 .back-btn{font-size:12px;color:#888;background:#fff;border:1px solid #ddd;border-radius:6px;padding:5px 11px;cursor:pointer;transition:all 0.15s;white-space:nowrap}
 .back-btn:hover:not(:disabled){background:#f5f5f0;color:#444}
 .back-btn:disabled{opacity:0.3;cursor:default}
@@ -90,6 +107,7 @@ body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;backgrou
 <div class="mode-select">
   <button class="mode-btn active" onclick="setMode('def-to-abbr',this)">説明 → 略語</button>
   <button class="mode-btn" onclick="setMode('abbr-to-def',this)">略語 → 説明</button>
+  <button class="mode-btn" onclick="setMode('browse',this)">📚 一覧</button>
 </div>
 <div class="progress-bar-wrap"><div class="progress-bar" id="progress" style="width:0%"></div></div>
 <div id="quiz-area"></div>
@@ -347,18 +365,84 @@ const TERMS = [
    memo:"14000番台=環境関連　→　企業の環境への取り組みを管理する規格"},
 ];
 
+// カテゴリ定義（略語→カテゴリ名のマッピング）
+const CATS={
+  '役職・幹部':['CEO','CFO','CTO','CIO','COO'],
+  '経営・戦略':['KPI','KGI','CSF','MOT','ROI','ROA','ROE','PoC','EA'],
+  '業務・プロセス':['RPA','BPR','BPO','BPMN','JIT','MRP','SCM','EUC','SoE','SoR'],
+  '調達・契約':['RFP','RFI','SLA','SLM','NDA'],
+  '顧客・マーケ':['FAQ','IVR','CTI','O2O','M2M'],
+  '財務・投資':['IPO','TOB','LBO','VC','CVC'],
+  'セキュリティ':['ISMS','IDS','IPS','PKI','AML'],
+  'ネットワーク':['RFID','PSK','SSID','VoIP','MVNO','PLC'],
+  '信頼性・継続':['MTBF','MTBSI','MTRS','UPS','BCP'],
+  '知識・規格':['BABOK','PMBOK','ITIL','ISO9001','ISO Q 15001','ISO/IEC 27017','ISO 14001'],
+};
+TERMS.forEach(t=>{
+  for(const[cat,abbrs]of Object.entries(CATS)){
+    if(abbrs.includes(t.abbr)){t.cat=cat;break;}
+  }
+  if(!t.cat)t.cat='その他';
+});
+
 let mode='def-to-abbr', shuffled=[], current=0, correct=0, answered=false, currentOpts=[], history=[], navIndex=-1;
 
 function setMode(m,btn){
   mode=m;
   document.querySelectorAll('.mode-btn').forEach(b=>b.classList.remove('active'));
   btn.classList.add('active');
-  startQuiz();
+  if(m==='browse'){
+    // 一覧モード：クイズUI非表示
+    document.getElementById('progress').parentElement.style.display='none';
+    document.getElementById('score-display').style.display='none';
+    document.getElementById('back-btn').style.display='none';
+    renderBrowse();
+  } else {
+    // クイズモード：UI復元
+    document.getElementById('progress').parentElement.style.display='';
+    document.getElementById('score-display').style.display='';
+    document.getElementById('back-btn').style.display='';
+    startQuiz();
+  }
 }
 function shuffle(arr){
   let a=[...arr];
   for(let i=a.length-1;i>0;i--){let j=Math.floor(Math.random()*(i+1));[a[i],a[j]]=[a[j],a[i]];}
   return a;
+}
+function renderBrowse(filterCat){
+  filterCat=filterCat||'すべて';
+  const catNames=['すべて',...Object.keys(CATS)];
+  const filtered=filterCat==='すべて'?TERMS:TERMS.filter(t=>t.cat===filterCat);
+  const catBtns=catNames.map(c=>`
+    <button class="cat-btn${c===filterCat?' active':''}" onclick="renderBrowse('${c}')">${c}${c==='すべて'?'':' ('+( c==='すべて'?TERMS.length:TERMS.filter(t=>t.cat===c).length)+')'}</button>
+  `).join('');
+  const cards=filtered.map(t=>{
+    const defHl=hlDef(t.def,t.letters);
+    const lRows=t.letters.map(l=>`
+      <div class="browse-letter-row">
+        <span class="browse-lc">${l.c}</span>
+        <span class="browse-div"></span>
+        <span class="browse-len">${hlEn(l.c,l.en)}</span>
+        <span class="browse-div"></span>
+        <span class="browse-lj">${l.ja}</span>
+      </div>`).join('');
+    const showTag=filterCat==='すべて';
+    return `<div class="browse-card">
+      <div class="browse-card-top">
+        <span class="browse-abbr">${t.abbr}</span>
+        ${showTag?`<span class="browse-cat-tag">${t.cat}</span>`:''}
+      </div>
+      <div class="browse-full">${t.full}</div>
+      <div class="browse-def">${defHl}</div>
+      <div class="browse-letters">${lRows}</div>
+      <div class="browse-memo">💡 ${t.memo}</div>
+    </div>`;
+  }).join('');
+  document.getElementById('quiz-area').innerHTML=`
+    <div class="cat-filter">${catBtns}</div>
+    ${cards}
+  `;
 }
 function startQuiz(){
   shuffled=shuffle(TERMS);current=0;correct=0;answered=false;history=[];navIndex=-1;
