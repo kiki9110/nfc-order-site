@@ -21,6 +21,20 @@ body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;backgrou
 .qcount-btn{padding:4px 14px;font-size:12px;border:1px solid #ccc;border-radius:20px;background:#fff;color:#666;cursor:pointer;transition:all 0.15s}
 .qcount-btn.active{border-color:#0F6E56;color:#0F6E56;background:#E1F5EE;font-weight:600}
 .qcount-btn:hover:not(.active){background:#f5f5f0}
+.opt-btn.used-choice{opacity:0.28;cursor:not-allowed;background:#f0f0ec;text-decoration:line-through}
+.opt-btn.selected-choice{background:#E3F2FD;border-color:#1976D2;color:#0D47A1;font-weight:600}
+.page-nav{display:flex;align-items:center;justify-content:space-between;gap:8px;margin-bottom:0.5rem}
+.page-btn{padding:7px 16px;font-size:13px;border:1px solid #ccc;border-radius:8px;background:#fff;cursor:pointer;color:#555;transition:all 0.15s}
+.page-btn:hover:not(:disabled){background:#f5f5f0}
+.page-btn:disabled{opacity:0.3;cursor:default}
+.page-info{font-size:12px;color:#999;font-weight:600}
+.all-banner{background:#FFF8E1;border:1px solid #F9A825;border-radius:8px;padding:7px 12px;font-size:12px;color:#7B5800;margin-bottom:0.65rem;line-height:1.65}
+.allmode-qnav{display:flex;align-items:center;justify-content:space-between;gap:8px;margin-top:0.65rem}
+.allmode-nav-btn{padding:9px 16px;font-size:13px;border:1px solid #ccc;border-radius:8px;background:#fff;cursor:pointer;color:#555;transition:all 0.15s;flex:1}
+.allmode-nav-btn:hover:not(:disabled){background:#f5f5f0}
+.allmode-nav-btn:disabled{opacity:0.3;cursor:default}
+.allmode-check-btn{padding:9px 16px;font-size:13px;border:1px solid #0F6E56;border-radius:8px;background:#E1F5EE;cursor:pointer;color:#085041;font-weight:700;flex:1.2}
+.allmode-check-btn:hover{background:#c8edd8}
 .question-card{background:#fff;border:1px solid #e0e0d8;border-radius:12px;padding:1.25rem 1.5rem;margin-bottom:0.75rem}
 .q-num{font-size:12px;color:#aaa;margin-bottom:6px}
 .q-text{font-size:15px;line-height:1.75;color:#222}
@@ -119,6 +133,7 @@ body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;backgrou
   <button class="qcount-btn" onclick="setQCount(3,this)">3択</button>
   <button class="qcount-btn active" onclick="setQCount(6,this)">6択</button>
   <button class="qcount-btn" onclick="setQCount(9,this)">9択</button>
+  <button class="qcount-btn" onclick="setQCount('all',this)">全択</button>
 </div>
 <div class="progress-bar-wrap"><div class="progress-bar" id="progress" style="width:0%"></div></div>
 <div id="quiz-area"></div>
@@ -397,9 +412,10 @@ TERMS.forEach(t=>{
 });
 
 let mode='def-to-abbr', shuffled=[], current=0, correct=0, answered=false, currentOpts=[], history=[], navIndex=-1, qCount=6;
+let allMode=false, allAnswers={}, usedChoices=new Set(), optPage=0, allChoicePool=[];
 
 function setQCount(n,btn){
-  qCount=n;
+  qCount=n; allMode=(n==='all');
   document.querySelectorAll('.qcount-btn').forEach(b=>b.classList.remove('active'));
   btn.classList.add('active');
   if(mode!=='browse')startQuiz();
@@ -464,14 +480,130 @@ function renderBrowse(filterCat){
 function startQuiz(){
   shuffled=shuffle(TERMS);
   current=0;correct=0;answered=false;history=[];navIndex=-1;
-  updateScore();updateProgress();updateBackBtn();renderQuestion();
+  if(allMode){
+    allAnswers={};usedChoices=new Set();optPage=0;
+    allChoicePool=shuffle([...TERMS]);
+    updateScore();updateProgress();updateBackBtn();
+    renderAllModeQ();
+  } else {
+    updateScore();updateProgress();updateBackBtn();renderQuestion();
+  }
 }
-function updateScore(){document.getElementById('score-display').textContent=`正解: ${correct} / ${current}`;}
+function updateScore(){
+  const label=allMode
+    ?`回答: ${Object.keys(allAnswers).length} / ${shuffled.length}`
+    :`正解: ${correct} / ${current}`;
+  document.getElementById('score-display').textContent=label;
+}
 function updateProgress(){
-  let pct=shuffled.length?(current/shuffled.length)*100:0;
-  document.getElementById('progress').style.width=pct+'%';
+  const val=allMode
+    ?(shuffled.length?Object.keys(allAnswers).length/shuffled.length*100:0)
+    :(shuffled.length?current/shuffled.length*100:0);
+  document.getElementById('progress').style.width=val+'%';
 }
-// 類似度スコアで「紛らわしい」選択肢を優先的に選ぶ
+function updateProgress(){
+  const val=allMode
+    ?(shuffled.length?Object.keys(allAnswers).length/shuffled.length*100:0)
+    :(shuffled.length?current/shuffled.length*100:0);
+  document.getElementById('progress').style.width=val+'%';
+}
+function updateBackBtn(){
+  const btn=document.getElementById('back-btn');
+  if(!btn)return;
+  if(allMode){btn.disabled=(current===0);return;}
+  btn.disabled=(navIndex===0)||(navIndex===-1&&history.length===0);
+}
+// ===== 全択モード専用 =====
+function renderAllModeQ(){
+  const item=shuffled[current];
+  const totalPages=Math.ceil(allChoicePool.length/12);
+  const pageItems=allChoicePool.slice(optPage*12,(optPage+1)*12);
+  const qText=mode==='def-to-abbr'?item.def
+    :`<span style="font-size:22px;font-weight:700;letter-spacing:3px">${item.abbr}</span>`;
+  const cols=mode==='def-to-abbr'?'1fr 1fr 1fr':'1fr';
+  const currentAnswer=allAnswers[item.abbr];
+  const answeredCount=Object.keys(allAnswers).length;
+  const allAnswered=answeredCount===shuffled.length;
+  const optsHTML=pageItems.map(t=>{
+    const isSelected=currentAnswer===t.abbr;
+    const isUsedElsewhere=!isSelected&&usedChoices.has(t.abbr);
+    const label=mode==='def-to-abbr'
+      ?`<span style="font-size:15px;font-weight:700;letter-spacing:2px">${t.abbr}</span>`
+      :`<span style="font-size:12px;line-height:1.5">${t.def}</span>`;
+    const cls=isSelected?'selected-choice':isUsedElsewhere?'used-choice':'';
+    return `<button class="opt-btn${cls?' '+cls:''}"
+      onclick="answerAllMode('${t.abbr}','${item.abbr}')"
+      ${isUsedElsewhere?'disabled':''}>${label}</button>`;
+  }).join('');
+  const midBtn=allAnswered
+    ?`<button class="allmode-check-btn" onclick="checkAllMode()">✓ 答え合わせ（全${shuffled.length}問完了）</button>`
+    :`<span style="font-size:11px;color:#bbb;text-align:center">${answeredCount}/${shuffled.length}問回答済</span>`;
+  document.getElementById('quiz-area').innerHTML=`
+    <div class="question-card">
+      <div class="q-num">問題 ${current+1} / ${shuffled.length}${currentAnswer?` ✔ <span style="color:#1976D2;font-size:11px">${currentAnswer}を選択中</span>`:'　<span style="color:#bbb;font-size:11px">未選択</span>'}</div>
+      <div class="q-text">${qText}</div>
+    </div>
+    <div class="all-banner">📋 選択肢をタップして選択・もう一度タップで解除。全問選択後に答え合わせできます</div>
+    <div style="display:grid;grid-template-columns:${cols};gap:8px;margin-bottom:0.5rem">${optsHTML}</div>
+    <div class="page-nav">
+      <button class="page-btn" onclick="changePage(-1)" ${optPage===0?'disabled':''}>← 前ページ</button>
+      <span class="page-info">${optPage+1} / ${totalPages}</span>
+      <button class="page-btn" onclick="changePage(1)" ${optPage===totalPages-1?'disabled':''}>次ページ →</button>
+    </div>
+    <div class="allmode-qnav">
+      <button class="allmode-nav-btn" onclick="allModeNav(-1)" ${current===0?'disabled':''}>← 前の問題</button>
+      ${midBtn}
+      <button class="allmode-nav-btn" onclick="allModeNav(1)" ${current===shuffled.length-1?'disabled':''}>次の問題 →</button>
+    </div>
+  `;
+  updateBackBtn();
+}
+function changePage(dir){
+  const total=Math.ceil(allChoicePool.length/12);
+  optPage=Math.max(0,Math.min(total-1,optPage+dir));
+  renderAllModeQ();
+}
+function answerAllMode(chosen,correctAbbr){
+  const prev=allAnswers[correctAbbr];
+  if(prev===chosen){
+    // 同じものを押したら解除
+    delete allAnswers[correctAbbr];
+    usedChoices.delete(chosen);
+  } else {
+    // 前の選択を解除してから新規選択
+    if(prev) usedChoices.delete(prev);
+    allAnswers[correctAbbr]=chosen;
+    usedChoices.add(chosen);
+  }
+  updateScore();updateProgress();
+  renderAllModeQ();
+}
+function allModeNav(dir){
+  const next=current+dir;
+  if(next<0||next>=shuffled.length)return;
+  current=next;optPage=0;
+  updateBackBtn();renderAllModeQ();
+}
+function checkAllMode(){buildAllModeHistory();renderResult();}
+function buildAllModeHistory(){
+  history=[];correct=0;
+  shuffled.forEach((term,idx)=>{
+    const chosen=allAnswers[term.abbr]||'';
+    const isOK=chosen===term.abbr;
+    if(isOK)correct++;
+    history.push({term,chosen,correctAbbr:term.abbr,opts:[],isOK,qNum:idx+1});
+  });
+}
+function retryWrongAllMode(){
+  const wrongTerms=history.filter(h=>!h.isOK).map(h=>h.term);
+  shuffled=shuffle(wrongTerms);
+  allAnswers={};usedChoices=new Set();optPage=0;
+  current=0;correct=0;history=[];navIndex=-1;
+  allChoicePool=shuffle([...TERMS]);
+  updateScore();updateProgress();updateBackBtn();
+  renderAllModeQ();
+}
+// ===== 通常モード =====
 function getSimilar(item, n) {
   const others = TERMS.filter(t => t.abbr !== item.abbr);
   const scored = others.map(t => {
@@ -685,18 +817,13 @@ function nextQ(){
   }
   updateBackBtn();
 }
-function updateBackBtn(){
-  const btn=document.getElementById('back-btn');
-  if(!btn)return;
-  // 履歴がない、または履歴の先頭にいる場合はdisabled
-  btn.disabled=(navIndex===0)||(navIndex===-1&&history.length===0);
-}
 function showHistoryItem(idx){
   const h=history[idx];
   renderQuestion(h.term,h.opts,h.qNum);
   revealAnswer(h.chosen,h.correctAbbr,h.isOK);
 }
 function goBack(){
+  if(allMode){allModeNav(-1);return;}
   if(navIndex===-1){
     // 最前線から1つ前の履歴へ
     if(history.length===0)return;
@@ -748,11 +875,14 @@ function renderResult(){
       ${cards}
     </div>`;
   }
+  const retryBtn=allMode&&wrongEntries.length>0
+    ?`<button class="restart-btn" style="margin-top:8px;border-color:#C0392B;color:#791F1F" onclick="retryWrongAllMode()">❌ 間違えた${wrongEntries.length}問を全択で再挑戦</button>`:'';
   document.getElementById('quiz-area').innerHTML=`
     <div class="result-card">
       <div class="result-score">${correct}/${shuffled.length}</div>
       <div class="result-msg">正答率 ${pct}%　— ${msg}</div>
       <button class="restart-btn" onclick="startQuiz()">もう一度挑戦する</button>
+      ${retryBtn}
       ${reviewHTML}
     </div>
   `;
