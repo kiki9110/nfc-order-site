@@ -63,7 +63,7 @@ body{font-family:'Noto Sans JP',sans-serif;background:var(--paper);color:var(--i
 .shape-name{font-size:12px;font-weight:500;}
 .shape-sub{font-size:10px;color:var(--muted);margin-top:2px;}
 
-/* YN BUTTONS (あり/なし) */
+/* YN BUTTONS */
 .yn-row{display:flex;gap:10px;}
 .yn-btn{flex:1;padding:16px 10px;border:2px solid var(--border);border-radius:12px;background:#fff;cursor:pointer;font-family:'Noto Sans JP',sans-serif;font-size:15px;font-weight:500;color:var(--muted);transition:all .15s;text-align:center;}
 .yn-btn:hover{border-color:var(--ink);color:var(--ink);}
@@ -95,7 +95,6 @@ body{font-family:'Noto Sans JP',sans-serif;background:var(--paper);color:var(--i
 .extra-tag{display:inline-block;font-size:10px;padding:1px 7px;background:#fde8e0;color:var(--accent);border-radius:20px;font-weight:500;margin-left:6px;}
 
 /* QR EDITOR */
-.qr-editor{margin-top:14px;}
 .qr-canvas-wrap{position:relative;width:100%;height:220px;border-radius:10px;overflow:hidden;border:1.5px solid var(--border);background:var(--cream);margin-bottom:10px;}
 .qr-canvas-wrap canvas{position:absolute;inset:0;width:100%;height:100%;pointer-events:none;}
 .qr-box{position:absolute;border:2.5px solid #fff;box-shadow:0 0 0 1.5px rgba(0,0,0,.25),0 2px 8px rgba(0,0,0,.3);cursor:grab;border-radius:3px;display:flex;align-items:center;justify-content:center;}
@@ -117,30 +116,26 @@ body{font-family:'Noto Sans JP',sans-serif;background:var(--paper);color:var(--i
 .slider-row{display:flex;align-items:center;gap:10px;}
 .slider-row input[type=range]{flex:1;accent-color:var(--accent);}
 
-/* ATTACH */
-.attach-wrap{position:relative;width:100%;height:180px;background:#18181a;border-radius:12px;overflow:hidden;margin:10px 0 8px;}
-.attach-wrap canvas{position:absolute;inset:0;width:100%;height:100%;pointer-events:none;}
-.attach-dot{position:absolute;width:36px;height:52px;cursor:grab;z-index:5;transform:translate(-50%,-50%);filter:drop-shadow(0 2px 4px rgba(0,0,0,.6));transition:transform .1s;}
-.attach-dot:active{cursor:grabbing;}
-.attach-ctrl{display:flex;align-items:center;gap:8px;margin-top:2px;}
-.attach-ctrl label{font-size:11px;color:var(--muted);width:36px;flex-shrink:0;}
-.attach-ctrl input[type=range]{flex:1;accent-color:var(--accent);}
-.attach-info{font-size:11px;color:var(--muted);margin-top:6px;}
+/* 穴エディタ（キャンバスをドラッグ／タップして穴を配置） */
+.attach-wrap{position:relative;width:100%;height:260px;background:#16161a;border-radius:12px;overflow:hidden;margin:10px 0 8px;cursor:crosshair;touch-action:none;}
+.attach-wrap canvas{position:absolute;inset:0;width:100%;height:100%;touch-action:none;}
+.attach-info{font-size:11px;color:var(--muted);margin-top:8px;display:flex;align-items:center;gap:8px;flex-wrap:wrap;}
+.att-mode{display:inline-block;font-size:10px;font-weight:700;padding:2px 9px;border-radius:20px;letter-spacing:.03em;}
+.att-mode.inside{background:#1d3a2a;color:#7fe0a8;}
+.att-mode.outside{background:#3a2a1d;color:#e0b27f;}
 
-/* 3D PREVIEW */
+/* 注文サマリーカード */
 .prev-card{background:var(--ink);border-radius:var(--radius);overflow:hidden;margin-bottom:12px;margin-top:14px;}
 @media(min-width:700px){.prev-card{margin-top:0;}}
-.prev-head{padding:11px 15px;display:flex;align-items:center;justify-content:space-between;}
+.prev-head{padding:11px 15px;display:flex;align-items:center;justify-content:space-between;border-bottom:1px solid rgba(255,255,255,.07);}
 .prev-title{font-size:11px;font-weight:500;color:rgba(255,255,255,.65);letter-spacing:.08em;text-transform:uppercase;}
 .prev-hint{font-size:10px;color:rgba(255,255,255,.3);}
-.three-wrap{position:relative;width:100%;background:#080806;line-height:0;}
-#threeCanvas{display:block;width:100%;height:auto;}
 .dicut-btn-area{display:none;padding:9px 14px;border-top:1px solid rgba(255,255,255,.08);}
 .dicut-btn{width:100%;padding:10px;background:var(--accent);border:none;border-radius:9px;color:#fff;font-family:'Noto Sans JP',sans-serif;font-size:13px;font-weight:500;cursor:pointer;}
-.size-pills{display:flex;gap:4px;padding:9px 14px;border-top:1px solid rgba(255,255,255,.07);}
-.pill{flex:1;text-align:center;background:rgba(255,255,255,.05);border-radius:7px;padding:7px 2px;}
-.pill-label{font-size:9px;color:rgba(255,255,255,.3);margin-bottom:2px;}
-.pill-val{font-size:12px;font-weight:700;font-family:'Syne',sans-serif;color:var(--paper);}
+.size-pills{display:grid;grid-template-columns:1fr 1fr;gap:6px;padding:12px 14px;}
+.pill{text-align:center;background:rgba(255,255,255,.05);border-radius:8px;padding:9px 2px;}
+.pill-label{font-size:9px;color:rgba(255,255,255,.3);margin-bottom:3px;}
+.pill-val{font-size:13px;font-weight:700;font-family:'Syne',sans-serif;color:var(--paper);}
 
 /* SUBMIT */
 .submit-bar{position:fixed;bottom:0;left:0;right:0;z-index:60;background:var(--ink);padding:12px 18px 18px;display:flex;align-items:center;gap:10px;border-top:1px solid rgba(255,255,255,.08);}
@@ -243,13 +238,8 @@ body{font-family:'Noto Sans JP',sans-serif;background:var(--paper);color:var(--i
   <div class="sec-body hidden" id="sb3">
     <div style="font-size:12px;color:var(--muted);margin-bottom:14px;line-height:1.6;">スマホをかざすと登録したURLに飛べます。</div>
     <div class="yn-row">
-      <button class="yn-btn" id="nfc-yes" onclick="setNFC(true)">
-        あり
-        <div class="yn-sub">+¥100</div>
-      </button>
-      <button class="yn-btn sel" id="nfc-no" onclick="setNFC(false)">
-        なし
-      </button>
+      <button class="yn-btn" id="nfc-yes" onclick="setNFC(true)">あり<div class="yn-sub">+¥100</div></button>
+      <button class="yn-btn sel" id="nfc-no" onclick="setNFC(false)">なし</button>
     </div>
     <div class="url-box" id="nfcUrl-box">
       <label>登録するURL</label>
@@ -308,7 +298,7 @@ body{font-family:'Noto Sans JP',sans-serif;background:var(--paper);color:var(--i
       <div class="preview-wrap" id="pw-back">
         <canvas id="cv-back" width="200" height="200"></canvas>
         <button class="retake-btn" onclick="resetImg('back')">選び直す</button>
-      <button class="retake-btn" style="color:var(--ink);" onclick="reopenCrop('back')">✏ 再調整</button>
+        <button class="retake-btn" style="color:var(--ink);" onclick="reopenCrop('back')">✏ 再調整</button>
       </div>
     </div>
   </div>
@@ -328,7 +318,6 @@ body{font-family:'Noto Sans JP',sans-serif;background:var(--paper);color:var(--i
       <button class="yn-btn sel" id="qr-no" onclick="setQR(false)">なし</button>
     </div>
     <div id="qrOptions" style="display:none;">
-      <!-- QR URL入力欄 -->
       <div style="margin-bottom:14px;">
         <div class="url-box show" style="margin-top:0;">
           <label>QRコードに登録するURL</label>
@@ -398,10 +387,10 @@ body{font-family:'Noto Sans JP',sans-serif;background:var(--paper);color:var(--i
     <div class="slider-group">
       <label>長辺（最長部分）</label>
       <div class="slider-row">
-        <input type="range" id="szSlider" min="5" max="15" step="0.5" value="7" oninput="onSzSlider()">
+        <input type="range" id="szSlider" min="5" max="10" step="0.5" value="7" oninput="onSzSlider()">
         <div class="num-step">
           <button onclick="stepSz(-0.5)">−</button>
-          <input type="number" id="szN" min="5" max="15" step="0.5" value="7" oninput="onSzInput()">
+          <input type="number" id="szN" min="5" max="10" step="0.5" value="7" oninput="onSzInput()">
           <span class="unit">cm</span>
           <button onclick="stepSz(0.5)">＋</button>
         </div>
@@ -419,7 +408,19 @@ body{font-family:'Noto Sans JP',sans-serif;background:var(--paper);color:var(--i
         </div>
       </div>
     </div>
-    <div style="font-size:11px;color:var(--muted);margin-top:4px;line-height:1.6;">※ 長辺でのサイズ指定。3Dプレビューに反映されます。</div>
+    <div class="slider-group" id="bdGroup" style="display:none;">
+      <label>縁の厚さ（ダイアカットの枠）</label>
+      <div class="slider-row">
+        <input type="range" id="bdSlider" min="0" max="1" step="0.1" value="0.3" oninput="onBdSlider()">
+        <div class="num-step">
+          <button onclick="stepBd(-0.1)">−</button>
+          <input type="number" id="bdN" min="0" max="1" step="0.1" value="0.3" oninput="onBdInput()">
+          <span class="unit">cm</span>
+          <button onclick="stepBd(0.1)">＋</button>
+        </div>
+      </div>
+    </div>
+    <div style="font-size:11px;color:var(--muted);margin-top:4px;line-height:1.6;">※ 長辺（最長部分）でサイズを指定します。丸・四角は最大10cm、ダイアカットは最大15cmです。</div>
   </div>
 </div>
 
@@ -427,48 +428,34 @@ body{font-family:'Noto Sans JP',sans-serif;background:var(--paper);color:var(--i
 <div class="sec" id="sec7">
   <div class="sec-head" onclick="toggle(7)">
     <div class="sec-num" id="sn7">7</div>
-    <div class="sec-title">穴</div>
+    <div class="sec-title">穴の位置</div>
     <div class="sec-status" id="ss7">未設定</div>
   </div>
   <div class="sec-body hidden" id="sb7">
-    <div style="font-size:12px;color:var(--muted);margin-bottom:10px;line-height:1.7;">これはキーホルダーのチェーンを通すための穴です。<br>金具アイコンをドラッグして穴の位置を指定してください。</div>
-    <!-- 面切り替えボタン -->
+    <div style="font-size:12px;color:var(--muted);margin-bottom:10px;line-height:1.8;">チェーンを通す穴を、ドラッグまたはタップで配置してください。<br>・本体の<strong style="color:var(--ink);">内側</strong>に置くと、その位置に穴が開きます。<br>・本体の<strong style="color:var(--ink);">外側</strong>に置くと、穴を囲むツメ（持ち手）が本体につながります（縁から最大1cmまで）。</div>
     <div style="display:flex;gap:6px;margin-bottom:8px;">
       <button id="attViewFront" onclick="setAttachView('front')" style="flex:1;padding:7px;border:1.5px solid var(--accent);border-radius:8px;background:var(--accent);color:#fff;font-size:12px;cursor:pointer;font-family:'Noto Sans JP',sans-serif;">おもて面</button>
       <button id="attViewBack" onclick="setAttachView('back')" style="flex:1;padding:7px;border:1.5px solid var(--border);border-radius:8px;background:#fff;color:var(--muted);font-size:12px;cursor:pointer;font-family:'Noto Sans JP',sans-serif;">うら面</button>
     </div>
     <div class="attach-wrap" id="attachWrap">
       <canvas id="attachCv"></canvas>
-      <div class="attach-dot" id="attachDot"></div>
     </div>
-    <div class="attach-ctrl">
-      <label>角度</label>
-      <input type="range" id="attachAngle" min="0" max="360" step="1" value="0" oninput="onAttachAngle()">
-      <div class="num-step">
-        <button onclick="stepAngle(-1)">−</button>
-        <input type="number" id="attachAngleN" min="0" max="360" value="0" oninput="onAttachAngleN()">
-        <span class="unit">°</span>
-        <button onclick="stepAngle(1)">＋</button>
-      </div>
+    <div style="font-size:11px;color:var(--muted);margin-top:8px;">チェーン穴：直径 <strong style="color:var(--ink);">5mm</strong>（固定）</div>
+    <div class="attach-info">
+      <span class="att-mode inside" id="attModeBadge">本体内</span>
+      <span>X:<span id="attX">50</span>% Y:<span id="attY">10</span>%</span>
     </div>
-    <div class="attach-info">X:<span id="attX">50</span>% Y:<span id="attY">10</span>% 角度:<span id="attA">0</span>°</div>
   </div>
 </div>
 
 </div><!-- /form-col -->
 
-<!-- 3D PREVIEW -->
+<!-- 注文サマリー -->
 <div class="preview-col">
   <div class="prev-card">
     <div class="prev-head">
-      <div class="prev-title">3D プレビュー</div>
-      <div class="prev-hint">ドラッグで回転 / スクロールで拡大</div>
-    </div>
-    <div class="three-wrap">
-      <canvas id="threeCanvas"></canvas>
-    </div>
-    <div class="dicut-btn-area" id="dicutArea">
-      <button class="dicut-btn" onclick="openDicutCrop()">✂ ダイアカット輪郭を確定</button>
+      <div class="prev-title">注文サマリー</div>
+      <div class="prev-hint">現在の設定</div>
     </div>
     <div class="size-pills">
       <div class="pill"><div class="pill-label">長辺</div><div class="pill-val" id="pd-size">7.0cm</div></div>
@@ -486,7 +473,7 @@ body{font-family:'Noto Sans JP',sans-serif;background:var(--paper);color:var(--i
     <strong id="submitLabel">注文内容を確認して送信</strong>
     <span id="submitSub">全項目を設定してください</span>
   </div>
-  <button class="submit-btn" onclick="doSubmit()">注文を送信 →</button>
+  <button class="submit-btn" id="submitBtn" onclick="doSubmit()">注文を送信 →</button>
 </div>
 
 <!-- CROP MODAL -->
@@ -533,45 +520,48 @@ body{font-family:'Noto Sans JP',sans-serif;background:var(--paper);color:var(--i
 
 <div class="toast" id="toast"></div>
 
-<script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
 <script>
 'use strict';
 
-// ═══════════════════════════════
+// ═══════════════════════════════════════════════════════
 // STATE
-// ═══════════════════════════════
+// ═══════════════════════════════════════════════════════
 const S = {
-  orderId: sessionStorage.getItem('orderId') || '—',
-  color: null, colorHex: null,
-  shape: null,
-  nfc: false, nfcUrl: '',
-  backPrint: false,
-  imgFront: null, imgBack: null,
-  imgFrontSrc: null, imgBackSrc: null, // オリジナルソース（再調整用）
+  orderId:    sessionStorage.getItem('orderId') || '—',
+  color:      null, colorHex: null,
+  shape:      null,
+  nfc:        false, nfcUrl: '',
+  backPrint:  false,
+  imgFront:   null, imgBack: null,
+  imgFrontSrc:null, imgBackSrc: null,   // オリジナルソース（再調整用）
   cropStateFront: null, cropStateBack: null, // 前回のクロップ設定
-  qr: false, qrSide: null, qrUrl: '',
-  qrFront: { x: 50, y: 50, cm: 2 },
-  qrBack:  { x: 50, y: 50, cm: 2 },
-  sizeCm: 7, thickCm: 2,
-  attX: 50, attY: 10, attAngle: 0,
-  attachView: 'front', // 穴エディタの表示面
+  dieFront:   null, dieBack: null,       // ダイアカットの実シルエット（正規化ポリゴン）
+  qr:         false, qrSide: null, qrUrl: '',
+  qrFront:    { x: 50, y: 50, cm: 2 },
+  qrBack:     { x: 50, y: 50, cm: 2 },
+  sizeCm:     7, thickCm: 2,
+  attX:       50, attY: 10, attAngle: 0,
+  holeCm:     0.5,     // 穴の直径(cm) ＝ 5mm 固定
+  borderCm:   0.3,     // ダイアカットの縁の厚さ(cm)
+  attMode:    'inside', // 'inside'(本体に穴) / 'outside'(外付けツメ)
+  attachView: 'front',
 };
 let cropTarget = 'front';
 
 document.getElementById('topOrder').textContent = S.orderId;
 
-// ═══════════════════════════════
+// ═══════════════════════════════════════════════════════
 // SECTION TOGGLE
-// ═══════════════════════════════
+// ═══════════════════════════════════════════════════════
 function toggle(n) {
   const sb = document.getElementById('sb' + n);
   if (!sb) return;
   sb.classList.toggle('hidden');
 }
 
-// ═══════════════════════════════
-// COLORS（在庫管理対応）
-// ═══════════════════════════════
+// ═══════════════════════════════════════════════════════
+// COLORS（在庫管理対応 — Worker から在庫状態を取得）
+// ═══════════════════════════════════════════════════════
 const COLORS = [
   { name:'ホワイト', hex:'#FFFFFF', border:'#ccc' },
   { name:'ブラック', hex:'#1a1a18' },
@@ -582,29 +572,26 @@ const COLORS = [
   { name:'グリーン', hex:'#22C55E' },
 ];
 
-// Workerのオリジン（page1のsessionStorageから取得、なければ本番URL）
+// Worker の URL（page1 の sessionStorage から取得、なければ本番 URL）
 const WORKER_ORIGIN = sessionStorage.getItem('workerOrigin') || 'https://buki-booth.com';
 
-// 在庫状態をWorkerから取得してカラースウォッチを描画
 (async function initColors() {
   // 在庫情報を取得（失敗しても全色表示にフォールバック）
   let colorStates = {};
   let isMaintenance = false;
-  let maintMsg = '';
+  let maintMsg = 'ただいまメンテナンス中です。しばらくお待ちください。';
   try {
     const r = await fetch(WORKER_ORIGIN + '/api/get-inventory');
     if (r.ok) {
       const d = await r.json();
       const inv = d.inventory || {};
-      colorStates = inv.colors || {};
+      colorStates   = inv.colors        || {};
       isMaintenance = !!inv.maintenance;
-      maintMsg = inv.maintenanceMsg || 'ただいメンテナンス中です。しばらくお待ちください。';
+      maintMsg      = inv.maintenanceMsg || maintMsg;
     }
-  } catch(e) {
-    // ネットワークエラー時は無視して通常表示
-  }
+  } catch(e) { /* ネットワークエラー時は無視して通常表示 */ }
 
-  // メンテナンスモードの場合はバナー表示して注文ブロック
+  // メンテナンスモード：バナー表示して注文ブロック
   if (isMaintenance) {
     const banner = document.createElement('div');
     banner.id = 'maint-banner';
@@ -615,9 +602,8 @@ const WORKER_ORIGIN = sessionStorage.getItem('workerOrigin') || 'https://buki-bo
       + '<div style="font-size:13px;color:#6b6860;line-height:1.7;">' + maintMsg + '</div>'
       + '</div>';
     document.body.appendChild(banner);
-    // submitボタンを無効化
-    const submitBtn = document.getElementById('submitBtn');
-    if (submitBtn) { submitBtn.disabled = true; submitBtn.style.opacity = '0.4'; }
+    const btn = document.getElementById('submitBtn');
+    if (btn) { btn.disabled = true; btn.style.opacity = '0.4'; }
   }
 
   // カラースウォッチを生成
@@ -626,9 +612,7 @@ const WORKER_ORIGIN = sessionStorage.getItem('workerOrigin') || 'https://buki-bo
     const st      = colorStates[c.name] || {};
     const soldOut = !!st.soldOut;
     const hidden  = !!st.hidden;
-
-    // 非表示設定ならスキップ
-    if (hidden) return;
+    if (hidden) return; // 非表示設定ならスキップ
 
     const wrap = document.createElement('div');
     wrap.style.cssText = 'position:relative;display:inline-block;';
@@ -641,25 +625,16 @@ const WORKER_ORIGIN = sessionStorage.getItem('workerOrigin') || 'https://buki-bo
 
     if (soldOut) {
       // 在庫切れ：グレーアウト＋選択不可
-      el.style.opacity = '0.38';
-      el.style.cursor  = 'not-allowed';
-      el.style.filter  = 'grayscale(0.7)';
-      el.title = c.name + '（在庫切れ）';
-
-      // 在庫切れバッジ
+      el.style.opacity  = '0.38';
+      el.style.cursor   = 'not-allowed';
+      el.style.filter   = 'grayscale(0.7)';
       const badge = document.createElement('div');
       badge.textContent = '在庫切れ';
-      badge.style.cssText = [
-        'position:absolute;bottom:-18px;left:50%;transform:translateX(-50%);',
-        'white-space:nowrap;font-size:9px;font-weight:700;',
-        'background:#dc2626;color:#fff;padding:1px 5px;border-radius:4px;',
-        'pointer-events:none;',
-      ].join('');
+      badge.style.cssText = 'position:absolute;bottom:-18px;left:50%;transform:translateX(-50%);'
+        + 'white-space:nowrap;font-size:9px;font-weight:700;'
+        + 'background:#dc2626;color:#fff;padding:1px 5px;border-radius:4px;pointer-events:none;';
       wrap.appendChild(badge);
-
-      el.addEventListener('click', () => {
-        toast(c.name + 'は現在在庫切れです');
-      });
+      el.addEventListener('click', () => toast(c.name + 'は現在在庫切れです'));
     } else {
       el.addEventListener('click', () => {
         document.querySelectorAll('.csw').forEach(e => e.classList.remove('sel'));
@@ -668,21 +643,20 @@ const WORKER_ORIGIN = sessionStorage.getItem('workerOrigin') || 'https://buki-bo
         document.getElementById('colorName').textContent = '選択中：' + c.name;
         document.getElementById('ss1').textContent = c.name;
         document.getElementById('pd-color').textContent = c.name;
-        done(1); updateLock(); updateProg(); rebuild3D();
+        done(1); updateLock(); updateProg();
+        if (window._redrawAttach) window._redrawAttach();
       });
     }
 
     wrap.appendChild(el);
     row.appendChild(wrap);
   });
-
-  // スウォッチのmargin-bottomを少し広げて在庫切れバッジが被らないようにする
-  row.style.paddingBottom = '20px';
+  row.style.paddingBottom = '20px'; // 在庫切れバッジが被らないよう余白
 })();
 
-// ═══════════════════════════════
+// ═══════════════════════════════════════════════════════
 // SHAPE
-// ═══════════════════════════════
+// ═══════════════════════════════════════════════════════
 function pickShape(sh) {
   ['circle','square','diecut'].forEach(s => {
     document.getElementById('sh-' + s).classList.toggle('sel', s === sh);
@@ -692,52 +666,51 @@ function pickShape(sh) {
   document.getElementById('ss2').textContent = names[sh];
   document.getElementById('pd-shape').textContent = { circle:'丸', square:'四角', diecut:'ダイカ' }[sh];
   document.getElementById('diecut-note').style.display = sh === 'diecut' ? 'block' : 'none';
-  document.getElementById('dicutArea').style.display = sh === 'diecut' ? 'block' : 'none';
-  // 丸型の上マーカー
+  document.getElementById('bdGroup').style.display     = sh === 'diecut' ? 'block' : 'none';
+  // 形状ごとのサイズ上限を反映（丸・四角=10cm / ダイアカット=15cm）
+  const mx = maxSizeFor(sh);
+  document.getElementById('szSlider').max = mx;
+  document.getElementById('szN').max      = mx;
+  if (S.sizeCm > mx) setSz(mx);
+  // 丸型「上」マーカー
   const isCircle = sh === 'circle';
-  document.getElementById('upBadge').style.display = isCircle ? 'block' : 'none';
+  document.getElementById('upBadge').style.display     = isCircle ? 'block' : 'none';
   document.getElementById('upBadgeBack').style.display = isCircle ? 'block' : 'none';
   done(2);
-  // セクションを閉じる（選択済みを示す）
   document.getElementById('sb2').classList.add('hidden');
-  updateLock(); updateProg(); rebuild3D();
+  updateLock(); updateProg();
   if (window._redrawAttach) window._redrawAttach();
 }
 
-// ═══════════════════════════════
+// ═══════════════════════════════════════════════════════
 // LOCK (sec4)
-// ═══════════════════════════════
+// ═══════════════════════════════════════════════════════
 function updateLock() {
   const locked = !S.color || !S.shape;
-  const sec4 = document.getElementById('sec4');
-  sec4.classList.toggle('locked', locked);
+  document.getElementById('sec4').classList.toggle('locked', locked);
   if (locked) {
-    let msg = '';
-    if (!S.color && !S.shape) msg = '先に「土台カラー」と「形状」を選択してください';
-    else if (!S.color) msg = '先に「土台カラー」を選択してください';
-    else msg = '先に「形状」を選択してください';
-    document.getElementById('lockMsg').textContent = msg;
+    document.getElementById('lockMsg').textContent =
+      (!S.color && !S.shape) ? '先に「土台カラー」と「形状」を選択してください'
+      : !S.color              ? '先に「土台カラー」を選択してください'
+      :                         '先に「形状」を選択してください';
   }
 }
 function onImgSecClick() {
-  if (document.getElementById('sec4').classList.contains('locked')) {
-    onLockBarClick();
-    return;
-  }
+  if (document.getElementById('sec4').classList.contains('locked')) { onLockBarClick(); return; }
   toggle(4);
 }
 function onLockBarClick() {
   const noC = !S.color, noS = !S.shape;
   if (noC && noS) toast('「土台カラー」と「形状」を選択してください');
-  else if (noC) toast('「土台カラー」を選択してください');
-  else toast('「形状」を選択してください');
+  else if (noC)   toast('「土台カラー」を選択してください');
+  else             toast('「形状」を選択してください');
   if (noC) { document.getElementById('sb1').classList.remove('hidden'); document.getElementById('sec1').scrollIntoView({behavior:'smooth',block:'center'}); }
   else     { document.getElementById('sb2').classList.remove('hidden'); document.getElementById('sec2').scrollIntoView({behavior:'smooth',block:'center'}); }
 }
 
-// ═══════════════════════════════
+// ═══════════════════════════════════════════════════════
 // NFC
-// ═══════════════════════════════
+// ═══════════════════════════════════════════════════════
 function setNFC(val) {
   S.nfc = val;
   document.getElementById('nfc-yes').classList.toggle('sel', val);
@@ -747,22 +720,22 @@ function setNFC(val) {
   done(3); updateProg();
 }
 
-// ═══════════════════════════════
+// ═══════════════════════════════════════════════════════
 // BACK PRINT
-// ═══════════════════════════════
+// ═══════════════════════════════════════════════════════
 function setBackPrint(val) {
   S.backPrint = val;
   document.getElementById('bp-yes').classList.toggle('sel', val);
   document.getElementById('bp-no').classList.toggle('sel', !val);
   document.getElementById('ss35').textContent = val ? 'あり (+¥100)' : 'なし';
-  document.getElementById('backArea').style.display = val ? 'block' : 'none';
-  document.getElementById('frontLbl').style.display = val ? 'block' : 'none';
+  document.getElementById('backArea').style.display  = val ? 'block' : 'none';
+  document.getElementById('frontLbl').style.display  = val ? 'block' : 'none';
   updateProg();
 }
 
-// ═══════════════════════════════
+// ═══════════════════════════════════════════════════════
 // IMAGE
-// ═══════════════════════════════
+// ═══════════════════════════════════════════════════════
 function onFileChange(e, target) {
   cropTarget = target;
   const file = e.target.files[0];
@@ -772,9 +745,8 @@ function onFileChange(e, target) {
   reader.readAsDataURL(file);
 }
 
-// Drag & drop
 ['uz-front','uz-back'].forEach((id, i) => {
-  const el = document.getElementById(id);
+  const el  = document.getElementById(id);
   const tgt = i === 0 ? 'front' : 'back';
   el.addEventListener('dragover', e => { e.preventDefault(); el.classList.add('over'); });
   el.addEventListener('dragleave', () => el.classList.remove('over'));
@@ -800,15 +772,13 @@ function resetImg(target) {
     document.getElementById('uz-back').style.display = '';
     document.getElementById('img-back').value = '';
   }
-  const any = S.imgFront || S.imgBack;
-  document.getElementById('ss4').textContent = any ? '設定済み' : '未設定';
-  rebuild3D();
+  document.getElementById('ss4').textContent = (S.imgFront || S.imgBack) ? '設定済み' : '未設定';
+  if (window._redrawAttach) window._redrawAttach();
 }
 
-// 再調整（オリジナルから再度クロップモーダルを開く）
+// 再調整（オリジナル画像からクロップモーダルを再度開く）
 function reopenCrop(target) {
   cropTarget = target;
-  // オリジナル画像（カット前）から再調整
   const src       = target === 'back' ? S.imgBackSrc    : S.imgFrontSrc;
   const prevState = target === 'back' ? S.cropStateBack : S.cropStateFront;
   if (!src) { toast('先に画像を設定してください'); return; }
@@ -818,48 +788,32 @@ function reopenCrop(target) {
     const ca = document.getElementById('cropArea');
     const cw = ca.offsetWidth || 360, ch = ca.offsetHeight || 290;
     C.imgW = img.naturalWidth; C.imgH = img.naturalHeight;
-
     if (prevState && prevState.imgW === C.imgW && prevState.imgH === C.imgH) {
-      // 前回の設定を復元
-      C.scale    = prevState.scale;
-      C.rot      = prevState.rot;
-      C.x        = prevState.x;
-      C.y        = prevState.y;
-      C.fitScale = prevState.fitScale;
-      // スライダーUIも復元
-      const pct = Math.round(C.scale / C.fitScale * 100);
-      setCropSz(pct, false);
+      C.scale = prevState.scale; C.rot = prevState.rot;
+      C.x = prevState.x; C.y = prevState.y; C.fitScale = prevState.fitScale;
+      setCropSz(Math.round(C.scale / C.fitScale * 100), false);
       setCropRot(C.rot, false);
     } else {
-      // 初回は50%で開く
       const fw = cw * .78, fh = ch * .78;
       C.fitScale = Math.min(fw / C.imgW, fh / C.imgH);
-      const initPct = 50;
-      C.scale = initPct / 100 * C.fitScale;
-      setCropSz(initPct, false);
-      setCropRot(0, false);
-      C.x = (cw - C.imgW * C.scale) / 2;
-      C.y = (ch - C.imgH * C.scale) / 2;
+      C.scale = .5 * C.fitScale;
+      setCropSz(50, false); setCropRot(0, false);
+      C.x = (cw - C.imgW * C.scale) / 2; C.y = (ch - C.imgH * C.scale) / 2;
     }
-
     posImg(); drawMask();
     const sh = S.shape || 'circle';
     document.getElementById('dicutBar').style.display = sh === 'diecut' ? 'block' : 'none';
-    document.getElementById('rotRow').style.display = (sh === 'circle' || sh === 'square') ? 'flex' : 'none';
-    document.getElementById('cropTitle').textContent = '画像を再調整（元の画像から）';
+    document.getElementById('rotRow').style.display   = (sh === 'circle' || sh === 'square') ? 'flex' : 'none';
+    document.getElementById('cropTitle').textContent  = '画像を再調整（元の画像から）';
     document.getElementById('cropModal').classList.add('open');
   };
-  if (img.src === src && img.complete && img.naturalWidth > 0) {
-    requestAnimationFrame(doOpen);
-  } else {
-    img.onload = () => requestAnimationFrame(doOpen);
-    img.src = src;
-  }
+  if (img.src === src && img.complete && img.naturalWidth > 0) requestAnimationFrame(doOpen);
+  else { img.onload = () => requestAnimationFrame(doOpen); img.src = src; }
 }
 
-// ═══════════════════════════════
+// ═══════════════════════════════════════════════════════
 // CROP
-// ═══════════════════════════════
+// ═══════════════════════════════════════════════════════
 const C = { x:0, y:0, scale:1, rot:0, imgW:0, imgH:0, fitScale:1, drag:false, sx:0, sy:0 };
 
 function openDicutCrop() {
@@ -871,13 +825,9 @@ function openDicutCrop() {
 }
 
 function openCrop(src) {
-  // オリジナルソースを保存（カット前の元画像）
   C.originalSrc = src;
-  if (cropTarget === 'back') {
-    S.imgBackSrc = src;
-  } else {
-    S.imgFrontSrc = src;
-  }
+  if (cropTarget === 'back') S.imgBackSrc  = src;
+  else                       S.imgFrontSrc = src;
   const img = document.getElementById('cropImg');
   img.onload = openCropModal;
   img.src = src;
@@ -891,23 +841,24 @@ function openCropModal() {
     C.imgW = img.naturalWidth; C.imgH = img.naturalHeight; C.rot = 0;
     const fw = cw * .78, fh = ch * .78;
     C.fitScale = Math.min(fw / C.imgW, fh / C.imgH);
-    const initPct = 50;
-    C.scale = initPct / 100 * C.fitScale;
-    setCropSz(initPct, false);
-    setCropRot(0, false);
-    C.x = (cw - C.imgW * C.scale) / 2;
-    C.y = (ch - C.imgH * C.scale) / 2;
+    C.scale = .5 * C.fitScale;
+    setCropSz(50, false); setCropRot(0, false);
+    C.x = (cw - C.imgW * C.scale) / 2; C.y = (ch - C.imgH * C.scale) / 2;
     posImg(); drawMask();
     const sh = S.shape || 'circle';
-    document.getElementById('dicutBar').style.display = sh === 'diecut' ? 'block' : 'none';
+    const backDie = (sh === 'diecut' && cropTarget === 'back' && S.dieFront);
+    document.getElementById('dicutBar').style.display   = sh === 'diecut' ? 'block' : 'none';
+    document.getElementById('dicutBar').textContent = backDie
+      ? '📐 裏面は表面の形に合わせて切り抜きます。位置・大きさだけ調整してください。'
+      : '📐 ダイアカット：画像の輪郭に沿って切り抜きます。背景透過PNGを推奨。';
     document.getElementById('rotRow').style.display = (sh === 'circle' || sh === 'square') ? 'flex' : 'none';
-    document.getElementById('cropTitle').textContent = sh === 'diecut' ? 'ダイアカット輪郭を確定' : '画像の位置・サイズを調整';
+    document.getElementById('cropTitle').textContent = sh === 'diecut'
+      ? (backDie ? '裏面の位置を調整（形は表面に同じ）' : 'ダイアカット輪郭を確定') : '画像の位置・サイズを調整';
     document.getElementById('cropModal').classList.add('open');
   });
 }
 function closeCrop() { document.getElementById('cropModal').classList.remove('open'); }
 
-// Scale (UI 100% = fitScale = 枠ぴったり, 1%〜100%)
 function setCropSz(pct, doUpdate = true) {
   pct = Math.min(200, Math.max(1, Math.round(pct)));
   document.getElementById('cropSz').value  = pct;
@@ -915,8 +866,7 @@ function setCropSz(pct, doUpdate = true) {
   if (!doUpdate) return;
   const ca = document.getElementById('cropArea');
   const cw = ca.offsetWidth || 360, ch = ca.offsetHeight || 290;
-  const fw = cw * .78, fh = ch * .78;
-  C.fitScale = Math.min(fw / C.imgW, fh / C.imgH);
+  C.fitScale = Math.min(cw * .78 / C.imgW, ch * .78 / C.imgH);
   const prev = C.scale || .001;
   C.scale = pct / 100 * C.fitScale;
   const cx = cw / 2, cy = ch / 2;
@@ -928,7 +878,6 @@ function onCropSzSlider() { setCropSz(+document.getElementById('cropSz').value);
 function onCropSzInput()  { setCropSz(+document.getElementById('cropSzN').value); }
 function stepCropSz(d)    { setCropSz((+document.getElementById('cropSzN').value || 75) + d); }
 
-// Rotation
 function setCropRot(deg, doUpdate = true) {
   deg = Math.min(180, Math.max(-180, Math.round(deg)));
   document.getElementById('cropRot').value  = deg;
@@ -943,20 +892,14 @@ function stepCropRot(d)    { setCropRot((+document.getElementById('cropRotN').va
 function posImg() {
   const img = document.getElementById('cropImg');
   const ca  = document.getElementById('cropArea');
-  const cw  = ca.offsetWidth || 360, ch = ca.offsetHeight || 290;
-  const iw  = C.imgW * C.scale;
-  const ih  = C.imgH * C.scale;
-  // 枠中央を回転軸にする: transform-originをpx指定
-  // 枠中央の、画像左上からの相対位置
-  const cx  = cw / 2, cy = ch / 2;
-  const ox  = cx - C.x; // 画像左上から枠中央までのX
-  const oy  = cy - C.y; // 画像左上から枠中央までのY
-  img.style.left   = C.x + 'px';
-  img.style.top    = C.y + 'px';
-  img.style.width  = iw + 'px';
-  img.style.height = ih + 'px';
-  img.style.transformOrigin = ox + 'px ' + oy + 'px';
-  img.style.transform = 'rotate(' + C.rot + 'deg)';
+  const cw = ca.offsetWidth || 360, ch = ca.offsetHeight || 290;
+  const cx = cw / 2, cy = ch / 2;
+  img.style.left            = C.x + 'px';
+  img.style.top             = C.y + 'px';
+  img.style.width           = (C.imgW * C.scale) + 'px';
+  img.style.height          = (C.imgH * C.scale) + 'px';
+  img.style.transformOrigin = (cx - C.x) + 'px ' + (cy - C.y) + 'px';
+  img.style.transform       = 'rotate(' + C.rot + 'deg)';
 }
 
 function drawMask() {
@@ -966,30 +909,29 @@ function drawMask() {
   cv.width = cw; cv.height = ch;
   const ctx = cv.getContext('2d');
   const size = Math.min(cw, ch) * .78, cx = cw / 2, cy = ch / 2;
+  const ox = cx - size / 2, oy = cy - size / 2;
   ctx.clearRect(0, 0, cw, ch);
   ctx.fillStyle = 'rgba(0,0,0,.62)'; ctx.fillRect(0, 0, cw, ch);
-  ctx.globalCompositeOperation = 'destination-out';
-  ctx.beginPath();
   const sh = S.shape || 'circle';
-  if (sh === 'circle')  ctx.arc(cx, cy, size / 2, 0, Math.PI * 2);
-  else if (sh === 'diecut') dicutPath(ctx, cx, cy, size);
-  else rrect(ctx, cx - size / 2, cy - size / 2, size, size, size * .06);
-  ctx.fill();
+  let poly = null;
+  if (sh === 'diecut') {
+    if (cropTarget === 'back' && S.dieFront) { poly = S.dieFront; }
+    else { poly = computeDiePoly(); if (poly) C.diePoly = poly; else poly = C.diePoly; }
+  }
+  function pathShape() {
+    ctx.beginPath();
+    if (sh === 'circle')                       ctx.arc(cx, cy, size / 2, 0, Math.PI * 2);
+    else if (sh === 'diecut' && poly)          diePathScreen(ctx, poly, ox, oy, size);
+    else                                       rrect(ctx, ox, oy, size, size, sh === 'diecut' ? size * .08 : size * .06);
+  }
+  ctx.globalCompositeOperation = 'destination-out'; pathShape(); ctx.fill();
   ctx.globalCompositeOperation = 'source-over';
   ctx.strokeStyle = 'rgba(255,255,255,.65)'; ctx.lineWidth = 2; ctx.setLineDash([5, 4]);
-  ctx.beginPath();
-  if (sh === 'circle')  ctx.arc(cx, cy, size / 2, 0, Math.PI * 2);
-  else if (sh === 'diecut') dicutPath(ctx, cx, cy, size);
-  else rrect(ctx, cx - size / 2, cy - size / 2, size, size, size * .06);
-  ctx.stroke(); ctx.setLineDash([]);
-  // 丸型「上」マーカー
+  pathShape(); ctx.stroke(); ctx.setLineDash([]);
   if (sh === 'circle') {
     ctx.fillStyle = 'rgba(212,82,42,.9)';
-    ctx.beginPath();
-    ctx.moveTo(cx, cy - size / 2 - 14); ctx.lineTo(cx - 8, cy - size / 2 - 1); ctx.lineTo(cx + 8, cy - size / 2 - 1);
-    ctx.closePath(); ctx.fill();
-    ctx.fillStyle = '#fff'; ctx.font = 'bold 10px sans-serif';
-    ctx.textAlign = 'center'; ctx.textBaseline = 'bottom';
+    ctx.beginPath(); ctx.moveTo(cx, cy - size/2 - 14); ctx.lineTo(cx - 8, cy - size/2 - 1); ctx.lineTo(cx + 8, cy - size/2 - 1); ctx.closePath(); ctx.fill();
+    ctx.fillStyle = '#fff'; ctx.font = 'bold 10px sans-serif'; ctx.textAlign = 'center'; ctx.textBaseline = 'bottom';
     ctx.fillText('上', cx, cy - size / 2 - 15);
   }
 }
@@ -1001,110 +943,181 @@ function rrect(ctx, x, y, w, h, r) {
   ctx.lineTo(x,y+r); ctx.arcTo(x,y,x+r,y,r); ctx.closePath();
 }
 
-function dicutPath(ctx, cx, cy, size) {
+// ═══════════════════════════════════════════════════════
+// ダイアカット輪郭トレース
+// alpha → closing → 縁取り(dilate) → 境界追跡(Moore) → 平滑化(Chaikin)
+// ═══════════════════════════════════════════════════════
+function dieAlphaGrid(N) {
+  const ca = document.getElementById('cropArea');
+  const cw = ca.offsetWidth || 360, ch = ca.offsetHeight || 290;
+  const size = Math.min(cw, ch) * .78, cx = cw / 2, cy = ch / 2;
   const imgEl = document.getElementById('cropImg');
-  if (!imgEl || !imgEl.complete || !imgEl.naturalWidth) { rrect(ctx, cx-size/2, cy-size/2, size, size, size*.08); return; }
-  const W = 128, H = 128;
-  const tmp = document.createElement('canvas'); tmp.width = W; tmp.height = H;
-  const tc = tmp.getContext('2d'); tc.drawImage(imgEl, 0, 0, W, H);
-  const data = tc.getImageData(0, 0, W, H).data;
-  const pts = [];
-  for (let y = 0; y < H; y += 3) {
-    let f = -1, l = -1;
-    for (let x = 0; x < W; x++) { if (data[(y*W+x)*4+3] > 30) { if (f < 0) f = x; l = x; } }
-    if (f >= 0) { pts.push({x:f/W,y:y/H,s:'L'}); if (l !== f) pts.push({x:l/W,y:y/H,s:'R'}); }
+  const tmp = document.createElement('canvas'); tmp.width = N; tmp.height = N;
+  const t = tmp.getContext('2d');
+  t.save(); t.translate(N / 2, N / 2); t.rotate(C.rot * Math.PI / 180);
+  const drawX = (C.x - cx) / C.scale, drawY = (C.y - cy) / C.scale, frameSrc = size / C.scale;
+  t.drawImage(imgEl, -drawX - frameSrc / 2, -drawY - frameSrc / 2, frameSrc, frameSrc, -N / 2, -N / 2, N, N);
+  t.restore();
+  const px = t.getImageData(0, 0, N, N).data;
+  const g  = new Uint8Array(N * N);
+  for (let i = 0; i < N * N; i++) g[i] = px[i * 4 + 3] > 40 ? 1 : 0;
+  return g;
+}
+function dieMorph(src, N, r, erode) {
+  if (r <= 0) return src;
+  let m = src;
+  if (erode) { m = new Uint8Array(N * N); for (let i = 0; i < N * N; i++) m[i] = 1 - src[i]; }
+  const tmp = new Uint8Array(N * N), out = new Uint8Array(N * N);
+  for (let y = 0; y < N; y++) for (let x = 0; x < N; x++) { let v = 0; for (let d = -r; d <= r; d++) { const xx = x + d; if (xx >= 0 && xx < N && m[y * N + xx]) { v = 1; break; } } tmp[y * N + x] = v; }
+  for (let y = 0; y < N; y++) for (let x = 0; x < N; x++) { let v = 0; for (let d = -r; d <= r; d++) { const yy = y + d; if (yy >= 0 && yy < N && tmp[yy * N + x]) { v = 1; break; } } out[y * N + x] = v; }
+  if (erode) { for (let i = 0; i < N * N; i++) out[i] = 1 - out[i]; }
+  return out;
+}
+function dieTrace(m, N) {
+  let sx = -1, sy = -1;
+  for (let y = 0; y < N && sy < 0; y++) for (let x = 0; x < N; x++) { if (m[y * N + x]) { sx = x; sy = y; break; } }
+  if (sx < 0) return [];
+  const nbr = [[1,0],[1,1],[0,1],[-1,1],[-1,0],[-1,-1],[0,-1],[1,-1]];
+  const get = (x, y) => x >= 0 && x < N && y >= 0 && y < N && m[y * N + x];
+  const c = [[sx, sy]]; let cur = [sx, sy], prev = [sx - 1, sy], s = 0;
+  while (s++ < 30000) {
+    const dx = prev[0] - cur[0], dy = prev[1] - cur[1];
+    let sd = 0; for (let k = 0; k < 8; k++) { if (nbr[k][0] === dx && nbr[k][1] === dy) { sd = k; break; } }
+    let found = false;
+    for (let k = 1; k <= 8; k++) { const di = (sd + k) % 8, nx = cur[0] + nbr[di][0], ny = cur[1] + nbr[di][1]; if (get(nx, ny)) { prev = cur; cur = [nx, ny]; c.push(cur); found = true; break; } }
+    if (!found) break;
+    if (cur[0] === sx && cur[1] === sy && c.length > 2) break;
   }
-  const all = [...pts.filter(p=>p.s==='L'), ...pts.filter(p=>p.s==='R').reverse()];
-  if (all.length < 3) { rrect(ctx, cx-size/2, cy-size/2, size, size, size*.08); return; }
-  const ox = cx - size/2, oy = cy - size/2;
-  ctx.moveTo(ox + all[0].x*size, oy + all[0].y*size);
-  for (let i = 1; i < all.length; i++) ctx.lineTo(ox + all[i].x*size, oy + all[i].y*size);
+  return c;
+}
+function dieChaikin(pts, iters) {
+  for (let it = 0; it < iters; it++) {
+    const out = [], n = pts.length;
+    for (let i = 0; i < n; i++) { const p = pts[i], q = pts[(i + 1) % n]; out.push([p[0]*.75+q[0]*.25, p[1]*.75+q[1]*.25]); out.push([p[0]*.25+q[0]*.75, p[1]*.25+q[1]*.75]); }
+    pts = out;
+  }
+  return pts;
+}
+function dieMorphTrace(g, N, sizeCm, borderCm) {
+  let any = false; for (let i = 0; i < g.length; i++) if (g[i]) { any = true; break; }
+  if (!any) return null;
+  const closeR  = Math.max(2, Math.round(N * .045));
+  const borderR = Math.max(0, Math.round((borderCm / (sizeCm || 7)) * N));
+  g = dieMorph(g, N, closeR, false); g = dieMorph(g, N, closeR, true);
+  if (borderR > 0) g = dieMorph(g, N, borderR, false);
+  let c = dieTrace(g, N);
+  if (c.length < 6) return null;
+  c = c.filter((_, i) => i % Math.max(1, Math.floor(c.length / 70)) === 0);
+  c = dieChaikin(c, 1);
+  return c.map(p => ({ x: +(p[0] / N).toFixed(4), y: +(p[1] / N).toFixed(4) }));
+}
+function computeDiePoly() {
+  const imgEl = document.getElementById('cropImg');
+  if (!imgEl || !imgEl.complete || !imgEl.naturalWidth) return null;
+  return dieMorphTrace(dieAlphaGrid(140), 140, S.sizeCm, S.borderCm != null ? S.borderCm : 0.3);
+}
+function dieGridFrom(imgEl, cs, N) {
+  const tmp = document.createElement('canvas'); tmp.width = N; tmp.height = N;
+  const t = tmp.getContext('2d');
+  t.save(); t.translate(N / 2, N / 2); t.rotate((cs.rot || 0) * Math.PI / 180);
+  t.drawImage(imgEl, -cs.drawX - cs.frameSrc / 2, -cs.drawY - cs.frameSrc / 2, cs.frameSrc, cs.frameSrc, -N / 2, -N / 2, N, N);
+  t.restore();
+  const px = t.getImageData(0, 0, N, N).data;
+  const g  = new Uint8Array(N * N);
+  for (let i = 0; i < N * N; i++) g[i] = px[i * 4 + 3] > 40 ? 1 : 0;
+  return g;
+}
+function recomputeDie(face, cb) {
+  const src = face === 'back' ? S.imgBackSrc  : S.imgFrontSrc;
+  const cs  = face === 'back' ? S.cropStateBack : S.cropStateFront;
+  if (S.shape !== 'diecut' || !src || !cs || cs.frameSrc == null) { if (cb) cb(); return; }
+  const im = new Image();
+  im.onload  = () => { const poly = dieMorphTrace(dieGridFrom(im, cs, 140), 140, S.sizeCm, S.borderCm != null ? S.borderCm : 0.3); if (face === 'back') S.dieBack = poly; else S.dieFront = poly; if (cb) cb(); };
+  im.onerror = () => { if (cb) cb(); };
+  im.src = src;
+}
+function diePathScreen(ctx, poly, ox, oy, size) {
+  if (!poly || poly.length < 3) return;
+  ctx.moveTo(ox + poly[0].x * size, oy + poly[0].y * size);
+  for (let i = 1; i < poly.length; i++) ctx.lineTo(ox + poly[i].x * size, oy + poly[i].y * size);
   ctx.closePath();
 }
 
-// Crop drag
-function cdragStart(e) { C.drag=true; C.sx=e.clientX-C.x; C.sy=e.clientY-C.y; window.addEventListener('mousemove',cdragMove); window.addEventListener('mouseup',cdragEnd); }
+function cdragStart(e)  { C.drag=true; C.sx=e.clientX-C.x; C.sy=e.clientY-C.y; window.addEventListener('mousemove',cdragMove); window.addEventListener('mouseup',cdragEnd); }
 function cdragStartT(e) { const t=e.touches[0]; C.drag=true; C.sx=t.clientX-C.x; C.sy=t.clientY-C.y; window.addEventListener('touchmove',cdragMoveT,{passive:false}); window.addEventListener('touchend',cdragEnd); }
-function cdragMove(e) { if(!C.drag)return; C.x=e.clientX-C.sx; C.y=e.clientY-C.sy; posImg(); }
-function cdragMoveT(e) { e.preventDefault(); if(!C.drag)return; const t=e.touches[0]; C.x=t.clientX-C.sx; C.y=t.clientY-C.sy; posImg(); }
-function cdragEnd() { C.drag=false; window.removeEventListener('mousemove',cdragMove); window.removeEventListener('mouseup',cdragEnd); window.removeEventListener('touchmove',cdragMoveT); window.removeEventListener('touchend',cdragEnd); }
+function cdragMove(e)  { if(!C.drag)return; C.x=e.clientX-C.sx; C.y=e.clientY-C.sy; posImg(); if((S.shape||'')==='diecut') drawMask(); }
+function cdragMoveT(e) { e.preventDefault(); if(!C.drag)return; const t=e.touches[0]; C.x=t.clientX-C.sx; C.y=t.clientY-C.sy; posImg(); if((S.shape||'')==='diecut') drawMask(); }
+function cdragEnd()    { C.drag=false; window.removeEventListener('mousemove',cdragMove); window.removeEventListener('mouseup',cdragEnd); window.removeEventListener('touchmove',cdragMoveT); window.removeEventListener('touchend',cdragEnd); }
 
 function applyCrop() {
   const ca = document.getElementById('cropArea');
   const cw = ca.offsetWidth||360, ch = ca.offsetHeight||290;
-  const size = Math.min(cw,ch)*.78, cx=cw/2, cy=ch/2;
+  const size = Math.min(cw,ch)*.78, cx = cw/2, cy = ch/2;
   const out = 400;
   const cv = document.createElement('canvas'); cv.width=out; cv.height=out;
   const ctx = cv.getContext('2d');
-  const sh = S.shape || 'circle';
+  const sh  = S.shape || 'circle';
   ctx.beginPath();
-  if (sh==='circle') ctx.arc(out/2,out/2,out/2,0,Math.PI*2);
-  else if (sh==='diecut') dicutPath(ctx,out/2,out/2,out);
-  else rrect(ctx,0,0,out,out,out*.06);
-  ctx.clip();
-  // 枠中央を基準に回転して描画
-  // transform-origin = 枠中央(cx,cy) で回転しているのと同じ変換をcanvasで再現
+  if (sh==='circle') { ctx.arc(out/2,out/2,out/2,0,Math.PI*2); ctx.clip(); }
+  else if (sh==='square') { rrect(ctx,0,0,out,out,out*.06); ctx.clip(); }
+  // ダイアカットはクリップしない（実シルエットはポリゴンで保持）
   const imgEl = document.getElementById('cropImg');
   ctx.save();
-  // 1. 出力canvasの中央を原点に
   ctx.translate(out/2, out/2);
-  // 2. 回転
   ctx.rotate(C.rot * Math.PI / 180);
-  // 3. 枠中央から見た画像の位置（スケール補正）
-  const drawX = (C.x - cx) / C.scale;
-  const drawY = (C.y - cy) / C.scale;
-  const drawW = C.imgW; // 元画像の幅
-  const drawH = C.imgH;
-  // 4. 枠に相当するサイズ（元画像ピクセル換算）
+  const drawX   = (C.x - cx) / C.scale;
+  const drawY   = (C.y - cy) / C.scale;
   const frameSrc = size / C.scale;
-  // 5. 描画（-out/2 ~ +out/2の範囲にframeSrcを描く）
-  ctx.drawImage(imgEl,
-    -drawX - frameSrc/2,
-    -drawY - frameSrc/2,
-    frameSrc, frameSrc,
-    -out/2, -out/2, out, out);
+  ctx.drawImage(imgEl, -drawX - frameSrc/2, -drawY - frameSrc/2, frameSrc, frameSrc, -out/2, -out/2, out, out);
   ctx.restore();
   const url = cv.toDataURL('image/png');
-  // クロップ設定を保存（再調整時に復元）
-  const savedState = {
-    scale: C.scale,
-    rot:   C.rot,
-    x:     C.x,
-    y:     C.y,
-    fitScale: C.fitScale,
-    imgW:  C.imgW,
-    imgH:  C.imgH,
-  };
+  // ダイアカットの実シルエット（正規化ポリゴン）
+  let diePoly = null;
+  if (sh === 'diecut') {
+    if (cropTarget === 'back' && S.dieFront) diePoly = S.dieFront;
+    else diePoly = computeDiePoly() || C.diePoly || null;
+  }
+  const savedState = { scale:C.scale, rot:C.rot, x:C.x, y:C.y, fitScale:C.fitScale, imgW:C.imgW, imgH:C.imgH, die:diePoly, frameSrc:frameSrc, drawX:drawX, drawY:drawY };
   if (cropTarget === 'back') {
-    S.imgBack = url;
-    S.cropStateBack = savedState;
-    // S.imgBackSrc はopenCrop時のオリジナルを保持
+    S.imgBack = url; S.cropStateBack = savedState; S.dieBack = diePoly;
     drawPreview('back');
     document.getElementById('uz-back').style.display = 'none';
     document.getElementById('pw-back').classList.add('show');
   } else {
-    S.imgFront = url;
-    S.cropStateFront = savedState;
-    // S.imgFrontSrc はopenCrop時のオリジナルを保持
+    S.imgFront = url; S.cropStateFront = savedState; S.dieFront = diePoly;
+    if (sh === 'diecut' && S.imgBack) { S.dieBack = diePoly; drawPreview('back'); }
     drawPreview('front');
     document.getElementById('uz-front').style.display = 'none';
     document.getElementById('pw-front').classList.add('show');
   }
+  if (S.qr) { ['front','back'].forEach(s => { const c = document.getElementById('qrBg-'+s); if (c && c.width) drawQRBg(s, c, c.width, c.height); }); }
   document.getElementById('ss4').textContent = '設定済み';
-  done(4); updateProg(); rebuild3D(); closeCrop();
+  done(4); updateProg(); if (window._redrawAttach) window._redrawAttach(); closeCrop();
 }
 
 function drawPreview(target) {
   const cvEl = document.getElementById('cv-' + target);
-  const src  = target === 'back' ? S.imgBack : S.imgFront;
+  const src  = target === 'back' ? S.imgBack  : S.imgFront;
+  const poly = target === 'back' ? S.dieBack  : S.dieFront;
   cvEl.style.borderRadius = S.shape==='circle' ? '50%' : '8px';
   const ctx = cvEl.getContext('2d'); ctx.clearRect(0,0,200,200);
-  const img = new Image(); img.onload = () => ctx.drawImage(img,0,0,200,200); img.src = src;
+  const img = new Image();
+  img.onload = () => {
+    if (S.shape === 'diecut' && poly && poly.length >= 3) {
+      const path = () => { ctx.beginPath(); ctx.moveTo(poly[0].x*200, poly[0].y*200); for (let i=1;i<poly.length;i++) ctx.lineTo(poly[i].x*200, poly[i].y*200); ctx.closePath(); };
+      ctx.save(); path(); ctx.clip();
+      ctx.fillStyle = S.colorHex || '#d9d4c7'; ctx.fillRect(0,0,200,200);
+      ctx.drawImage(img,0,0,200,200);
+      ctx.restore();
+      ctx.strokeStyle='rgba(0,0,0,.25)'; ctx.lineWidth=1.5; path(); ctx.stroke();
+    } else { ctx.drawImage(img,0,0,200,200); }
+  };
+  img.src = src;
 }
 
-// ═══════════════════════════════
+// ═══════════════════════════════════════════════════════
 // QR
-// ═══════════════════════════════
+// ═══════════════════════════════════════════════════════
 function setQR(val) {
   S.qr = val;
   document.getElementById('qr-yes').classList.toggle('sel', val);
@@ -1112,7 +1125,7 @@ function setQR(val) {
   document.getElementById('qrOptions').style.display = val ? 'block' : 'none';
   document.getElementById('ss5').textContent = val ? 'あり' : 'なし';
   if (val) done(5);
-  updateProg(); rebuild3D();
+  updateProg();
 }
 
 function setQRSide(side) {
@@ -1121,10 +1134,9 @@ function setQRSide(side) {
   document.getElementById('qrs-back').classList.toggle('sel',  side==='back');
   document.getElementById('qrEd-front').style.display = side==='front' ? 'block' : 'none';
   document.getElementById('qrEd-back').style.display  = side==='back'  ? 'block' : 'none';
-  setTimeout(() => { initQREditor(side); rebuild3D(); }, 30);
+  setTimeout(() => initQREditor(side), 30);
 }
 
-// QR editor state per side
 const QRS = { front:{x:50,y:50,cm:2}, back:{x:50,y:50,cm:2} };
 
 function getKHRect(aw, ah) {
@@ -1140,8 +1152,7 @@ function initQREditor(side) {
   const wrap = document.getElementById('qrWrap-' + side);
   const bgCv = document.getElementById('qrBg-' + side);
   const box  = document.getElementById('qrBox-' + side);
-  const aw = wrap.offsetWidth || 260;
-  const ah = wrap.offsetHeight || 200;
+  const aw = wrap.offsetWidth || 260, ah = wrap.offsetHeight || 200;
   bgCv.width = aw; bgCv.height = ah;
   drawQRBg(side, bgCv, aw, ah);
   posQRBox(side, box, bgCv, aw, ah);
@@ -1149,14 +1160,19 @@ function initQREditor(side) {
 }
 
 function drawQRBg(side, cv, aw, ah) {
-  const ctx = cv.getContext('2d');
-  ctx.clearRect(0, 0, aw, ah);
+  const ctx = cv.getContext('2d'); ctx.clearRect(0, 0, aw, ah);
   const { ox, oy, kw, kh, pxPerCm } = getKHRect(aw, ah);
-  const src = side === 'back' ? S.imgBack : S.imgFront;
+  const src    = side === 'back' ? S.imgBack    : S.imgFront;
+  const acryl  = S.colorHex || '#d9d4c7';
+  const diePoly = (S.dieFront || S.dieBack);
 
   function khPath() {
     ctx.beginPath();
-    if (S.shape === 'circle') ctx.arc(ox+kw/2, oy+kh/2, kw/2, 0, Math.PI*2);
+    if (S.shape === 'diecut' && diePoly && diePoly.length >= 3) {
+      ctx.moveTo(ox + diePoly[0].x*kw, oy + diePoly[0].y*kh);
+      for (let i = 1; i < diePoly.length; i++) ctx.lineTo(ox + diePoly[i].x*kw, oy + diePoly[i].y*kh);
+      ctx.closePath();
+    } else if (S.shape === 'circle') ctx.arc(ox+kw/2, oy+kh/2, kw/2, 0, Math.PI*2);
     else rrect(ctx, ox, oy, kw, kh, 8);
   }
 
@@ -1164,13 +1180,12 @@ function drawQRBg(side, cv, aw, ah) {
     const img = new Image();
     img.onload = () => {
       ctx.save(); khPath(); ctx.clip();
-      const ir = img.naturalWidth / img.naturalHeight;
-      const kr = kw / kh;
+      if (S.shape === 'diecut' && diePoly) { ctx.fillStyle = acryl; ctx.fillRect(ox, oy, kw, kh); }
+      const ir = img.naturalWidth / img.naturalHeight, kr = kw / kh;
       let dw, dh, dx, dy;
       if (ir > kr) { dh=kh; dw=dh*ir; dx=ox-(dw-kw)/2; dy=oy; }
       else          { dw=kw; dh=dw/ir; dy=oy-(dh-kh)/2; dx=ox; }
-      ctx.drawImage(img, dx, dy, dw, dh);
-      ctx.restore();
+      ctx.drawImage(img, dx, dy, dw, dh); ctx.restore();
       ctx.strokeStyle='rgba(0,0,0,.2)'; ctx.lineWidth=1; khPath(); ctx.stroke();
       drawScaleBar(ctx, ox, oy, kw, kh, pxPerCm);
     };
@@ -1178,21 +1193,18 @@ function drawQRBg(side, cv, aw, ah) {
   } else {
     ctx.fillStyle='rgba(200,198,190,.4)'; khPath(); ctx.fill();
     ctx.strokeStyle='rgba(0,0,0,.12)'; ctx.lineWidth=1; khPath(); ctx.stroke();
-    ctx.fillStyle='rgba(100,98,94,.45)'; ctx.font='11px sans-serif';
-    ctx.textAlign='center'; ctx.textBaseline='middle';
+    ctx.fillStyle='rgba(100,98,94,.45)'; ctx.font='11px sans-serif'; ctx.textAlign='center'; ctx.textBaseline='middle';
     ctx.fillText('画像未設定', aw/2, ah/2);
     drawScaleBar(ctx, ox, oy, kw, kh, pxPerCm);
   }
 }
 
 function drawScaleBar(ctx, ox, oy, kw, kh, pxPerCm) {
-  // 右下に2cmスケールバー
   const barCm = 2, barPx = barCm * pxPerCm;
   const bx = ox + kw - barPx - 4, by = oy + kh - 8;
   ctx.strokeStyle='rgba(255,255,255,.8)'; ctx.lineWidth=2;
   ctx.beginPath(); ctx.moveTo(bx, by); ctx.lineTo(bx+barPx, by); ctx.stroke();
-  ctx.fillStyle='rgba(255,255,255,.8)'; ctx.font='bold 9px sans-serif';
-  ctx.textAlign='center'; ctx.textBaseline='bottom';
+  ctx.fillStyle='rgba(255,255,255,.8)'; ctx.font='bold 9px sans-serif'; ctx.textAlign='center'; ctx.textBaseline='bottom';
   ctx.fillText(barCm+'cm', bx+barPx/2, by-2);
 }
 
@@ -1212,18 +1224,15 @@ function setupQRDrag(side, wrap, box, bgCv) {
   const onDown = e => {
     drag=true;
     const r=wrap.getBoundingClientRect();
-    const cl=e.touches?e.touches[0].clientX:e.clientX;
-    const ct=e.touches?e.touches[0].clientY:e.clientY;
-    ox2=cl-r.left-box.offsetLeft; oy2=ct-r.top-box.offsetTop;
-    e.preventDefault();
+    const cl=e.touches?e.touches[0].clientX:e.clientX, ct=e.touches?e.touches[0].clientY:e.clientY;
+    ox2=cl-r.left-box.offsetLeft; oy2=ct-r.top-box.offsetTop; e.preventDefault();
   };
   box.addEventListener('mousedown', onDown);
   box.addEventListener('touchstart', onDown, {passive:false});
   const onMove = e => {
     if (!drag) return;
     const r=wrap.getBoundingClientRect();
-    const cl=e.touches?e.touches[0].clientX:e.clientX;
-    const ct=e.touches?e.touches[0].clientY:e.clientY;
+    const cl=e.touches?e.touches[0].clientX:e.clientX, ct=e.touches?e.touches[0].clientY:e.clientY;
     const aw=bgCv.width, ah=bgCv.height;
     const { ox, oy, kw, kh, pxPerCm }=getKHRect(aw, ah);
     const bpx=Math.max(16, QRS[side].cm*pxPerCm);
@@ -1233,7 +1242,6 @@ function setupQRDrag(side, wrap, box, bgCv) {
     QRS[side].x = ((nx+bpx/2)-ox)/kw*100;
     QRS[side].y = ((ny+bpx/2)-oy)/kh*100;
     if (e.cancelable) e.preventDefault();
-    rebuild3D();
   };
   window.addEventListener('mousemove', onMove);
   window.addEventListener('touchmove', onMove, {passive:false});
@@ -1241,442 +1249,322 @@ function setupQRDrag(side, wrap, box, bgCv) {
   window.addEventListener('touchend', ()=>drag=false);
 }
 
-// QR size — max = 本体sizeCm
 function clampQRSz(v) { return Math.min(S.sizeCm||7, Math.max(1.2, Math.round(v*10)/10)); }
 function setQRSz(side, v) {
   QRS[side].cm = clampQRSz(v);
   document.getElementById('qrSz-'+side).value  = QRS[side].cm;
   document.getElementById('qrSzN-'+side).value = QRS[side].cm;
-  const wrap=document.getElementById('qrWrap-'+side);
-  const bgCv=document.getElementById('qrBg-'+side);
+  const wrap=document.getElementById('qrWrap-'+side), bgCv=document.getElementById('qrBg-'+side);
   const box=wrap.querySelector('.qr-box');
   const aw=bgCv.width||wrap.offsetWidth||260, ah=bgCv.height||wrap.offsetHeight||200;
   posQRBox(side, box, bgCv, aw, ah);
-  rebuild3D();
 }
 function onQRSzSlider(side) { setQRSz(side, +document.getElementById('qrSz-'+side).value); }
 function onQRSzInput(side)  { setQRSz(side, +document.getElementById('qrSzN-'+side).value); }
 function stepQR(side, d)    { setQRSz(side, QRS[side].cm + d); }
 
-// 本体サイズ変更後にQRエディタを再描画する
 function resyncQR(side) {
   const wrap = document.getElementById('qrWrap-' + side);
   const bgCv = document.getElementById('qrBg-' + side);
   const box  = wrap.querySelector('.qr-box');
   if (!wrap || !bgCv || !box) return;
-  const aw = wrap.offsetWidth || 260;
-  const ah = wrap.offsetHeight || 220;
+  const aw = wrap.offsetWidth || 260, ah = wrap.offsetHeight || 220;
   bgCv.width = aw; bgCv.height = ah;
-  // QRサイズの上限を新しいsizeCmに合わせてクランプ
   QRS[side].cm = Math.min(QRS[side].cm, S.sizeCm);
   document.getElementById('qrSz-'+side).value  = QRS[side].cm;
   document.getElementById('qrSzN-'+side).value = QRS[side].cm;
   drawQRBg(side, bgCv, aw, ah);
   posQRBox(side, box, bgCv, aw, ah);
-  // 再セットアップ（ドラッグ座標系が変わるため）
   setupQRDrag(side, wrap, box, bgCv);
 }
 
-// ═══════════════════════════════
+// ═══════════════════════════════════════════════════════
 // SIZE
-// ═══════════════════════════════
-function clampSz(v) { return Math.min(15,Math.max(5,Math.round(v*10)/10)); }
+// ═══════════════════════════════════════════════════════
+function maxSizeFor(shape) { return shape === 'diecut' ? 15 : 10; }
+function clampSz(v) { return Math.min(maxSizeFor(S.shape), Math.max(5, Math.round(v*10)/10)); }
 function clampTh(v) { return Math.min(4, Math.max(1, Math.round(v*10)/10)); }
+
 function setSz(v) {
   v = clampSz(v);
   document.getElementById('szSlider').value = v;
-  document.getElementById('szN').value = v;
+  document.getElementById('szN').value      = v;
   S.sizeCm = v;
   const s = v.toFixed(1)+'cm', t = S.thickCm.toFixed(1)+'cm';
   document.getElementById('pd-size').textContent = s;
-  document.getElementById('ss6').textContent = s+' / 厚さ'+t;
-  done(6); updateProg(); rebuild3D();
+  document.getElementById('ss6').textContent     = s + ' / 厚さ' + t;
+  done(6); updateProg();
+  if (window._redrawAttach) window._redrawAttach();
+  if (S.qr) { ['front','back'].forEach(s => { const w = document.getElementById('qrWrap-'+s); if (w && w.offsetWidth > 0) resyncQR(s); }); }
 }
 function setTh(v) {
   v = clampTh(v);
   document.getElementById('thSlider').value = v;
-  document.getElementById('thN').value = v;
+  document.getElementById('thN').value      = v;
   S.thickCm = v;
   const s = S.sizeCm.toFixed(1)+'cm', t = v.toFixed(1)+'cm';
   document.getElementById('pd-thick').textContent = t;
-  document.getElementById('ss6').textContent = s+' / 厚さ'+t;
-  done(6); updateProg(); rebuild3D();
+  document.getElementById('ss6').textContent      = s + ' / 厚さ' + t;
+  done(6); updateProg();
 }
 function onSzSlider() { setSz(+document.getElementById('szSlider').value); }
 function onSzInput()  { setSz(+document.getElementById('szN').value); }
-function stepSz(d)    { setSz(S.sizeCm+d); }
+function stepSz(d)    { setSz(S.sizeCm + d); }
 function onThSlider() { setTh(+document.getElementById('thSlider').value); }
 function onThInput()  { setTh(+document.getElementById('thN').value); }
-function stepTh(d)    { setTh(S.thickCm+d); }
-// init sizes
-setSz(7); setTh(2);
+function stepTh(d)    { setTh(S.thickCm + d); }
 
-// ═══════════════════════════════
-// ATTACHMENT
-// ═══════════════════════════════
-// 面切り替え
+// 縁の厚さ（ダイアカットのみ）
+function clampBd(v) { return Math.min(1, Math.max(0, Math.round(v*10)/10)); }
+function setBorderCm(v) {
+  v = clampBd(v);
+  S.borderCm = v;
+  document.getElementById('bdSlider').value = v;
+  document.getElementById('bdN').value      = v;
+  if (S.shape !== 'diecut') return;
+  if (S.imgFrontSrc && S.cropStateFront) {
+    recomputeDie('front', () => {
+      if (S.dieBack || S.imgBack) S.dieBack = S.dieFront;
+      if (window._redrawAttach) window._redrawAttach();
+      drawPreview('front'); if (S.imgBack) drawPreview('back');
+      if (S.qr) { ['front','back'].forEach(s => { const c = document.getElementById('qrBg-'+s); if (c) drawQRBg(s, c, c.width||260, c.height||220); }); }
+    });
+  } else if (window._redrawAttach) window._redrawAttach();
+}
+function onBdSlider() { setBorderCm(+document.getElementById('bdSlider').value); }
+function onBdInput()  { setBorderCm(+document.getElementById('bdN').value); }
+function stepBd(d)    { setBorderCm((+document.getElementById('bdN').value || 0) + d); }
+
+setSz(7); setTh(2); // 初期値
+
+// ═══════════════════════════════════════════════════════
+// 穴エディタ（canvas直接ドラッグ・5mm固定）
+// ═══════════════════════════════════════════════════════
 function setAttachView(side) {
   S.attachView = side;
-  document.getElementById('attViewFront').style.background = side==='front' ? 'var(--accent)' : '#fff';
-  document.getElementById('attViewFront').style.color      = side==='front' ? '#fff' : 'var(--muted)';
-  document.getElementById('attViewFront').style.borderColor= side==='front' ? 'var(--accent)' : 'var(--border)';
-  document.getElementById('attViewBack').style.background  = side==='back'  ? 'var(--accent)' : '#fff';
-  document.getElementById('attViewBack').style.color       = side==='back'  ? '#fff' : 'var(--muted)';
-  document.getElementById('attViewBack').style.borderColor = side==='back'  ? 'var(--accent)' : 'var(--border)';
-  if(window._redrawAttach) window._redrawAttach();
+  document.getElementById('attViewFront').style.background  = side==='front' ? 'var(--accent)' : '#fff';
+  document.getElementById('attViewFront').style.color       = side==='front' ? '#fff'          : 'var(--muted)';
+  document.getElementById('attViewFront').style.borderColor = side==='front' ? 'var(--accent)' : 'var(--border)';
+  document.getElementById('attViewBack').style.background   = side==='back'  ? 'var(--accent)' : '#fff';
+  document.getElementById('attViewBack').style.color        = side==='back'  ? '#fff'          : 'var(--muted)';
+  document.getElementById('attViewBack').style.borderColor  = side==='back'  ? 'var(--accent)' : 'var(--border)';
+  if (window._redrawAttach) window._redrawAttach();
 }
 
 (function initAttach(){
   const wrap = document.getElementById('attachWrap');
-  const dot  = document.getElementById('attachDot');
   const cv   = document.getElementById('attachCv');
+  const ctx  = cv.getContext('2d');
+  const WRAP_BG = '#16161a';
 
-  // 金具SVGをSTL形状に合わせたシルエットに設定
-  dot.innerHTML = `<svg width="28" height="44" viewBox="0 0 28 44" fill="none" xmlns="http://www.w3.org/2000/svg">
-    <!-- 穴の輪（上部） -->
-    <circle cx="14" cy="10" r="8" fill="none" stroke="#d0d0d0" stroke-width="4.5"/>
-    <circle cx="14" cy="10" r="4.5" fill="#111"/>
-    <!-- 本体（下部・角丸長方形） -->
-    <rect x="3" y="16" width="22" height="26" rx="4" fill="#c8c8c8" stroke="#aaa" stroke-width="1"/>
-    <!-- ハイライト -->
-    <rect x="6" y="19" width="16" height="2" rx="1" fill="rgba(255,255,255,0.4)"/>
-  </svg>`;
+  let imgFrontEl = null, imgBackEl = null, lastFrontSrc = null, lastBackSrc = null;
 
-  function redraw() {
-    const rect = wrap.getBoundingClientRect();
-    const aw = rect.width  || wrap.clientWidth  || 200;
-    const ah = rect.height || wrap.clientHeight || 180;
-    if (aw === 0) { setTimeout(redraw, 50); return; }
-    cv.width = aw; cv.height = ah;
-    const ctx = cv.getContext('2d');
-    ctx.clearRect(0,0,aw,ah);
-
-    // 背景：選択中の面の画像を表示
-    const imgSrc = S.attachView === 'back' ? S.imgBack : S.imgFront;
-    const margin = 16;
-    const ksize = Math.min(aw - margin*2, ah - margin*2);
-    const kox = (aw - ksize) / 2, koy = (ah - ksize) / 2;
-
-    function drawKH(imgEl) {
-      ctx.save();
-      ctx.beginPath();
-      if (S.shape === 'circle') ctx.arc(aw/2, ah/2, ksize/2, 0, Math.PI*2);
-      else rrect(ctx, kox, koy, ksize, ksize, 8);
-      if (imgEl) {
-        ctx.clip();
-        const ir = imgEl.naturalWidth/imgEl.naturalHeight;
-        let dw,dh,dx,dy;
-        if(ir>1){dh=ksize;dw=dh*ir;dx=kox-(dw-ksize)/2;dy=koy;}
-        else{dw=ksize;dh=dw/ir;dy=koy-(dh-ksize)/2;dx=kox;}
-        ctx.drawImage(imgEl,dx,dy,dw,dh);
-      } else {
-        ctx.fillStyle = S.colorHex || '#ddddcc';
-        ctx.fill();
-      }
-      ctx.restore();
-      // 枠線
-      ctx.strokeStyle = 'rgba(255,255,255,.3)'; ctx.lineWidth = 1.5;
-      ctx.beginPath();
-      if (S.shape === 'circle') ctx.arc(aw/2, ah/2, ksize/2, 0, Math.PI*2);
-      else rrect(ctx, kox, koy, ksize, ksize, 8);
-      ctx.stroke();
-      // 面ラベル
-      ctx.fillStyle = 'rgba(255,255,255,.5)';
-      ctx.font = '11px sans-serif'; ctx.textAlign = 'right'; ctx.textBaseline = 'bottom';
-      ctx.fillText(S.attachView === 'back' ? 'うら面' : 'おもて面', aw - 8, ah - 6);
-    }
-
-    if (imgSrc) {
-      const img = new Image(); img.onload = () => { drawKH(img); updateDot(); }; img.src = imgSrc;
-    } else {
-      drawKH(null); updateDot();
-    }
+  function bodyGeom(aw, ah){
+    const margin = 22;
+    const maxBody = Math.min(aw - margin*2, ah - margin*2);
+    const ppc  = maxBody / 15;          // 1cmあたりpx（全形状共通・15cm基準）
+    const size = ppc * (S.sizeCm || 7);
+    return { cx:aw/2, cy:ah/2, size:size, r:size/2, x:aw/2-size/2, y:ah/2-size/2, rad:size*0.06, ppc:ppc };
   }
 
-  function updateDot() {
+  // ダイアカット ポリゴンユーティリティ
+  function diePoly(){ return S.shape === 'diecut' ? (S.dieFront || S.dieBack || null) : null; }
+  function diePtsBox(g){ const p = diePoly(); if (!p || p.length < 3) return null; return p.map(q => ({ x:g.x+q.x*g.size, y:g.y+q.y*g.size })); }
+  function pointInPoly(x, y, pts){ let c=false; for (let i=0,j=pts.length-1;i<pts.length;j=i++){ const xi=pts[i].x,yi=pts[i].y,xj=pts[j].x,yj=pts[j].y; if (((yi>y)!==(yj>y))&&(x<(xj-xi)*(y-yi)/(yj-yi)+xi)) c=!c; } return c; }
+  function polyCentroid(pts){ let sx=0,sy=0; for (const p of pts){ sx+=p.x; sy+=p.y; } return {x:sx/pts.length, y:sy/pts.length}; }
+  function segDist(px,py,ax,ay,bx,by){ const dx=bx-ax,dy=by-ay,l2=dx*dx+dy*dy; let t=l2?((px-ax)*dx+(py-ay)*dy)/l2:0; t=Math.max(0,Math.min(1,t)); return Math.hypot(px-(ax+t*dx),py-(ay+t*dy)); }
+  function minEdgeDist(x,y,pts){ let m=Infinity; for (let i=0,j=pts.length-1;i<pts.length;j=i++) m=Math.min(m,segDist(x,y,pts[j].x,pts[j].y,pts[i].x,pts[i].y)); return m; }
+  function segSegInt(x1,y1,x2,y2,x3,y3,x4,y4){ const d=(x2-x1)*(y4-y3)-(y2-y1)*(x4-x3); if(Math.abs(d)<1e-9) return null; const t=((x3-x1)*(y4-y3)-(y3-y1)*(x4-x3))/d,u=((x3-x1)*(y2-y1)-(y3-y1)*(x2-x1))/d; if(t>=0&&t<=1&&u>=0&&u<=1) return {x:x1+t*(x2-x1),y:y1+t*(y2-y1),t}; return null; }
+  function rayPolyHit(cx,cy,px,py,pts){ const dx=px-cx,dy=py-cy,fx=cx+dx*1000,fy=cy+dy*1000; let best=null,bt=-1; for (let i=0,j=pts.length-1;i<pts.length;j=i++){ const r=segSegInt(cx,cy,fx,fy,pts[j].x,pts[j].y,pts[i].x,pts[i].y); if(r&&r.t>bt){bt=r.t;best={x:r.x,y:r.y};} } return best; }
+
+  function isInsideBody(px, py, g){
+    if (S.shape === 'circle') return Math.hypot(px-g.cx, py-g.cy) <= g.r;
+    if (S.shape === 'diecut'){ const pts=diePtsBox(g); if(pts) return pointInPoly(px,py,pts); }
+    return px>=g.x && px<=g.x+g.size && py>=g.y && py<=g.y+g.size;
+  }
+  function lugFullyInside(px, py, g, lugR){
+    if (S.shape === 'circle') return Math.hypot(px-g.cx, py-g.cy)+lugR <= g.r;
+    if (S.shape === 'diecut'){ const pts=diePtsBox(g); if(pts) return pointInPoly(px,py,pts) && minEdgeDist(px,py,pts)>=lugR; }
+    return px>=g.x+lugR && px<=g.x+g.size-lugR && py>=g.y+lugR && py<=g.y+g.size-lugR;
+  }
+  function edgeAnchor(hx, hy, g){
+    const ang = Math.atan2(hy-g.cy, hx-g.cx);
+    if (S.shape === 'circle') return {x:g.cx+Math.cos(ang)*g.r, y:g.cy+Math.sin(ang)*g.r};
+    if (S.shape === 'diecut'){ const pts=diePtsBox(g); if(pts){ const c=polyCentroid(pts); const hit=rayPolyHit(c.x,c.y,hx,hy,pts); if(hit) return hit; } }
+    const dx=Math.cos(ang),dy=Math.sin(ang),hw=g.size/2,hh=g.size/2;
+    const tx=dx?hw/Math.abs(dx):Infinity, ty=dy?hh/Math.abs(dy):Infinity;
+    return {x:g.cx+dx*Math.min(tx,ty), y:g.cy+dy*Math.min(tx,ty)};
+  }
+
+  function bodyPath(g){
+    ctx.beginPath();
+    if (S.shape === 'circle') { ctx.arc(g.cx, g.cy, g.r, 0, Math.PI*2); return; }
+    if (S.shape === 'diecut'){ const pts=diePtsBox(g); if(pts){ ctx.moveTo(pts[0].x,pts[0].y); for(let i=1;i<pts.length;i++) ctx.lineTo(pts[i].x,pts[i].y); ctx.closePath(); return; } }
+    rrect(ctx, g.x, g.y, g.size, g.size, g.rad);
+  }
+  function drawBody(g){
+    ctx.save(); bodyPath(g); ctx.clip();
+    const imgEl = S.attachView === 'back' ? (imgBackEl || imgFrontEl) : imgFrontEl;
+    if (S.shape === 'diecut') { ctx.fillStyle = S.colorHex || '#d9d4c7'; ctx.fill(); }
+    if (imgEl) {
+      const ir = imgEl.naturalWidth / imgEl.naturalHeight;
+      let dw,dh,dx,dy;
+      if (ir > 1) { dh=g.size;dw=dh*ir;dx=g.x-(dw-g.size)/2;dy=g.y; }
+      else         { dw=g.size;dh=dw/ir;dy=g.y-(dh-g.size)/2;dx=g.x; }
+      ctx.drawImage(imgEl, dx, dy, dw, dh);
+    } else if (S.shape !== 'diecut') { ctx.fillStyle = S.colorHex || '#ddddcc'; ctx.fill(); }
+    ctx.restore();
+  }
+
+  // 外付けツメの構築（直角接合）
+  let _tabCv = null;
+  function buildTab(aw, ah, g, hx, hy, holeR, acryl, lugR){
+    const a    = edgeAnchor(hx, hy, g);
+    const ang  = Math.atan2(hy-g.cy, hx-g.cx);
+    const neckW = lugR * 2;
+    const rootX = a.x - Math.cos(ang) * lugR, rootY = a.y - Math.sin(ang) * lugR;
+    const BORDER = 'rgba(255,255,255,.30)';
+    if (!_tabCv) _tabCv = document.createElement('canvas');
+    if (_tabCv.width !== aw || _tabCv.height !== ah) { _tabCv.width = aw; _tabCv.height = ah; }
+    const tctx = _tabCv.getContext('2d');
+    tctx.setTransform(1,0,0,1,0,0); tctx.clearRect(0,0,aw,ah);
+    tctx.lineCap = 'round'; tctx.lineJoin = 'round';
+    tctx.strokeStyle = BORDER; tctx.lineWidth = neckW + 3;
+    tctx.beginPath(); tctx.moveTo(rootX, rootY); tctx.lineTo(hx, hy); tctx.stroke();
+    tctx.fillStyle = BORDER; tctx.beginPath(); tctx.arc(hx, hy, lugR+1.5, 0, Math.PI*2); tctx.fill();
+    tctx.strokeStyle = acryl; tctx.lineWidth = neckW;
+    tctx.beginPath(); tctx.moveTo(rootX, rootY); tctx.lineTo(hx, hy); tctx.stroke();
+    tctx.fillStyle = acryl; tctx.beginPath(); tctx.arc(hx, hy, lugR, 0, Math.PI*2); tctx.fill();
+    tctx.globalCompositeOperation = 'destination-out'; tctx.fillStyle = '#000';
+    tctx.beginPath();
+    if (S.shape === 'circle') tctx.arc(g.cx, g.cy, g.r, 0, Math.PI*2);
+    else if (S.shape === 'diecut' && diePtsBox(g)) { const pts=diePtsBox(g); tctx.moveTo(pts[0].x,pts[0].y); for(let i=1;i<pts.length;i++) tctx.lineTo(pts[i].x,pts[i].y); tctx.closePath(); }
+    else rrect(tctx, g.x, g.y, g.size, g.size, g.rad);
+    tctx.fill(); tctx.globalCompositeOperation = 'source-over';
+    return _tabCv;
+  }
+
+  function redraw(){
     const rect = wrap.getBoundingClientRect();
-    const aw = rect.width || 200, ah = rect.height || 180;
-    const dx = aw * S.attX/100;
-    const dy = ah * S.attY/100;
-    // dotを穴の位置に配置し、角度に合わせて回転
-    dot.style.left = dx + 'px';
-    dot.style.top  = dy + 'px';
-    dot.style.transform = `translate(-50%,-50%) rotate(${S.attAngle}deg)`;
+    const aw = rect.width || wrap.clientWidth || 300, ah = rect.height || wrap.clientHeight || 200;
+    if (aw === 0) { setTimeout(redraw, 50); return; }
+
+    // 画像キャッシュ（変化した時だけ読み込む）
+    if (S.imgFront && S.imgFront !== lastFrontSrc) { lastFrontSrc = S.imgFront; const im=new Image(); im.onload=()=>{imgFrontEl=im;redraw();}; im.src=S.imgFront; }
+    if (!S.imgFront) { imgFrontEl=null; lastFrontSrc=null; }
+    if (S.imgBack  && S.imgBack  !== lastBackSrc)  { lastBackSrc  = S.imgBack;  const im=new Image(); im.onload=()=>{imgBackEl=im; redraw();}; im.src=S.imgBack; }
+    if (!S.imgBack)  { imgBackEl=null;  lastBackSrc=null; }
+
+    const dpr = Math.min(devicePixelRatio||1, 2);
+    cv.width = aw*dpr; cv.height = ah*dpr;
+    ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+    ctx.clearRect(0,0,aw,ah);
+
+    const g     = bodyGeom(aw, ah);
+    const hx    = g.x + g.size * S.attX/100, hy = g.y + g.size * S.attY/100;
+    const holeR = Math.max(2, (S.holeCm/2) * g.ppc);
+    const lugR  = holeR + Math.max(8, holeR * 0.9);
+    const inside = isInsideBody(hx, hy, g);
+    S.attMode = inside ? 'inside' : 'outside';
+    const acryl = S.colorHex || '#d9d4c7';
+    const backView = (S.attachView === 'back');
+
+    ctx.save();
+    if (backView) { ctx.translate(aw, 0); ctx.scale(-1, 1); }
+
+    // 補強ツメ（外側 or 縁ギリギリ）
+    if (!lugFullyInside(hx, hy, g, lugR)) {
+      const tab = buildTab(aw, ah, g, hx, hy, holeR, acryl, lugR);
+      ctx.drawImage(tab, 0, 0, aw, ah);
+    }
+    drawBody(g);
+    ctx.strokeStyle = 'rgba(255,255,255,.30)'; ctx.lineWidth = 1.5; bodyPath(g); ctx.stroke();
+
+    // 穴を抜く
+    ctx.beginPath(); ctx.arc(hx, hy, holeR, 0, Math.PI*2);
+    ctx.fillStyle = WRAP_BG; ctx.fill();
+    ctx.lineWidth=1.4; ctx.strokeStyle='rgba(0,0,0,.45)';
+    ctx.beginPath(); ctx.arc(hx,hy,holeR,0,Math.PI*2); ctx.stroke();
+    ctx.lineWidth=1; ctx.strokeStyle='rgba(255,255,255,.22)';
+    ctx.beginPath(); ctx.arc(hx,hy,Math.max(1,holeR-1.4),0,Math.PI*2); ctx.stroke();
+
+    // 照準リング
+    ctx.strokeStyle='rgba(255,255,255,.85)'; ctx.lineWidth=1.5; ctx.setLineDash([3,3]);
+    ctx.beginPath(); ctx.arc(hx,hy,holeR+5,0,Math.PI*2); ctx.stroke(); ctx.setLineDash([]);
+
+    ctx.restore();
+
+    // 面ラベル
+    ctx.fillStyle='rgba(255,255,255,.5)';
+    ctx.font='11px sans-serif'; ctx.textAlign='right'; ctx.textBaseline='bottom';
+    ctx.fillText(S.attachView === 'back' ? 'うら面' : 'おもて面', aw-8, ah-6);
+
+    // ステータス更新
     document.getElementById('attX').textContent = Math.round(S.attX);
     document.getElementById('attY').textContent = Math.round(S.attY);
-    document.getElementById('attA').textContent = S.attAngle;
-    document.getElementById('ss7').textContent  = 'X:'+Math.round(S.attX)+'% Y:'+Math.round(S.attY)+'%';
+    S.attAngle = inside ? 0 : (Math.round(Math.atan2(hy-g.cy, hx-g.cx)*180/Math.PI)+360)%360;
+    const badge = document.getElementById('attModeBadge');
+    if (badge) { badge.textContent = inside ? '本体内' : '外付けツメ'; badge.className = 'att-mode ' + (inside ? 'inside' : 'outside'); }
+    document.getElementById('ss7').textContent = (inside ? '本体内' : '外付け') + ' / X:'+Math.round(S.attX)+'% Y:'+Math.round(S.attY)+'%';
     done(7); updateProg();
   }
 
-  window._redrawAttach = () => { redraw(); };
+  window._redrawAttach = () => redraw();
 
-  let drag=false;
-  dot.addEventListener('mousedown', e=>{drag=true;e.preventDefault();e.stopPropagation();});
-  dot.addEventListener('touchstart',e=>{drag=true;e.preventDefault();},{passive:false});
-  window.addEventListener('mousemove',e=>{
-    if(!drag)return;
-    const r=wrap.getBoundingClientRect();
-    S.attX=Math.min(100,Math.max(0,(e.clientX-r.left)/r.width*100));
-    S.attY=Math.min(100,Math.max(0,(e.clientY-r.top)/r.height*100));
-    updateDot(); rebuild3D();
-  });
-  window.addEventListener('touchmove',e=>{
-    if(!drag)return;
-    const t=e.touches[0],r=wrap.getBoundingClientRect();
-    S.attX=Math.min(100,Math.max(0,(t.clientX-r.left)/r.width*100));
-    S.attY=Math.min(100,Math.max(0,(t.clientY-r.top)/r.height*100));
-    updateDot(); rebuild3D();
-  },{passive:true});
-  window.addEventListener('mouseup',()=>drag=false);
-  window.addEventListener('touchend',()=>drag=false);
+  let drag = false;
+  function setFromPointer(clientX, clientY){
+    const r = wrap.getBoundingClientRect();
+    const aw = r.width, ah = r.height;
+    let rawx = clientX - r.left;
+    if (S.attachView === 'back') rawx = aw - rawx;
+    let hx = Math.min(aw, Math.max(0, rawx));
+    let hy = Math.min(ah, Math.max(0, clientY - r.top));
+    const g = bodyGeom(aw, ah);
+    const maxOut = g.ppc; // 1cm
+    if (!isInsideBody(hx, hy, g)) {
+      const a   = edgeAnchor(hx, hy, g);
+      const ang = Math.atan2(hy-g.cy, hx-g.cx);
+      if (Math.hypot(hx-a.x, hy-a.y) > maxOut) {
+        hx = a.x + Math.cos(ang) * maxOut;
+        hy = a.y + Math.sin(ang) * maxOut;
+      }
+    }
+    S.attX = (hx - g.x) / g.size * 100;
+    S.attY = (hy - g.y) / g.size * 100;
+    redraw();
+  }
+  wrap.addEventListener('mousedown',  e => { drag=true; e.preventDefault(); setFromPointer(e.clientX, e.clientY); });
+  window.addEventListener('mousemove', e => { if (drag) setFromPointer(e.clientX, e.clientY); });
+  window.addEventListener('mouseup',   () => { drag=false; });
+  wrap.addEventListener('touchstart', e => { drag=true; e.preventDefault(); const t=e.touches[0]; setFromPointer(t.clientX, t.clientY); }, {passive:false});
+  wrap.addEventListener('touchmove',  e => { if(!drag) return; e.preventDefault(); const t=e.touches[0]; setFromPointer(t.clientX, t.clientY); }, {passive:false});
+  window.addEventListener('touchend',  () => { drag=false; });
   new ResizeObserver(redraw).observe(wrap);
   setTimeout(redraw, 100);
 })();
 
-function onAttachAngle() {
-  S.attAngle=+document.getElementById('attachAngle').value;
-  document.getElementById('attachAngleN').value=S.attAngle;
-  if(window._redrawAttach)window._redrawAttach();
-  rebuild3D();
-}
-function onAttachAngleN() {
-  S.attAngle=Math.min(360,Math.max(0,+document.getElementById('attachAngleN').value||0));
-  document.getElementById('attachAngle').value=S.attAngle;
-  if(window._redrawAttach)window._redrawAttach();
-  rebuild3D();
-}
-function stepAngle(d) {
-  S.attAngle=Math.min(360,Math.max(0,(+document.getElementById('attachAngleN').value||0)+d));
-  document.getElementById('attachAngle').value=S.attAngle;
-  document.getElementById('attachAngleN').value=S.attAngle;
-  if(window._redrawAttach)window._redrawAttach();
-  rebuild3D();
-}
-
-// ═══════════════════════════════
+// ═══════════════════════════════════════════════════════
 // PROGRESS
-// ═══════════════════════════════
-function done(n) {
-  const el = document.getElementById('sn'+n);
-  if (el) el.classList.add('done');
-}
+// ═══════════════════════════════════════════════════════
+function done(n) { const el = document.getElementById('sn'+n); if (el) el.classList.add('done'); }
 function updateProg() {
   const steps = [S.color, S.shape, true, true, S.imgFront, true, S.sizeCm, true];
   document.getElementById('progFill').style.width = (steps.filter(Boolean).length/steps.length*100)+'%';
 }
 updateProg();
 
-// ═══════════════════════════════
-// THREE.JS
-// ═══════════════════════════════
-(function initThree(){
-  const canvas = document.getElementById('threeCanvas');
-  const renderer = new THREE.WebGLRenderer({canvas, antialias:true, alpha:false});
-  renderer.setPixelRatio(Math.min(devicePixelRatio, 2));
-  renderer.setClearColor(0x080806, 1);
-  const scene = new THREE.Scene();
-  scene.background = new THREE.Color(0x080806);
-  const camera = new THREE.PerspectiveCamera(45, 1, .1, 100);
-  camera.position.set(0, 1.5, 5);
-  scene.add(new THREE.AmbientLight(0xffffff, .4));
-  const dl = new THREE.DirectionalLight(0xffffff, 1.2); dl.position.set(3, 5, 4); scene.add(dl);
-  const pl = new THREE.PointLight(0xffddaa, .6, 20); pl.position.set(-2, 3, 2); scene.add(pl);
+// 旧コードとの互換性（rebuild3D 呼び出しを無害化）
+function rebuild3D(){}
 
-  let mesh = null, tex = null, texBack = null, attachMesh = null;
-
-  function buildAttachMesh() { /* 無効化 */ }
-
-    function buildQROverlay() {
-    // 既存QRメッシュをmeshから削除
-    if (!mesh) return;
-    mesh.children.slice().forEach(c => mesh.remove(c));
-    if (!S.qr || !S.qrSide) return;
-
-    const sz  = S.sizeCm / 10;
-    const th  = S.thickCm / 20;
-    const eps = 0.002;
-
-    function makeQRPlane(qrState, yPos, rotX, flipX, flipZ) {
-      const qsz = qrState.cm / 10;
-      const geo = new THREE.PlaneGeometry(qsz, qsz);
-      const mat = new THREE.MeshBasicMaterial({
-        color: 0xffffff, transparent: true, opacity: 0.88,
-        side: THREE.DoubleSide, depthWrite: false
-      });
-      const m = new THREE.Mesh(geo, mat);
-      const px = (flipX ? -1 : 1) * (qrState.y / 100 - 0.5) * sz;
-      const pz = (flipZ ? -1 : 1) * (qrState.x / 100 - 0.5) * sz;
-      m.position.set(px, yPos, pz);
-      m.rotation.x = rotX;
-      return m;
-    }
-
-    if (S.qrSide === 'front' || S.qrSide === 'both') {
-      mesh.add(makeQRPlane(QRS.front,  th / 2 + eps, -Math.PI / 2, true, false));
-    }
-    if (S.qrSide === 'back' || S.qrSide === 'both') {
-      mesh.add(makeQRPlane(QRS.back, -(th / 2 + eps),  Math.PI / 2, false, false));
-    }
-  }
-
-  function build() {
-    // attachMeshをnullにリセット（meshの子なのでmesh削除と一緒に消える）
-    attachMesh = null;
-    if (mesh) {
-      // 子を全部削除してからsceneから除去
-      while (mesh.children.length > 0) mesh.remove(mesh.children[0]);
-      scene.remove(mesh);
-      mesh.geometry.dispose();
-    }
-    const sz = S.sizeCm / 10, th = S.thickCm / 20;
-    const matSide = new THREE.MeshStandardMaterial({
-      color: new THREE.Color(S.colorHex || '#ddddcc'),
-      roughness: .25, metalness: .05
-    });
-    const geo = S.shape === 'circle'
-      ? new THREE.CylinderGeometry(sz/2, sz/2, th, 64)
-      : new THREE.BoxGeometry(sz, th, sz);
-
-    let mats;
-    if (S.shape === 'circle') {
-      const mTop    = tex     ? new THREE.MeshStandardMaterial({map: tex,     roughness:.3, transparent:true}) : matSide;
-      const mBottom = texBack ? new THREE.MeshStandardMaterial({map: texBack, roughness:.3, transparent:true}) : matSide;
-      mats = [matSide, mTop, mBottom];
-    } else {
-      const mTop    = tex     ? new THREE.MeshStandardMaterial({map: tex,     roughness:.3, transparent:true}) : matSide;
-      const mBottom = texBack ? new THREE.MeshStandardMaterial({map: texBack, roughness:.3, transparent:true}) : matSide;
-      mats = [matSide, matSide, mTop, mBottom, matSide, matSide];
-    }
-    mesh = new THREE.Mesh(geo, mats);
-    mesh.castShadow = true;
-    scene.add(mesh);
-    buildQROverlay();
-    buildAttachMesh();
-  }
-  build();
-
-  let ry = .3, rx = .2, down = false, lx = 0, ly = 0, auto = true;
-  let camDist = 5; // カメラ距離（ズームに使う）
-  camera.position.set(0, 1.5, camDist);
-
-  canvas.addEventListener('mousedown', e => { down=true; auto=false; lx=e.clientX; ly=e.clientY; });
-  canvas.addEventListener('touchstart', e => {
-    auto=false;
-    if (e.touches.length === 1) {
-      down=true; lx=e.touches[0].clientX; ly=e.touches[0].clientY;
-    } else if (e.touches.length === 2) {
-      down=false;
-      // ピンチ開始距離を記録
-      const dx=e.touches[0].clientX-e.touches[1].clientX;
-      const dy=e.touches[0].clientY-e.touches[1].clientY;
-      canvas._pinchDist = Math.sqrt(dx*dx+dy*dy);
-    }
-  });
-  window.addEventListener('mouseup', () => down = false);
-  window.addEventListener('touchend', e => { if(e.touches.length<2) canvas._pinchDist=null; if(e.touches.length===0) down=false; });
-
-  canvas.addEventListener('mousemove', e => {
-    if(!down)return;
-    ry+=(e.clientX-lx)*.008; rx+=(e.clientY-ly)*.008;
-    lx=e.clientX; ly=e.clientY;
-  });
-  canvas.addEventListener('touchmove', e => {
-    e.preventDefault();
-    if (e.touches.length === 2 && canvas._pinchDist != null) {
-      // ピンチズーム
-      const dx=e.touches[0].clientX-e.touches[1].clientX;
-      const dy=e.touches[0].clientY-e.touches[1].clientY;
-      const newDist = Math.sqrt(dx*dx+dy*dy);
-      const delta = canvas._pinchDist - newDist;
-      camDist = Math.min(12, Math.max(1.5, camDist + delta * 0.02));
-      camera.position.set(0, camDist*0.3, camDist);
-      camera.updateProjectionMatrix();
-      canvas._pinchDist = newDist;
-    } else if(e.touches.length===1 && down) {
-      ry+=(e.touches[0].clientX-lx)*.008;
-      rx+=(e.touches[0].clientY-ly)*.008;
-      lx=e.touches[0].clientX; ly=e.touches[0].clientY;
-    }
-  }, {passive:false});
-
-  // マウスホイールズーム
-  canvas.addEventListener('wheel', e => {
-    e.preventDefault();
-    camDist = Math.min(12, Math.max(1.5, camDist + e.deltaY * 0.01));
-    camera.position.set(0, camDist*0.3, camDist);
-    camera.updateProjectionMatrix();
-  }, {passive:false});
-
-  function doResize() {
-    const w = canvas.clientWidth || canvas.parentElement?.clientWidth || 300;
-    renderer.setSize(w, w, false);  // square
-    camera.aspect = 1;
-    camera.updateProjectionMatrix();
-  }
-
-  // Delay first resize so layout is settled
-  setTimeout(() => {
-    doResize();
-    if (canvas.parentElement) new ResizeObserver(doResize).observe(canvas.parentElement);
-  }, 100);
-
-  (function anim() {
-    requestAnimationFrame(anim);
-    if (auto) ry += .006;
-    if (mesh) {
-      mesh.rotation.y = ry;
-      mesh.rotation.x = rx;
-      // QR枠・金具はmeshの子なので自動追従
-    }
-    renderer.render(scene, camera);
-  })();
-
-  window._rebuild3D = function() {
-    document.getElementById('pd-color').textContent = S.color || '—';
-    // おもてと裏の両方のテクスチャをロードしてからbuild
-    let pending = 0;
-    function tryBuild() { if (pending === 0) build(); }
-
-    if (S.imgFront) {
-      pending++;
-      const img = new Image(); img.src = S.imgFront;
-      img.onload = () => { tex = new THREE.CanvasTexture(img); pending--; tryBuild(); };
-      img.onerror = () => { tex = null; pending--; tryBuild(); };
-    } else { tex = null; }
-
-    if (S.imgBack) {
-      pending++;
-      const img2 = new Image(); img2.src = S.imgBack;
-      img2.onload = () => {
-        // 裏面テクスチャを180度回転してから適用
-        const cv2 = document.createElement('canvas');
-        cv2.width = img2.naturalWidth; cv2.height = img2.naturalHeight;
-        const ctx2 = cv2.getContext('2d');
-        ctx2.translate(cv2.width/2, cv2.height/2);
-        ctx2.rotate(Math.PI);
-        ctx2.drawImage(img2, -cv2.width/2, -cv2.height/2);
-        texBack = new THREE.CanvasTexture(cv2);
-        pending--; tryBuild();
-      };
-      img2.onerror = () => { texBack = null; pending--; tryBuild(); };
-    } else { texBack = null; }
-
-    if (pending === 0) build();
-  };
-})();
-function rebuild3D() { if (window._rebuild3D) window._rebuild3D(); }
-
-// ═══════════════════════════════
+// ═══════════════════════════════════════════════════════
 // SUBMIT
-// ═══════════════════════════════
+// ═══════════════════════════════════════════════════════
 function doSubmit() {
   if (!S.color)    { toast('土台カラーを選択してください'); document.getElementById('sb1').classList.remove('hidden'); document.getElementById('sec1').scrollIntoView({behavior:'smooth',block:'center'}); return; }
   if (!S.shape)    { toast('形状を選択してください'); document.getElementById('sb2').classList.remove('hidden'); document.getElementById('sec2').scrollIntoView({behavior:'smooth',block:'center'}); return; }
   if (!S.imgFront) { toast('おもて面の画像を設定してください'); document.getElementById('sb4').classList.remove('hidden'); document.getElementById('sec4').scrollIntoView({behavior:'smooth',block:'center'}); return; }
   if (S.backPrint && !S.imgBack) { toast('うら面の画像を設定してください'); document.getElementById('sec4').scrollIntoView({behavior:'smooth',block:'center'}); return; }
 
-  // 注文データを作成
   const orderData = {
     orderId:    S.orderId,
     color:      S.color,
@@ -1697,10 +1585,13 @@ function doSubmit() {
     attX:       S.attX,
     attY:       S.attY,
     attAngle:   S.attAngle,
+    attMode:    S.attMode,
+    holeCm:     S.holeCm,
+    dieFront:   S.dieFront || null,
+    dieBack:    S.dieBack  || null,
     submittedAt: new Date().toLocaleString('ja-JP'),
   };
 
-  // NFC・QR URLの未入力を警告（確認ダイアログ）
   const warnings = [];
   if (S.nfc && !S.nfcUrl.trim()) warnings.push('・NFCタグのURL が未入力です');
   if (S.qr  && !S.qrUrl.trim())  warnings.push('・QRコードのURL が未入力です');
@@ -1708,13 +1599,8 @@ function doSubmit() {
     showUrlWarning(warnings, function(proceed) {
       if (proceed) { submitOrder(orderData); }
       else {
-        if (S.nfc && !S.nfcUrl.trim()) {
-          document.getElementById('sb3').classList.remove('hidden');
-          document.getElementById('sec3').scrollIntoView({behavior:'smooth',block:'center'});
-        } else {
-          document.getElementById('sb5').classList.remove('hidden');
-          document.getElementById('sec5').scrollIntoView({behavior:'smooth',block:'center'});
-        }
+        if (S.nfc && !S.nfcUrl.trim()) { document.getElementById('sb3').classList.remove('hidden'); document.getElementById('sec3').scrollIntoView({behavior:'smooth',block:'center'}); }
+        else { document.getElementById('sb5').classList.remove('hidden'); document.getElementById('sec5').scrollIntoView({behavior:'smooth',block:'center'}); }
       }
     });
     return;
@@ -1723,32 +1609,25 @@ function doSubmit() {
 }
 
 function showUrlWarning(warnings, callback) {
-  // 既存のダイアログがあれば削除
-  const ex = document.getElementById('urlWarnDialog');
-  if (ex) ex.remove();
+  const ex = document.getElementById('urlWarnDialog'); if (ex) ex.remove();
   const d = document.createElement('div');
   d.id = 'urlWarnDialog';
   d.style.cssText = 'position:fixed;inset:0;background:rgba(0,0,0,.7);z-index:500;display:flex;align-items:center;justify-content:center;padding:20px;';
-  d.innerHTML = `
-    <div style="background:#fff;border-radius:16px;padding:24px;max-width:340px;width:100%;">
-      <div style="font-size:16px;font-weight:700;margin-bottom:12px;color:#0f0f0d;">⚠ URL未入力</div>
-      <div style="font-size:13px;color:#6b6860;line-height:1.8;margin-bottom:16px;">
-        ${warnings.map(w => w).join('<br>')}
-        <br><br>URLを入力せずに送信しますか？<br>
-        <span style="font-size:11px;">（後から管理画面で変更できます）</span>
-      </div>
-      <div style="display:flex;gap:8px;">
-        <button id="warnOk" style="flex:1;padding:12px;border:1.5px solid #ccc;border-radius:10px;background:#fff;cursor:pointer;font-family:'Noto Sans JP',sans-serif;font-size:13px;color:#6b6860;">このまま送信</button>
-        <button id="warnCancel" style="flex:1;padding:12px;background:#d4522a;border:none;border-radius:10px;color:#fff;cursor:pointer;font-family:'Noto Sans JP',sans-serif;font-size:13px;font-weight:500;">URLを入力する</button>
-      </div>
-    </div>`;
+  d.innerHTML = '<div style="background:#fff;border-radius:16px;padding:24px;max-width:340px;width:100%;">'
+    + '<div style="font-size:16px;font-weight:700;margin-bottom:12px;color:#0f0f0d;">⚠ URL未入力</div>'
+    + '<div style="font-size:13px;color:#6b6860;line-height:1.8;margin-bottom:16px;">'
+    + warnings.join('<br>') + '<br><br>URLを入力せずに送信しますか？<br>'
+    + '<span style="font-size:11px;">（後から管理画面で変更できます）</span></div>'
+    + '<div style="display:flex;gap:8px;">'
+    + '<button id="warnOk" style="flex:1;padding:12px;border:1.5px solid #ccc;border-radius:10px;background:#fff;cursor:pointer;font-family:\'Noto Sans JP\',sans-serif;font-size:13px;color:#6b6860;">このまま送信</button>'
+    + '<button id="warnCancel" style="flex:1;padding:12px;background:#d4522a;border:none;border-radius:10px;color:#fff;cursor:pointer;font-family:\'Noto Sans JP\',sans-serif;font-size:13px;font-weight:500;">URLを入力する</button>'
+    + '</div></div>';
   document.body.appendChild(d);
-  document.getElementById('warnOk').onclick     = () => { d.remove(); callback(true); };
-  document.getElementById('warnCancel').onclick  = () => { d.remove(); callback(false); };
+  document.getElementById('warnOk').onclick    = () => { d.remove(); callback(true); };
+  document.getElementById('warnCancel').onclick = () => { d.remove(); callback(false); };
 }
 
 function submitOrder(orderData) {
-  // ① sessionStorageに保存（確認ページ用）
   try {
     sessionStorage.setItem('orderData', JSON.stringify(orderData));
   } catch(e) {
@@ -1758,30 +1637,23 @@ function submitOrder(orderData) {
     sessionStorage.setItem('orderImgBack',  S.imgBack  || '');
   }
 
-  // ② 全部送信完了後（最大3秒）に遷移
   const btn = document.querySelector('.submit-btn');
   if (btn) { btn.textContent = '送信中...'; btn.disabled = true; }
 
-  // Cloudflare Worker に直接送信（管理画面に自動登録 + KVに注文データ保存）
   Promise.race([
     Promise.all([
-      // 注文データ保存（詳細ページ用・画像含む）
-      fetch('https://buki-booth.com/api/save-order', {
+      fetch(WORKER_ORIGIN + '/api/save-order', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(orderData),
       }).catch(() => {}),
-      // 管理画面に自動登録（NFC・QR）
-      fetch('https://buki-booth.com/api/register', {
+      fetch(WORKER_ORIGIN + '/api/register', {
         method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'Authorization': 'Bearer Kiki.n0825'
-        },
+        headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer Kiki.n0825' },
         body: JSON.stringify({
           orderId: orderData.orderId,
-          nfcUrl:  orderData.nfcUrl  || '',
-          qrUrl:   orderData.qrUrl   || '',
+          nfcUrl:  orderData.nfcUrl || '',
+          qrUrl:   orderData.qrUrl  || '',
           label:   (orderData.color || '') + ' / ' + (orderData.shape || ''),
         }),
       }).catch(() => {}),
@@ -1792,13 +1664,13 @@ function submitOrder(orderData) {
   });
 }
 
-// ═══════════════════════════════
+// ═══════════════════════════════════════════════════════
 // TOAST
-// ═══════════════════════════════
+// ═══════════════════════════════════════════════════════
 function toast(msg) {
   const el = document.getElementById('toast');
   el.textContent = msg; el.classList.add('show');
-  setTimeout(()=>el.classList.remove('show'), 2800);
+  setTimeout(() => el.classList.remove('show'), 2800);
 }
 </script>
 </body>
