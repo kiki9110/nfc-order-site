@@ -7,9 +7,9 @@
 <style>
 @import url('https://fonts.googleapis.com/css2?family=Noto+Sans+JP:wght@400;500;700&family=Syne:wght@700;800&display=swap');
 :root{
-  --ink:#0f172a;--paper:#f0f4f8;--cream:#e2e8f0;
-  --accent:#2563eb;--muted:#64748b;--border:#cbd5e1;--radius:14px;
-  --green:#0f766e;--green-bg:#ccfbf1;
+  --ink:#0f0f0d;--paper:#f5f2ec;--cream:#ece8df;
+  --accent:#d4522a;--muted:#6b6860;--border:#ccc8be;--radius:14px;
+  --green:#22863a;--green-bg:#eaf7ee;
 }
 *,*::before,*::after{box-sizing:border-box;margin:0;padding:0;}
 body{font-family:'Noto Sans JP',sans-serif;background:var(--paper);color:var(--ink);padding-bottom:60px;}
@@ -93,7 +93,7 @@ body{font-family:'Noto Sans JP',sans-serif;background:var(--paper);color:var(--i
   display:inline-block;font-size:11px;padding:2px 8px;
   border-radius:20px;font-weight:500;
 }
-.badge-yes{background:#dbeafe;color:var(--accent);}
+.badge-yes{background:#fde8e0;color:var(--accent);}
 .badge-no{background:var(--cream);color:var(--muted);}
 .badge-green{background:var(--green-bg);color:var(--green);}
 
@@ -150,7 +150,7 @@ body{font-family:'Noto Sans JP',sans-serif;background:var(--paper);color:var(--i
 .attach-mini{
   position:relative;
   width:80px;height:80px;
-  background:#0c1628;
+  background:#18181a;
   border-radius:8px;
   overflow:hidden;
   flex-shrink:0;
@@ -279,7 +279,7 @@ body{font-family:'Noto Sans JP',sans-serif;background:var(--paper);color:var(--i
         </div>
         <div class="qr-info-text">
           <div>X: <strong id="diAttX">—</strong>%　Y: <strong id="diAttY">—</strong>%</div>
-          <div>角度: <strong id="diAttA">—</strong>°</div>
+          <div>状態: <strong id="diAttMode">—</strong>　穴径: <strong>5mm</strong></div>
         </div>
       </div>
     </div>
@@ -303,7 +303,7 @@ try {
 } catch(e) {}
 
 if (!O) {
-  document.body.innerHTML = '<div style="padding:40px;text-align:center;"><p>注文データが見つかりません。</p><a href="page1.html" style="color:#2563eb;">最初からやり直す</a></div>';
+  document.body.innerHTML = '<div style="padding:40px;text-align:center;"><p>注文データが見つかりません。</p><a href="page1.html" style="color:#d4522a;">最初からやり直す</a></div>';
   throw new Error('no order data');
 }
 
@@ -466,10 +466,10 @@ if (O.qr && O.qrSide) {
       const qx  = ox + kw * qrData.x/100 - qpx/2;
       const qy  = oy + kh * qrData.y/100 - qpx/2;
       ctx.fillStyle   = 'rgba(255,255,255,.85)';
-      ctx.strokeStyle = '#2563eb'; ctx.lineWidth=1.5;
+      ctx.strokeStyle = '#d4522a'; ctx.lineWidth=1.5;
       ctx.fillRect(qx,qy,qpx,qpx);
       ctx.strokeRect(qx,qy,qpx,qpx);
-      ctx.fillStyle='#2563eb'; ctx.font='bold 7px sans-serif';
+      ctx.fillStyle='#d4522a'; ctx.font='bold 7px sans-serif';
       ctx.textAlign='center'; ctx.textBaseline='middle';
       ctx.fillText('QR',qx+qpx/2,qy+qpx/2);
     }
@@ -491,11 +491,11 @@ if (O.qr && O.qrSide) {
 }
 
 // ─── 穴位置 ───
-document.getElementById('diAttX').textContent = Math.round(O.attX || 50);
-document.getElementById('diAttY').textContent = Math.round(O.attY || 10);
-document.getElementById('diAttA').textContent = O.attAngle || 0;
+document.getElementById('diAttX').textContent = Math.round(O.attX != null ? O.attX : 50);
+document.getElementById('diAttY').textContent = Math.round(O.attY != null ? O.attY : 10);
+document.getElementById('diAttMode').textContent = (O.attMode === 'outside') ? '外付けツメ' : '本体内';
 
-// 穴ミニマップ
+// 穴ミニマップ（page2 と同じ描画ロジック：5mm固定・内側/外側・縁ギリギリは補強リング）
 (function drawAttach(){
   const cv = document.getElementById('attachMiniCv');
   const aw = 200, ah = 200;
@@ -503,82 +503,75 @@ document.getElementById('diAttA').textContent = O.attAngle || 0;
   cv.style.width = '200px'; cv.style.height = '200px';
   cv.style.borderRadius = '10px';
   const ctx = cv.getContext('2d');
-  ctx.fillStyle = '#0c1628';
-  ctx.fillRect(0,0,aw,ah);
+  const WRAP_BG = '#16161a';
+  const shape  = O.shape || 'circle';
+  const sizeCm = O.sizeCm || 7;
+  const holeCm = O.holeCm || 0.5;          // 5mm固定
+  const acryl  = O.colorHex || '#d9d4c7';
+  const attX   = (O.attX != null ? O.attX : 50);
+  const attY   = (O.attY != null ? O.attY : 10);
 
-  // キーホルダー形状
-  const m = 20, kw = aw-m*2, kh = ah-m*2;
-  const ox = m, oy = m;
+  // 本体ジオメトリ（中央配置・サイズに比例して拡大縮小／最大15cmで枠いっぱい）
+  const margin = 20, maxBody = Math.min(aw-margin*2, ah-margin*2);
+  const ppc = maxBody / 15, size = ppc * sizeCm;
+  const g = { cx: aw/2, cy: ah/2, size: size, r: size/2, x: aw/2-size/2, y: ah/2-size/2, rad: size*0.06 };
+  const pxPerCm = ppc;   // 穴は5mm固定 → 一定サイズ
 
-  // 画像があれば背景に表示
-  if (O.imgFront) {
-    const img = new Image();
-    img.onload = function() {
-      ctx.save();
-      ctx.beginPath();
-      if (O.shape==='circle') ctx.arc(aw/2,ah/2,kw/2,0,Math.PI*2);
-      else { ctx.moveTo(ox+8,oy);ctx.lineTo(ox+kw-8,oy);ctx.arcTo(ox+kw,oy,ox+kw,oy+8,8);ctx.lineTo(ox+kw,oy+kh-8);ctx.arcTo(ox+kw,oy+kh,ox+kw-8,oy+kh,8);ctx.lineTo(ox+8,oy+kh);ctx.arcTo(ox,oy+kh,ox,oy+kh-8,8);ctx.lineTo(ox,oy+8);ctx.arcTo(ox,oy,ox+8,oy,8);ctx.closePath(); }
-      ctx.clip();
-      const ir=img.naturalWidth/img.naturalHeight;
-      let dw,dh,dx2,dy2;
-      if(ir>1){dh=kh;dw=dh*ir;dx2=ox-(dw-kw)/2;dy2=oy;}
-      else{dw=kw;dh=dw/ir;dy2=oy-(dh-kh)/2;dx2=ox;}
-      ctx.drawImage(img,dx2,dy2,dw,dh);
-      ctx.restore();
-      drawOverlay();
-    };
-    img.src = O.imgFront;
-  } else {
-    // カラーで塗る
-    ctx.save();
-    ctx.beginPath();
-    if (O.shape==='circle') ctx.arc(aw/2,ah/2,kw/2,0,Math.PI*2);
-    else { ctx.moveTo(ox+8,oy);ctx.lineTo(ox+kw-8,oy);ctx.arcTo(ox+kw,oy,ox+kw,oy+8,8);ctx.lineTo(ox+kw,oy+kh-8);ctx.arcTo(ox+kw,oy+kh,ox+kw-8,oy+kh,8);ctx.lineTo(ox+8,oy+kh);ctx.arcTo(ox,oy+kh,ox,oy+kh-8,8);ctx.lineTo(ox,oy+8);ctx.arcTo(ox,oy,ox+8,oy,8);ctx.closePath(); }
-    ctx.fillStyle = '#ddd';
-    ctx.fill();
-    ctx.restore();
-    drawOverlay();
+  function rrect(c,x,y,w,h,r){ c.beginPath(); c.moveTo(x+r,y); c.arcTo(x+w,y,x+w,y+h,r); c.arcTo(x+w,y+h,x,y+h,r); c.arcTo(x,y+h,x,y,r); c.arcTo(x,y,x+w,y,r); c.closePath(); }
+  // ダイアカットの実シルエット（正規化ポリゴン）→ ボックス座標
+  const diePolyN = (shape==='diecut') ? (O.dieFront || O.dieBack || null) : null;
+  const diePts = (diePolyN && diePolyN.length>=3) ? diePolyN.map(function(q){return {x:g.x+q.x*g.size, y:g.y+q.y*g.size};}) : null;
+  function pointInPoly(x,y,pts){ var c=false; for(var i=0,j=pts.length-1;i<pts.length;j=i++){ var xi=pts[i].x,yi=pts[i].y,xj=pts[j].x,yj=pts[j].y; if(((yi>y)!==(yj>y))&&(x<(xj-xi)*(y-yi)/(yj-yi)+xi)) c=!c; } return c; }
+  function polyCentroid(pts){ var sx=0,sy=0; for(var i=0;i<pts.length;i++){sx+=pts[i].x;sy+=pts[i].y;} return {x:sx/pts.length,y:sy/pts.length}; }
+  function segDist(px,py,ax,ay,bx,by){ var dx=bx-ax,dy=by-ay,l2=dx*dx+dy*dy,t=l2?((px-ax)*dx+(py-ay)*dy)/l2:0; t=Math.max(0,Math.min(1,t)); return Math.hypot(px-(ax+t*dx),py-(ay+t*dy)); }
+  function minEdgeDist(x,y,pts){ var m=1e9; for(var i=0,j=pts.length-1;i<pts.length;j=i++) m=Math.min(m,segDist(x,y,pts[j].x,pts[j].y,pts[i].x,pts[i].y)); return m; }
+  function segSegInt(x1,y1,x2,y2,x3,y3,x4,y4){ var d=(x2-x1)*(y4-y3)-(y2-y1)*(x4-x3); if(Math.abs(d)<1e-9) return null; var t=((x3-x1)*(y4-y3)-(y3-y1)*(x4-x3))/d,u=((x3-x1)*(y2-y1)-(y3-y1)*(x2-x1))/d; if(t>=0&&t<=1&&u>=0&&u<=1) return {x:x1+t*(x2-x1),y:y1+t*(y2-y1),t:t}; return null; }
+  function rayPolyHit(cx,cy,px,py,pts){ var dx=px-cx,dy=py-cy,fx=cx+dx*1000,fy=cy+dy*1000,best=null,bt=-1; for(var i=0,j=pts.length-1;i<pts.length;j=i++){ var r=segSegInt(cx,cy,fx,fy,pts[j].x,pts[j].y,pts[i].x,pts[i].y); if(r&&r.t>bt){bt=r.t;best={x:r.x,y:r.y};} } return best; }
+  function diePath(c){ c.beginPath(); c.moveTo(diePts[0].x,diePts[0].y); for(var i=1;i<diePts.length;i++) c.lineTo(diePts[i].x,diePts[i].y); c.closePath(); }
+  function bodyPath(c){ if(shape==='diecut'&&diePts){ diePath(c); return; } c.beginPath(); if(shape==='circle') c.arc(g.cx,g.cy,g.r,0,Math.PI*2); else rrect(c,g.x,g.y,g.size,g.size,g.rad); }
+  function lugFullyInside(px,py,lugR){ if(shape==='diecut'&&diePts) return pointInPoly(px,py,diePts)&&minEdgeDist(px,py,diePts)>=lugR; if(shape==='circle') return Math.hypot(px-g.cx,py-g.cy)+lugR<=g.r; return px>=g.x+lugR&&px<=g.x+g.size-lugR&&py>=g.y+lugR&&py<=g.y+g.size-lugR; }
+  function edgeAnchor(px,py){ if(shape==='diecut'&&diePts){ var c=polyCentroid(diePts); var hit=rayPolyHit(c.x,c.y,px,py,diePts); if(hit) return hit; } var an=Math.atan2(py-g.cy,px-g.cx); if(shape==='circle') return {x:g.cx+Math.cos(an)*g.r,y:g.cy+Math.sin(an)*g.r}; var dx=Math.cos(an),dy=Math.sin(an),hw=g.size/2,hh=g.size/2,tx=dx?hw/Math.abs(dx):1e9,ty=dy?hh/Math.abs(dy):1e9,t=Math.min(tx,ty); return {x:g.cx+dx*t,y:g.cy+dy*t}; }
+
+  const hx = g.x + size*attX/100, hy = g.y + size*attY/100;
+  const holeR = Math.max(2, (holeCm/2)*pxPerCm);
+  const lugR  = holeR + Math.max(8, holeR*0.9);
+
+  // 補強のツメ（穴を囲むふち＋同じ太さの首、接合部は直角）
+  function buildTab(){
+    const a = edgeAnchor(hx,hy), an = Math.atan2(hy-g.cy,hx-g.cx);
+    const neckW = lugR*2, rootX = a.x-Math.cos(an)*lugR, rootY = a.y-Math.sin(an)*lugR;
+    const BORDER = 'rgba(255,255,255,.30)';
+    const tc = document.createElement('canvas'); tc.width=aw; tc.height=ah;
+    const t = tc.getContext('2d'); t.lineCap='round'; t.lineJoin='round';
+    t.strokeStyle=BORDER; t.lineWidth=neckW+3; t.beginPath(); t.moveTo(rootX,rootY); t.lineTo(hx,hy); t.stroke();
+    t.fillStyle=BORDER; t.beginPath(); t.arc(hx,hy,lugR+1.5,0,Math.PI*2); t.fill();
+    t.strokeStyle=acryl; t.lineWidth=neckW; t.beginPath(); t.moveTo(rootX,rootY); t.lineTo(hx,hy); t.stroke();
+    t.fillStyle=acryl; t.beginPath(); t.arc(hx,hy,lugR,0,Math.PI*2); t.fill();
+    t.globalCompositeOperation='destination-out'; t.fillStyle='#000'; bodyPath(t); t.fill();
+    t.globalCompositeOperation='source-over';
+    return tc;
   }
 
-  function drawOverlay() {
-    // 枠線
-    ctx.strokeStyle='rgba(255,255,255,.3)'; ctx.lineWidth=1.5;
-    ctx.beginPath();
-    if (O.shape==='circle') ctx.arc(aw/2,ah/2,kw/2,0,Math.PI*2);
-    else { ctx.moveTo(ox+8,oy);ctx.lineTo(ox+kw-8,oy);ctx.arcTo(ox+kw,oy,ox+kw,oy+8,8);ctx.lineTo(ox+kw,oy+kh-8);ctx.arcTo(ox+kw,oy+kh,ox+kw-8,oy+kh,8);ctx.lineTo(ox+8,oy+kh);ctx.arcTo(ox,oy+kh,ox,oy+kh-8,8);ctx.lineTo(ox,oy+8);ctx.arcTo(ox,oy,ox+8,oy,8);ctx.closePath(); }
-    ctx.stroke();
-
-    // 金具位置
-    const dx = ox + kw*(O.attX||50)/100;
-    const dy = oy + kh*(O.attY||10)/100;
-    const ang = (O.attAngle||0)*Math.PI/180;
-
-    // 金具シルエット（SVG相当をcanvasで描画）
-    ctx.save();
-    ctx.translate(dx, dy);
-    ctx.rotate(ang);
-    // 本体
-    ctx.fillStyle='rgba(200,200,200,0.9)';
-    ctx.strokeStyle='rgba(150,150,150,0.8)';
-    ctx.lineWidth=1;
-    ctx.beginPath();
-    ctx.roundRect(-8, 0, 16, 24, 3);
-    ctx.fill(); ctx.stroke();
-    // 穴の輪
-    ctx.beginPath();
-    ctx.arc(0, -8, 7, 0, Math.PI*2);
-    ctx.strokeStyle='rgba(200,200,200,0.9)';
-    ctx.lineWidth=4;
-    ctx.stroke();
-    ctx.beginPath();
-    ctx.arc(0, -8, 4, 0, Math.PI*2);
-    ctx.fillStyle='#0c1628';
-    ctx.fill();
-    // ハイライト
-    ctx.fillStyle='rgba(255,255,255,0.3)';
-    ctx.fillRect(-6, 2, 12, 2);
+  function draw(imgEl){
+    ctx.clearRect(0,0,aw,ah);
+    ctx.fillStyle=WRAP_BG; ctx.fillRect(0,0,aw,ah);
+    if(!lugFullyInside(hx,hy,lugR)) ctx.drawImage(buildTab(),0,0,aw,ah);  // 補強リング/ツメ（本体の下）
+    // 本体（画像 or 単色）
+    ctx.save(); bodyPath(ctx); ctx.clip();
+    if(shape==='diecut'&&diePts){ ctx.fillStyle=acryl; ctx.fill(); }   // ダイアカットは土台色（縁取り）
+    if(imgEl){ const ir=imgEl.naturalWidth/imgEl.naturalHeight; let dw,dh,dx,dy; if(ir>1){dh=g.size;dw=dh*ir;dx=g.x-(dw-g.size)/2;dy=g.y;} else {dw=g.size;dh=dw/ir;dy=g.y-(dh-g.size)/2;dx=g.x;} ctx.drawImage(imgEl,dx,dy,dw,dh); }
+    else if(shape!=='diecut'){ ctx.fillStyle=acryl; ctx.fill(); }
     ctx.restore();
+    ctx.strokeStyle='rgba(255,255,255,.30)'; ctx.lineWidth=1.5; bodyPath(ctx); ctx.stroke();
+    // 穴をくり抜く
+    ctx.beginPath(); ctx.arc(hx,hy,holeR,0,Math.PI*2); ctx.fillStyle=WRAP_BG; ctx.fill();
+    ctx.lineWidth=1.4; ctx.strokeStyle='rgba(0,0,0,.45)'; ctx.beginPath(); ctx.arc(hx,hy,holeR,0,Math.PI*2); ctx.stroke();
+    ctx.lineWidth=1; ctx.strokeStyle='rgba(255,255,255,.22)'; ctx.beginPath(); ctx.arc(hx,hy,Math.max(1,holeR-1.4),0,Math.PI*2); ctx.stroke();
   }
+
+  const useImg = (O.attachView==='back' ? O.imgBack : O.imgFront) || O.imgFront;
+  if(useImg){ const im=new Image(); im.onload=()=>draw(im); im.onerror=()=>draw(null); im.src=useImg; }
+  else draw(null);
 })();
 </script>
 </body>
