@@ -420,6 +420,15 @@ body{font-family:'Noto Sans JP',sans-serif;background:var(--paper);color:var(--i
         </div>
       </div>
     </div>
+    <!-- 折れ防止（ダイアカットのみ）：手足のすき間や中抜きを埋めて補強するか、イラストどおりに残すか -->
+    <div class="slider-group" id="obGroup" style="display:none;">
+      <label>折れ防止（すき間・中抜きを埋める）</label>
+      <div style="display:flex;gap:8px;margin-top:6px;">
+        <button class="yn-btn sel" id="ob-on"  onclick="setReinforce(true)">あり（推奨）</button>
+        <button class="yn-btn"      id="ob-off" onclick="setReinforce(false)">なし（残す）</button>
+      </div>
+      <div style="font-size:11px;color:var(--muted);margin-top:6px;line-height:1.6;">「あり」は手足のすき間や中抜き部分を埋めて壊れにくくします（小さいすき間は折れ防止になります）。「なし」はイラストどおりにすき間・穴を残します（細い部分は折れやすくなるのでご注意ください）。</div>
+    </div>
     <div style="font-size:11px;color:var(--muted);margin-top:4px;line-height:1.6;">※ 長辺（最長部分）でサイズを指定します。丸・四角は最大10cm、ダイアカットは最大15cmです。</div>
   </div>
 </div>
@@ -535,7 +544,9 @@ const S = {
   imgFront:   null, imgBack: null,
   imgFrontSrc:null, imgBackSrc: null,   // オリジナルソース（再調整用）
   cropStateFront: null, cropStateBack: null, // 前回のクロップ設定
-  dieFront:   null, dieBack: null,       // ダイアカットの実シルエット（正規化ポリゴン）
+  dieFront:   null, dieBack: null,       // ダイアカットの実シルエット外周（正規化ポリゴン）
+  dieHolesFront: [], dieHolesBack: [],   // ダイアカットの中抜き穴（折れ防止OFF時に検出される正規化ポリゴンの配列）
+  dieReinforce:  true,                   // 折れ防止（true=手足のすき間・中抜きを埋めて補強 / false=イラストどおりに残す）
   qr:         false, qrSide: null, qrUrl: '',
   qrFront:    { x: 50, y: 50, cm: 2 },
   qrBack:     { x: 50, y: 50, cm: 2 },
@@ -667,6 +678,7 @@ function pickShape(sh) {
   document.getElementById('pd-shape').textContent = { circle:'丸', square:'四角', diecut:'ダイカ' }[sh];
   document.getElementById('diecut-note').style.display = sh === 'diecut' ? 'block' : 'none';
   document.getElementById('bdGroup').style.display     = sh === 'diecut' ? 'block' : 'none';
+  document.getElementById('obGroup').style.display     = sh === 'diecut' ? 'block' : 'none';
   // 形状ごとのサイズ上限を反映（丸・四角=10cm / ダイアカット=15cm）
   const mx = maxSizeFor(sh);
   document.getElementById('szSlider').max = mx;
@@ -913,18 +925,23 @@ function drawMask() {
   ctx.clearRect(0, 0, cw, ch);
   ctx.fillStyle = 'rgba(0,0,0,.62)'; ctx.fillRect(0, 0, cw, ch);
   const sh = S.shape || 'circle';
-  let poly = null;
+  let poly = null, holes = [];
   if (sh === 'diecut') {
-    if (cropTarget === 'back' && S.dieFront) { poly = S.dieFront; }
-    else { poly = computeDiePoly(); if (poly) C.diePoly = poly; else poly = C.diePoly; }
+    if (cropTarget === 'back' && S.dieFront) { poly = S.dieFront; holes = S.dieHolesFront || []; }
+    else {
+      const dp = computeDiePoly();
+      if (dp) { C.diePoly = dp; poly = dp.outer; holes = dp.holes || []; }
+      else if (C.diePoly) { poly = C.diePoly.outer; holes = C.diePoly.holes || []; }
+    }
   }
   function pathShape() {
     ctx.beginPath();
     if (sh === 'circle')                       ctx.arc(cx, cy, size / 2, 0, Math.PI * 2);
-    else if (sh === 'diecut' && poly)          diePathScreen(ctx, poly, ox, oy, size);
+    else if (sh === 'diecut' && poly)        { diePathScreen(ctx, poly, ox, oy, size); for (const hl of holes) if (hl && hl.length >= 3) diePathScreen(ctx, hl, ox, oy, size); }
     else                                       rrect(ctx, ox, oy, size, size, sh === 'diecut' ? size * .08 : size * .06);
   }
-  ctx.globalCompositeOperation = 'destination-out'; pathShape(); ctx.fill();
+  // 中抜き穴も切り抜き対象外にするため evenodd で塗る（穴部分はマスクが残る＝対象外）
+  ctx.globalCompositeOperation = 'destination-out'; pathShape(); ctx.fill('evenodd');
   ctx.globalCompositeOperation = 'source-over';
   ctx.strokeStyle = 'rgba(255,255,255,.65)'; ctx.lineWidth = 2; ctx.setLineDash([5, 4]);
   pathShape(); ctx.stroke(); ctx.setLineDash([]);
@@ -998,23 +1015,78 @@ function dieChaikin(pts, iters) {
   }
   return pts;
 }
-function dieMorphTrace(g, N, sizeCm, borderCm) {
+// 背景のうち「外側（縁から繋がっている部分）」を塗りつぶしで判定（4近傍）。
+// 戻り値: 1=外側の背景 / 0=前景 or 中抜き穴
+function dieFloodOutside(g, N) {
+  const out = new Uint8Array(N * N), st = [];
+  for (let x = 0; x < N; x++) { if (!g[x]) st.push(x); const b = (N - 1) * N + x; if (!g[b]) st.push(b); }
+  for (let y = 0; y < N; y++) { const l = y * N; if (!g[l]) st.push(l); const r = y * N + N - 1; if (!g[r]) st.push(r); }
+  while (st.length) {
+    const idx = st.pop(); if (out[idx]) continue; out[idx] = 1;
+    const x = idx % N, y = (idx / N) | 0;
+    if (x > 0     && !g[idx - 1] && !out[idx - 1]) st.push(idx - 1);
+    if (x < N - 1 && !g[idx + 1] && !out[idx + 1]) st.push(idx + 1);
+    if (y > 0     && !g[idx - N] && !out[idx - N]) st.push(idx - N);
+    if (y < N - 1 && !g[idx + N] && !out[idx + N]) st.push(idx + N);
+  }
+  return out;
+}
+// 折れ防止ON：中抜き穴をすべて前景で埋める
+function dieFillHoles(g, N) {
+  const outside = dieFloodOutside(g, N), out = new Uint8Array(N * N);
+  for (let i = 0; i < N * N; i++) out[i] = (g[i] || !outside[i]) ? 1 : 0;
+  return out;
+}
+// 折れ防止OFF：中抜き穴（外側に繋がっていない背景の塊）を検出して輪郭ポリゴンの配列で返す
+function dieDetectHoles(g, N, minArea) {
+  const outside = dieFloodOutside(g, N);
+  const hole = new Uint8Array(N * N);
+  for (let i = 0; i < N * N; i++) hole[i] = (!g[i] && !outside[i]) ? 1 : 0;
+  const seen = new Uint8Array(N * N), polys = [];
+  for (let s = 0; s < N * N; s++) {
+    if (!hole[s] || seen[s]) continue;
+    const comp = [], st = [s];
+    while (st.length) {
+      const idx = st.pop(); if (seen[idx]) continue; seen[idx] = 1; comp.push(idx);
+      const x = idx % N, y = (idx / N) | 0;
+      if (x > 0     && hole[idx - 1] && !seen[idx - 1]) st.push(idx - 1);
+      if (x < N - 1 && hole[idx + 1] && !seen[idx + 1]) st.push(idx + 1);
+      if (y > 0     && hole[idx - N] && !seen[idx - N]) st.push(idx - N);
+      if (y < N - 1 && hole[idx + N] && !seen[idx + N]) st.push(idx + N);
+    }
+    if (comp.length < minArea) continue;               // 小さすぎる穴（=微小なノイズ）は埋めたまま
+    const m = new Uint8Array(N * N); for (const idx of comp) m[idx] = 1;
+    let c = dieTrace(m, N);
+    if (c.length < 6) continue;
+    c = c.filter((_, i) => i % Math.max(1, Math.floor(c.length / 40)) === 0);
+    c = dieChaikin(c, 1);
+    polys.push(c.map(p => ({ x: +(p[0] / N).toFixed(4), y: +(p[1] / N).toFixed(4) })));
+  }
+  return polys;
+}
+// alpha グリッド → シルエット外周＋中抜き穴。戻り値 { outer:[{x,y}...], holes:[[{x,y}...], ...] }
+function dieMorphTrace(g, N, sizeCm, borderCm, reinforce) {
   let any = false; for (let i = 0; i < g.length; i++) if (g[i]) { any = true; break; }
   if (!any) return null;
-  const closeR  = Math.max(2, Math.round(N * .045));
+  // reinforce=ON は強めのクロージングで細い隙間をブリッジ、OFF はノイズ除去程度に留める
+  const closeR  = reinforce ? Math.max(2, Math.round(N * .045)) : Math.max(1, Math.round(N * .012));
   const borderR = Math.max(0, Math.round((borderCm / (sizeCm || 7)) * N));
-  g = dieMorph(g, N, closeR, false); g = dieMorph(g, N, closeR, true);
-  if (borderR > 0) g = dieMorph(g, N, borderR, false);
+  g = dieMorph(g, N, closeR, false); g = dieMorph(g, N, closeR, true); // クロージング
+  if (reinforce) g = dieFillHoles(g, N);                                // ON のみ中抜きを埋める
+  if (borderR > 0) g = dieMorph(g, N, borderR, false);                  // 縁取り（外周を太らせ、穴は内側へ縮む）
   let c = dieTrace(g, N);
   if (c.length < 6) return null;
   c = c.filter((_, i) => i % Math.max(1, Math.floor(c.length / 70)) === 0);
   c = dieChaikin(c, 1);
-  return c.map(p => ({ x: +(p[0] / N).toFixed(4), y: +(p[1] / N).toFixed(4) }));
+  const outer = c.map(p => ({ x: +(p[0] / N).toFixed(4), y: +(p[1] / N).toFixed(4) }));
+  let holes = [];
+  if (!reinforce) holes = dieDetectHoles(g, N, Math.max(18, Math.round(N * N * 0.0015)));
+  return { outer, holes };
 }
 function computeDiePoly() {
   const imgEl = document.getElementById('cropImg');
   if (!imgEl || !imgEl.complete || !imgEl.naturalWidth) return null;
-  return dieMorphTrace(dieAlphaGrid(140), 140, S.sizeCm, S.borderCm != null ? S.borderCm : 0.3);
+  return dieMorphTrace(dieAlphaGrid(140), 140, S.sizeCm, S.borderCm != null ? S.borderCm : 0.3, S.dieReinforce !== false);
 }
 function dieGridFrom(imgEl, cs, N) {
   const tmp = document.createElement('canvas'); tmp.width = N; tmp.height = N;
@@ -1032,9 +1104,29 @@ function recomputeDie(face, cb) {
   const cs  = face === 'back' ? S.cropStateBack : S.cropStateFront;
   if (S.shape !== 'diecut' || !src || !cs || cs.frameSrc == null) { if (cb) cb(); return; }
   const im = new Image();
-  im.onload  = () => { const poly = dieMorphTrace(dieGridFrom(im, cs, 140), 140, S.sizeCm, S.borderCm != null ? S.borderCm : 0.3); if (face === 'back') S.dieBack = poly; else S.dieFront = poly; if (cb) cb(); };
+  im.onload  = () => {
+    const res = dieMorphTrace(dieGridFrom(im, cs, 140), 140, S.sizeCm, S.borderCm != null ? S.borderCm : 0.3, S.dieReinforce !== false);
+    if (face === 'back') { S.dieBack  = res ? res.outer : null; S.dieHolesBack  = res ? res.holes : []; }
+    else                 { S.dieFront = res ? res.outer : null; S.dieHolesFront = res ? res.holes : []; }
+    if (cb) cb();
+  };
   im.onerror = () => { if (cb) cb(); };
   im.src = src;
+}
+// 中抜き穴を描画（ダイアカット共通）。
+//  mode='cut' : 透明にくり抜く（明るい背景のプレビュー用）
+//  mode='fill': 指定色で塗る（暗い背景の穴エディタ用）
+function diePunchHoles(ctx, holes, ox, oy, w, h, mode, bg) {
+  if (!holes || !holes.length) return;
+  const path = (hole) => { ctx.beginPath(); ctx.moveTo(ox + hole[0].x * w, oy + hole[0].y * h); for (let i = 1; i < hole.length; i++) ctx.lineTo(ox + hole[i].x * w, oy + hole[i].y * h); ctx.closePath(); };
+  ctx.save();
+  if (mode === 'cut') ctx.globalCompositeOperation = 'destination-out';
+  for (const hole of holes) { if (!hole || hole.length < 3) continue; path(hole); ctx.fillStyle = (mode === 'cut') ? '#000' : (bg || '#16161a'); ctx.fill(); }
+  ctx.restore();
+  ctx.save();
+  ctx.lineWidth = 1; ctx.strokeStyle = (mode === 'cut') ? 'rgba(0,0,0,.2)' : 'rgba(255,255,255,.22)';
+  for (const hole of holes) { if (!hole || hole.length < 3) continue; path(hole); ctx.stroke(); }
+  ctx.restore();
 }
 function diePathScreen(ctx, poly, ox, oy, size) {
   if (!poly || poly.length < 3) return;
@@ -1071,21 +1163,21 @@ function applyCrop() {
   ctx.drawImage(imgEl, -drawX - frameSrc/2, -drawY - frameSrc/2, frameSrc, frameSrc, -out/2, -out/2, out, out);
   ctx.restore();
   const url = cv.toDataURL('image/png');
-  // ダイアカットの実シルエット（正規化ポリゴン）
-  let diePoly = null;
+  // ダイアカットの実シルエット（外周＋中抜き穴）
+  let dieOuter = null, dieHoles = [];
   if (sh === 'diecut') {
-    if (cropTarget === 'back' && S.dieFront) diePoly = S.dieFront;
-    else diePoly = computeDiePoly() || C.diePoly || null;
+    if (cropTarget === 'back' && S.dieFront) { dieOuter = S.dieFront; dieHoles = S.dieHolesFront || []; }
+    else { const dp = computeDiePoly() || C.diePoly || null; if (dp) { dieOuter = dp.outer; dieHoles = dp.holes || []; } }
   }
-  const savedState = { scale:C.scale, rot:C.rot, x:C.x, y:C.y, fitScale:C.fitScale, imgW:C.imgW, imgH:C.imgH, die:diePoly, frameSrc:frameSrc, drawX:drawX, drawY:drawY };
+  const savedState = { scale:C.scale, rot:C.rot, x:C.x, y:C.y, fitScale:C.fitScale, imgW:C.imgW, imgH:C.imgH, die:dieOuter, dieHoles:dieHoles, frameSrc:frameSrc, drawX:drawX, drawY:drawY };
   if (cropTarget === 'back') {
-    S.imgBack = url; S.cropStateBack = savedState; S.dieBack = diePoly;
+    S.imgBack = url; S.cropStateBack = savedState; S.dieBack = dieOuter; S.dieHolesBack = dieHoles;
     drawPreview('back');
     document.getElementById('uz-back').style.display = 'none';
     document.getElementById('pw-back').classList.add('show');
   } else {
-    S.imgFront = url; S.cropStateFront = savedState; S.dieFront = diePoly;
-    if (sh === 'diecut' && S.imgBack) { S.dieBack = diePoly; drawPreview('back'); }
+    S.imgFront = url; S.cropStateFront = savedState; S.dieFront = dieOuter; S.dieHolesFront = dieHoles;
+    if (sh === 'diecut' && S.imgBack) { S.dieBack = dieOuter; S.dieHolesBack = dieHoles; drawPreview('back'); }
     drawPreview('front');
     document.getElementById('uz-front').style.display = 'none';
     document.getElementById('pw-front').classList.add('show');
@@ -1099,6 +1191,7 @@ function drawPreview(target) {
   const cvEl = document.getElementById('cv-' + target);
   const src  = target === 'back' ? S.imgBack  : S.imgFront;
   const poly = target === 'back' ? S.dieBack  : S.dieFront;
+  const holes = target === 'back' ? S.dieHolesBack : S.dieHolesFront;
   cvEl.style.borderRadius = S.shape==='circle' ? '50%' : '8px';
   const ctx = cvEl.getContext('2d'); ctx.clearRect(0,0,200,200);
   const img = new Image();
@@ -1109,6 +1202,7 @@ function drawPreview(target) {
       ctx.fillStyle = S.colorHex || '#d9d4c7'; ctx.fillRect(0,0,200,200);
       ctx.drawImage(img,0,0,200,200);
       ctx.restore();
+      diePunchHoles(ctx, holes, 0, 0, 200, 200, 'cut');   // 中抜きを透明に
       ctx.strokeStyle='rgba(0,0,0,.25)'; ctx.lineWidth=1.5; path(); ctx.stroke();
     } else { ctx.drawImage(img,0,0,200,200); }
   };
@@ -1165,6 +1259,7 @@ function drawQRBg(side, cv, aw, ah) {
   const src    = side === 'back' ? S.imgBack    : S.imgFront;
   const acryl  = S.colorHex || '#d9d4c7';
   const diePoly = (S.dieFront || S.dieBack);
+  const dieHoles = (S.dieHolesFront && S.dieHolesFront.length ? S.dieHolesFront : S.dieHolesBack) || [];
 
   function khPath() {
     ctx.beginPath();
@@ -1186,6 +1281,7 @@ function drawQRBg(side, cv, aw, ah) {
       if (ir > kr) { dh=kh; dw=dh*ir; dx=ox-(dw-kw)/2; dy=oy; }
       else          { dw=kw; dh=dw/ir; dy=oy-(dh-kh)/2; dx=ox; }
       ctx.drawImage(img, dx, dy, dw, dh); ctx.restore();
+      if (S.shape === 'diecut') diePunchHoles(ctx, dieHoles, ox, oy, kw, kh, 'cut');
       ctx.strokeStyle='rgba(0,0,0,.2)'; ctx.lineWidth=1; khPath(); ctx.stroke();
       drawScaleBar(ctx, ox, oy, kw, kh, pxPerCm);
     };
@@ -1324,7 +1420,7 @@ function setBorderCm(v) {
   if (S.shape !== 'diecut') return;
   if (S.imgFrontSrc && S.cropStateFront) {
     recomputeDie('front', () => {
-      if (S.dieBack || S.imgBack) S.dieBack = S.dieFront;
+      if (S.dieBack || S.imgBack) { S.dieBack = S.dieFront; S.dieHolesBack = S.dieHolesFront; }
       if (window._redrawAttach) window._redrawAttach();
       drawPreview('front'); if (S.imgBack) drawPreview('back');
       if (S.qr) { ['front','back'].forEach(s => { const c = document.getElementById('qrBg-'+s); if (c) drawQRBg(s, c, c.width||260, c.height||220); }); }
@@ -1334,6 +1430,22 @@ function setBorderCm(v) {
 function onBdSlider() { setBorderCm(+document.getElementById('bdSlider').value); }
 function onBdInput()  { setBorderCm(+document.getElementById('bdN').value); }
 function stepBd(d)    { setBorderCm((+document.getElementById('bdN').value || 0) + d); }
+
+// 折れ防止のオン/オフ（ダイアカットのみ）。切り替えるとシルエットを再計算する。
+function setReinforce(v) {
+  S.dieReinforce = v;
+  document.getElementById('ob-on').classList.toggle('sel', v);
+  document.getElementById('ob-off').classList.toggle('sel', !v);
+  if (S.shape !== 'diecut') return;
+  if (S.imgFrontSrc && S.cropStateFront) {
+    recomputeDie('front', () => {
+      if (S.dieBack || S.imgBack) { S.dieBack = S.dieFront; S.dieHolesBack = S.dieHolesFront; }
+      if (window._redrawAttach) window._redrawAttach();
+      drawPreview('front'); if (S.imgBack) drawPreview('back');
+      if (S.qr) { ['front','back'].forEach(s => { const c = document.getElementById('qrBg-'+s); if (c) drawQRBg(s, c, c.width||260, c.height||220); }); }
+    });
+  } else if (window._redrawAttach) window._redrawAttach();
+}
 
 setSz(7); setTh(2); // 初期値
 
@@ -1369,6 +1481,7 @@ function setAttachView(side) {
 
   // ダイアカット ポリゴンユーティリティ
   function diePoly(){ return S.shape === 'diecut' ? (S.dieFront || S.dieBack || null) : null; }
+  function dieHolesArr(){ if (S.shape !== 'diecut') return []; return (S.dieHolesFront && S.dieHolesFront.length ? S.dieHolesFront : S.dieHolesBack) || []; }
   function diePtsBox(g){ const p = diePoly(); if (!p || p.length < 3) return null; return p.map(q => ({ x:g.x+q.x*g.size, y:g.y+q.y*g.size })); }
   function pointInPoly(x, y, pts){ let c=false; for (let i=0,j=pts.length-1;i<pts.length;j=i++){ const xi=pts[i].x,yi=pts[i].y,xj=pts[j].x,yj=pts[j].y; if (((yi>y)!==(yj>y))&&(x<(xj-xi)*(y-yi)/(yj-yi)+xi)) c=!c; } return c; }
   function polyCentroid(pts){ let sx=0,sy=0; for (const p of pts){ sx+=p.x; sy+=p.y; } return {x:sx/pts.length, y:sy/pts.length}; }
@@ -1478,6 +1591,7 @@ function setAttachView(side) {
       ctx.drawImage(tab, 0, 0, aw, ah);
     }
     drawBody(g);
+    if (S.shape === 'diecut') diePunchHoles(ctx, dieHolesArr(), g.x, g.y, g.size, g.size, 'fill', WRAP_BG);  // イラストの中抜き穴
     ctx.strokeStyle = 'rgba(255,255,255,.30)'; ctx.lineWidth = 1.5; bodyPath(g); ctx.stroke();
 
     // 穴を抜く
@@ -1589,6 +1703,9 @@ function doSubmit() {
     holeCm:     S.holeCm,
     dieFront:   S.dieFront || null,
     dieBack:    S.dieBack  || null,
+    dieHolesFront: S.dieHolesFront || [],
+    dieHolesBack:  S.dieHolesBack  || [],
+    dieReinforce:  S.dieReinforce !== false,
     submittedAt: new Date().toLocaleString('ja-JP'),
   };
 
@@ -1628,7 +1745,6 @@ function showUrlWarning(warnings, callback) {
 }
 
 function submitOrder(orderData) {
-  // sessionStorage には画像なしの軽量版を保存（page3表示用）
   try {
     sessionStorage.setItem('orderData', JSON.stringify(orderData));
   } catch(e) {
@@ -1641,71 +1757,25 @@ function submitOrder(orderData) {
   const btn = document.querySelector('.submit-btn');
   if (btn) { btn.textContent = '送信中...'; btn.disabled = true; }
 
-  // ── STEP 1: 画像を R2 にアップロードし、URLを取得 ──────────────
-  // base64 DataURL → Blob に変換するヘルパー
-  function dataURLtoBlob(dataUrl) {
-    const [header, b64] = dataUrl.split(',');
-    const mime = header.match(/:(.*?);/)[1];
-    const bin  = atob(b64);
-    const arr  = new Uint8Array(bin.length);
-    for (let i = 0; i < bin.length; i++) arr[i] = bin.charCodeAt(i);
-    return new Blob([arr], { type: mime });
-  }
-
-  // 画像1枚を R2 にアップロードして URL を返す
-  async function uploadImage(orderId, side, dataUrl) {
-    if (!dataUrl || dataUrl === '__large__') return null;
-    try {
-      const blob = dataURLtoBlob(dataUrl);
-      const fd   = new FormData();
-      fd.append('orderId', orderId);
-      fd.append('side',    side);
-      fd.append('file',    blob, side + '.png');
-      const res  = await fetch(WORKER_ORIGIN + '/api/upload-image', { method: 'POST', body: fd });
-      const data = await res.json();
-      return data.ok ? (WORKER_ORIGIN + data.url) : null;
-    } catch(e) {
-      return null; // アップロード失敗でも注文自体は続行
-    }
-  }
-
-  // ── STEP 2: テキスト情報 + 画像URL を KV に保存 ──────────────
   Promise.race([
-    (async () => {
-      // 画像を並行アップロード
-      const [frontUrl, backUrl] = await Promise.all([
-        uploadImage(orderData.orderId, 'front', orderData.imgFront),
-        orderData.backPrint ? uploadImage(orderData.orderId, 'back', orderData.imgBack) : Promise.resolve(null),
-      ]);
-
-      // 画像 base64 をURLに差し替え（KVには重いデータを入れない）
-      const orderMeta = {
-        ...orderData,
-        imgFront: frontUrl || null,  // R2のURL、または失敗時null
-        imgBack:  backUrl  || null,
-      };
-
-      await Promise.all([
-        // 注文詳細をKVに保存
-        fetch(WORKER_ORIGIN + '/api/save-order', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify(orderMeta),
-        }).catch(() => {}),
-        // NFC/QR URLを登録
-        fetch(WORKER_ORIGIN + '/api/register', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer Kiki.n0825' },
-          body: JSON.stringify({
-            orderId: orderData.orderId,
-            nfcUrl:  orderData.nfcUrl || '',
-            qrUrl:   orderData.qrUrl  || '',
-            label:   (orderData.color || '') + ' / ' + (orderData.shape || ''),
-          }),
-        }).catch(() => {}),
-      ]);
-    })(),
-    new Promise(r => setTimeout(r, 8000)) // R2アップロード分タイムアウトを延長
+    Promise.all([
+      fetch(WORKER_ORIGIN + '/api/save-order', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(orderData),
+      }).catch(() => {}),
+      fetch(WORKER_ORIGIN + '/api/register', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer Kiki.n0825' },
+        body: JSON.stringify({
+          orderId: orderData.orderId,
+          nfcUrl:  orderData.nfcUrl || '',
+          qrUrl:   orderData.qrUrl  || '',
+          label:   (orderData.color || '') + ' / ' + (orderData.shape || ''),
+        }),
+      }).catch(() => {}),
+    ]),
+    new Promise(r => setTimeout(r, 4000))
   ]).then(() => {
     window.location.href = 'page3.html';
   });
