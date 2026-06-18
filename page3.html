@@ -312,6 +312,18 @@ if (!O) {
 if (O.imgFront === '__large__') O.imgFront = sessionStorage.getItem('orderImgFront') || null;
 if (O.imgBack  === '__large__') O.imgBack  = sessionStorage.getItem('orderImgBack')  || null;
 
+// ダイアカットの中抜き穴を描画（共通）。mode='cut'=透明にくり抜き / 'fill'=指定色で塗り
+function diePunchHoles(ctx, holes, ox, oy, w, h, mode, bg) {
+  if (!holes || !holes.length) return;
+  const path = (hl) => { ctx.beginPath(); ctx.moveTo(ox+hl[0].x*w, oy+hl[0].y*h); for (let i=1;i<hl.length;i++) ctx.lineTo(ox+hl[i].x*w, oy+hl[i].y*h); ctx.closePath(); };
+  ctx.save(); if (mode==='cut') ctx.globalCompositeOperation='destination-out';
+  for (const hl of holes) { if (!hl || hl.length<3) continue; path(hl); ctx.fillStyle=(mode==='cut')?'#000':(bg||'#16161a'); ctx.fill(); }
+  ctx.restore();
+  ctx.save(); ctx.lineWidth=1; ctx.strokeStyle=(mode==='cut')?'rgba(0,0,0,.2)':'rgba(255,255,255,.22)';
+  for (const hl of holes) { if (!hl || hl.length<3) continue; path(hl); ctx.stroke(); }
+  ctx.restore();
+}
+
 // ─── 基本情報 ───
 document.getElementById('dispOrderId').textContent = O.orderId || '—';
 document.getElementById('dispDate').textContent    = O.submittedAt || '';
@@ -360,19 +372,35 @@ if (O.qr) {
 }
 
 // ─── 画像プレビュー ───
-function drawImgCanvas(canvasEl, src, shape) {
+function drawImgCanvas(canvasEl, src, shape, poly, holes) {
   canvasEl.width = 200; canvasEl.height = 200;
   canvasEl.style.borderRadius = shape === 'circle' ? '50%' : '10px';
   const ctx = canvasEl.getContext('2d');
-  if (!src) {
-    ctx.fillStyle = '#eee'; ctx.fillRect(0,0,200,200);
-    ctx.fillStyle = '#aaa'; ctx.font = '13px sans-serif';
-    ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
-    ctx.fillText('画像なし', 100, 100);
-    return;
+  const isDie = shape === 'diecut' && poly && poly.length >= 3;
+  function render(img) {
+    ctx.clearRect(0,0,200,200);
+    if (!img) {
+      ctx.fillStyle = '#eee'; ctx.fillRect(0,0,200,200);
+      ctx.fillStyle = '#aaa'; ctx.font = '13px sans-serif';
+      ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+      ctx.fillText('画像なし', 100, 100);
+      return;
+    }
+    if (isDie) {
+      const path = () => { ctx.beginPath(); ctx.moveTo(poly[0].x*200, poly[0].y*200); for (let i=1;i<poly.length;i++) ctx.lineTo(poly[i].x*200, poly[i].y*200); ctx.closePath(); };
+      ctx.save(); path(); ctx.clip();
+      ctx.fillStyle = O.colorHex || '#d9d4c7'; ctx.fillRect(0,0,200,200);
+      ctx.drawImage(img, 0, 0, 200, 200);
+      ctx.restore();
+      diePunchHoles(ctx, holes, 0, 0, 200, 200, 'cut');
+      ctx.strokeStyle = 'rgba(0,0,0,.25)'; ctx.lineWidth = 1.5; path(); ctx.stroke();
+    } else {
+      ctx.drawImage(img, 0, 0, 200, 200);
+    }
   }
+  if (!src) { render(null); return; }
   const img = new Image(); img.src = src;
-  img.onload = () => ctx.drawImage(img, 0, 0, 200, 200);
+  img.onload = () => render(img);
 }
 
 const imgRow = document.getElementById('imgRow');
@@ -382,7 +410,7 @@ frontBlock.innerHTML = O.backPrint ? '<label>おもて面</label>' : '';
 const cvFront = document.createElement('canvas');
 frontBlock.appendChild(cvFront);
 imgRow.appendChild(frontBlock);
-drawImgCanvas(cvFront, O.imgFront, O.shape);
+drawImgCanvas(cvFront, O.imgFront, O.shape, O.dieFront, O.dieHolesFront);
 
 if (O.backPrint) {
   const backBlock = document.createElement('div');
@@ -391,7 +419,7 @@ if (O.backPrint) {
   const cvBack = document.createElement('canvas');
   backBlock.appendChild(cvBack);
   imgRow.appendChild(backBlock);
-  drawImgCanvas(cvBack, O.imgBack, O.shape);
+  drawImgCanvas(cvBack, O.imgBack, O.shape, O.dieBack, O.dieHolesBack);
 }
 
 // ─── QR位置ミニマップ ───
@@ -400,7 +428,7 @@ if (O.qr && O.qrSide) {
   card.style.display = '';
   const body = document.getElementById('qrPosBody');
 
-  function makeQRMiniMap(label, qrData, imgSrc) {
+  function makeQRMiniMap(label, qrData, imgSrc, poly, holes) {
     const wrap = document.createElement('div');
     wrap.style.cssText = 'margin-bottom:14px;';
 
@@ -438,13 +466,19 @@ if (O.qr && O.qrSide) {
 
     function drawMini(imgEl) {
       ctx.clearRect(0,0,mw,mh);
-      // キーホルダー輪郭
+      const isDie = O.shape === 'diecut' && poly && poly.length >= 3;
+      function khPath() {
+        ctx.beginPath();
+        if (isDie) { ctx.moveTo(ox+poly[0].x*kw, oy+poly[0].y*kh); for (let i=1;i<poly.length;i++) ctx.lineTo(ox+poly[i].x*kw, oy+poly[i].y*kh); ctx.closePath(); }
+        else if (O.shape === 'circle') ctx.arc(ox+kw/2, oy+kh/2, Math.min(kw,kh)/2, 0, Math.PI*2);
+        else ctx.rect(ox,oy,kw,kh);
+      }
+      // キーホルダー輪郭でクリップして画像を敷く
       ctx.save();
-      ctx.beginPath();
-      if (O.shape === 'circle') ctx.arc(ox+kw/2, oy+kh/2, Math.min(kw,kh)/2, 0, Math.PI*2);
-      else { ctx.rect(ox,oy,kw,kh); }
+      khPath();
       if (imgEl) {
         ctx.clip();
+        if (isDie) { ctx.fillStyle = O.colorHex || '#d9d4c7'; ctx.fillRect(ox,oy,kw,kh); }
         const ir = imgEl.naturalWidth/imgEl.naturalHeight;
         const kr = kw/kh;
         let dw,dh,dx,dy;
@@ -455,13 +489,11 @@ if (O.qr && O.qrSide) {
         ctx.fillStyle='#e8e5dc'; ctx.fill();
       }
       ctx.restore();
+      // 中抜き穴
+      if (isDie) diePunchHoles(ctx, holes, ox, oy, kw, kh, 'cut');
       // 外枠
-      ctx.strokeStyle='rgba(0,0,0,.15)'; ctx.lineWidth=1;
-      ctx.beginPath();
-      if (O.shape==='circle') ctx.arc(ox+kw/2,oy+kh/2,Math.min(kw,kh)/2,0,Math.PI*2);
-      else ctx.rect(ox,oy,kw,kh);
-      ctx.stroke();
-      // QR枠
+      ctx.strokeStyle='rgba(0,0,0,.15)'; ctx.lineWidth=1; khPath(); ctx.stroke();
+      // QR枠（QRコードは正方形なので四角のまま）
       const pxPerCm = kw / (O.sizeCm || 7);
       const qpx = Math.max(8, qrData.cm * pxPerCm);
       const qx  = ox + kw * qrData.x/100 - qpx/2;
@@ -484,10 +516,10 @@ if (O.qr && O.qrSide) {
   }
 
   if (O.qrSide === 'front' || O.qrSide === 'both') {
-    makeQRMiniMap('おもて面', O.qrFront, O.imgFront);
+    makeQRMiniMap('おもて面', O.qrFront, O.imgFront, O.dieFront, O.dieHolesFront);
   }
   if (O.qrSide === 'back' || O.qrSide === 'both') {
-    makeQRMiniMap('うら面', O.qrBack, O.imgBack);
+    makeQRMiniMap('うら面', O.qrBack, O.imgBack, O.dieBack, O.dieHolesBack);
   }
 }
 
@@ -520,6 +552,7 @@ document.getElementById('diAttMode').textContent = (O.attMode === 'outside') ? '
   // ダイアカットの実シルエット（正規化ポリゴン）→ ボックス座標
   const diePolyN = (shape==='diecut') ? (O.dieFront || O.dieBack || null) : null;
   const diePts = (diePolyN && diePolyN.length>=3) ? diePolyN.map(function(q){return {x:g.x+q.x*g.size, y:g.y+q.y*g.size};}) : null;
+  const dieHoles = (shape==='diecut') ? ((O.dieHolesFront && O.dieHolesFront.length ? O.dieHolesFront : O.dieHolesBack) || []) : [];
   function pointInPoly(x,y,pts){ var c=false; for(var i=0,j=pts.length-1;i<pts.length;j=i++){ var xi=pts[i].x,yi=pts[i].y,xj=pts[j].x,yj=pts[j].y; if(((yi>y)!==(yj>y))&&(x<(xj-xi)*(y-yi)/(yj-yi)+xi)) c=!c; } return c; }
   function polyCentroid(pts){ var sx=0,sy=0; for(var i=0;i<pts.length;i++){sx+=pts[i].x;sy+=pts[i].y;} return {x:sx/pts.length,y:sy/pts.length}; }
   function segDist(px,py,ax,ay,bx,by){ var dx=bx-ax,dy=by-ay,l2=dx*dx+dy*dy,t=l2?((px-ax)*dx+(py-ay)*dy)/l2:0; t=Math.max(0,Math.min(1,t)); return Math.hypot(px-(ax+t*dx),py-(ay+t*dy)); }
@@ -561,6 +594,7 @@ document.getElementById('diAttMode').textContent = (O.attMode === 'outside') ? '
     if(imgEl){ const ir=imgEl.naturalWidth/imgEl.naturalHeight; let dw,dh,dx,dy; if(ir>1){dh=g.size;dw=dh*ir;dx=g.x-(dw-g.size)/2;dy=g.y;} else {dw=g.size;dh=dw/ir;dy=g.y-(dh-g.size)/2;dx=g.x;} ctx.drawImage(imgEl,dx,dy,dw,dh); }
     else if(shape!=='diecut'){ ctx.fillStyle=acryl; ctx.fill(); }
     ctx.restore();
+    if(shape==='diecut') diePunchHoles(ctx, dieHoles, g.x, g.y, g.size, g.size, 'fill', WRAP_BG);  // イラストの中抜き穴
     ctx.strokeStyle='rgba(255,255,255,.30)'; ctx.lineWidth=1.5; bodyPath(ctx); ctx.stroke();
     // 穴をくり抜く
     ctx.beginPath(); ctx.arc(hx,hy,holeR,0,Math.PI*2); ctx.fillStyle=WRAP_BG; ctx.fill();
