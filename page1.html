@@ -7,695 +7,277 @@
 <style>
 @import url('https://fonts.googleapis.com/css2?family=Noto+Sans+JP:wght@300;400;500;700&family=Syne:wght@400;700;800&display=swap');
 
-/* ============================================================
-   カラー変数（寒色系）
-   ============================================================ */
 :root {
-  /* ── ベース ── */
-  --bg:      #060c18;   /* 最暗背景 */
-  --ink:     #0f172a;   /* ダークネイビー */
-  /* ── アクセント（ブルー系1色に統一） ── */
-  --blue:    #2563eb;   /* プライマリブルー */
-  --blue-lt: #60a5fa;   /* ライトブルー（テキスト用） */
-  --cyan:    #0891b2;   /* シアン（サブアクセント） */
-  --cyan-lt: #22d3ee;   /* ライトシアン（テキスト用） */
-  /* ── テキスト ── */
-  --paper:   #f0f6ff;   /* 本文テキスト（明るい白） */
-  --muted:   #94a3b8;   /* サブテキスト（暗背景対応） */
-  /* ── UI ── */
-  --border:  rgba(255,255,255,.14);
+  --ink: #0f0f0d;
+  --paper: #f5f2ec;
+  --cream: #ece8df;
+  --accent: #d4522a;
+  --accent2: #e8a020;
+  --muted: #6b6860;
+  --border: #ccc8be;
+}
+*,*::before,*::after{box-sizing:border-box;margin:0;padding:0;}
+html,body{height:100%;}
+body{
+  font-family:'Noto Sans JP',sans-serif;
+  background:var(--ink);
+  color:var(--paper);
+  display:flex;flex-direction:column;
+  min-height:100vh;
+  overflow-x:hidden;
 }
 
-*,*::before,*::after { box-sizing:border-box; margin:0; padding:0; }
-html,body { height:100%; }
-
-/* ============================================================
-   ページ全体 — 濃いグラデーション背景
-   ============================================================ */
-body {
-  font-family: 'Noto Sans JP', sans-serif;
-  min-height: 100vh;
-  background: var(--bg);
-  color: var(--paper);
-  display: flex;
-  flex-direction: column;
-  overflow-x: hidden;
+/* BG pattern */
+body::before{
+  content:'';position:fixed;inset:0;
+  background-image:
+    repeating-linear-gradient(0deg,transparent,transparent 39px,rgba(255,255,255,.03) 39px,rgba(255,255,255,.03) 40px),
+    repeating-linear-gradient(90deg,transparent,transparent 39px,rgba(255,255,255,.03) 39px,rgba(255,255,255,.03) 40px);
+  pointer-events:none;z-index:0;
 }
 
-/* ── メッシュグラデーション背景 ── */
-.bg-mesh {
-  position: fixed; inset: 0; z-index: 0;
-  background:
-    radial-gradient(ellipse 80% 60% at 10% 20%, rgba(37,99,235,.09) 0%, transparent 60%),
-    radial-gradient(ellipse 60% 50% at 90% 80%, rgba(8,145,178,.07) 0%, transparent 55%),
-    radial-gradient(ellipse 50% 40% at 50% 50%, rgba(30,58,95,.3)  0%, transparent 70%),
-    linear-gradient(160deg, #060c18 0%, #091525 50%, #060c18 100%);
+.wrap{
+  position:relative;z-index:1;
+  display:flex;flex-direction:column;
+  align-items:center;justify-content:center;
+  flex:1;
+  padding:40px 24px;
 }
 
-/* ── グリッドドットパターン ── */
-.bg-dots {
-  position: fixed; inset: 0; z-index: 0;
-  background-image: radial-gradient(circle, rgba(148,163,184,.07) 1px, transparent 1px);
-  background-size: 28px 28px;
+/* Logo */
+.logo-block{text-align:center;margin-bottom:56px;}
+.logo-mark{
+  display:inline-flex;align-items:center;justify-content:center;
+  width:56px;height:56px;
+  border:2px solid var(--accent);
+  border-radius:12px;
+  margin-bottom:14px;
+}
+.logo-mark svg{width:28px;height:28px;}
+.logo-name{
+  font-family:'Syne',sans-serif;
+  font-size:22px;font-weight:800;
+  letter-spacing:.08em;
+  color:var(--paper);
+}
+.logo-sub{
+  font-size:10px;letter-spacing:.18em;
+  color:var(--muted);
+  text-transform:uppercase;
+  margin-top:4px;
 }
 
-/* ── 浮遊デコ円 ── */
-.orb {
-  position: fixed; border-radius: 50%; z-index: 0;
-  filter: blur(60px); pointer-events: none;
-  animation: float 8s ease-in-out infinite;
+/* Card */
+.card{
+  width:100%;max-width:420px;
+  background:rgba(255,255,255,.04);
+  border:1px solid rgba(255,255,255,.1);
+  border-radius:20px;
+  padding:36px 32px;
+  backdrop-filter:blur(12px);
 }
-.orb-1 {
-  width: 340px; height: 340px;
-  background: rgba(37,99,235,.18);
-  top: -80px; left: -80px;
-  animation-delay: 0s;
+.card-title{
+  font-family:'Syne',sans-serif;
+  font-size:20px;font-weight:700;
+  margin-bottom:6px;
 }
-.orb-2 {
-  width: 280px; height: 280px;
-  background: rgba(8,145,178,.14);
-  bottom: -60px; right: -60px;
-  animation-delay: -3s;
-}
-.orb-3 {
-  width: 200px; height: 200px;
-  background: rgba(59,130,246,.04);
-  top: 50%; left: 60%;
-  animation-delay: -6s;
-}
-@keyframes float {
-  0%,100% { transform: translateY(0) scale(1); }
-  50%      { transform: translateY(-24px) scale(1.04); }
+.card-desc{
+  font-size:12px;color:var(--muted);
+  line-height:1.7;margin-bottom:28px;
 }
 
-/* ============================================================
-   レイアウト
-   ============================================================ */
-.page-wrap {
-  position: relative; z-index: 1;
-  display: flex; flex-direction: column;
-  align-items: center; justify-content: center;
-  flex: 1; min-height: 100vh;
-  padding: 40px 20px;
-  gap: 0;
+label{
+  display:block;
+  font-size:11px;font-weight:500;
+  letter-spacing:.1em;text-transform:uppercase;
+  color:var(--muted);margin-bottom:8px;
+}
+.input-wrap{position:relative;}
+input[type="text"]{
+  width:100%;
+  padding:15px 48px 15px 16px;
+  background:rgba(255,255,255,.06);
+  border:1.5px solid rgba(255,255,255,.12);
+  border-radius:12px;
+  font-family:'Noto Sans JP',sans-serif;
+  font-size:16px;letter-spacing:.08em;
+  color:var(--paper);
+  outline:none;
+  transition:border-color .2s,background .2s;
+}
+input[type="text"]::placeholder{color:rgba(255,255,255,.2);}
+input[type="text"]:focus{
+  border-color:var(--accent);
+  background:rgba(255,255,255,.09);
+}
+.input-icon{
+  position:absolute;right:14px;top:50%;transform:translateY(-50%);
+  color:var(--muted);font-size:18px;pointer-events:none;
+}
+.input-hint{
+  font-size:11px;color:var(--muted);
+  margin-top:8px;line-height:1.6;
 }
 
-/* デスクトップ: 左右2カラム */
-@media (min-width: 860px) {
-  .page-wrap {
-    flex-direction: row;
-    align-items: center;
-    justify-content: center;
-    gap: 64px;
-    padding: 48px 40px;
-  }
+.btn-next{
+  display:flex;align-items:center;justify-content:center;gap:8px;
+  width:100%;margin-top:28px;
+  padding:16px;
+  background:var(--accent);
+  border:none;border-radius:12px;
+  font-family:'Noto Sans JP',sans-serif;
+  font-size:14px;font-weight:500;
+  color:#fff;cursor:pointer;
+  transition:background .2s,transform .15s;
+  letter-spacing:.04em;
+}
+.btn-next:hover{background:#c04420;transform:translateY(-1px);}
+.btn-next svg{width:16px;height:16px;flex-shrink:0;}
+
+/* Steps hint */
+.steps-hint{
+  display:flex;align-items:center;gap:6px;
+  margin-top:32px;
+}
+.dot{
+  width:8px;height:8px;border-radius:50%;
+  background:var(--accent);
+}
+.dot-off{background:rgba(255,255,255,.15);}
+.steps-hint-label{
+  font-size:11px;color:var(--muted);
+  margin-left:4px;
 }
 
-/* ============================================================
-   左パネル — ブランド / イラスト
-   ============================================================ */
-.hero {
-  display: flex; flex-direction: column;
-  align-items: center;
-  text-align: center;
-  max-width: 400px;
-  margin-bottom: 40px;
-}
-@media (min-width: 860px) {
-  .hero {
-    align-items: flex-start;
-    text-align: left;
-    margin-bottom: 0;
-    flex: 0 0 360px;
-  }
+/* Notice */
+.notice{
+  margin-top:20px;
+  padding:12px 16px;
+  background:rgba(228,160,32,.08);
+  border:1px solid rgba(228,160,32,.2);
+  border-radius:10px;
+  font-size:12px;color:var(--accent2);
+  line-height:1.6;
 }
 
-/* ロゴ */
-.logo-row {
-  display: flex; align-items: center; gap: 12px;
-  margin-bottom: 28px;
-}
-.logo-icon {
-  width: 44px; height: 44px;
-  background: var(--blue);
-  border-radius: 10px;
-  display: flex; align-items: center; justify-content: center;
-  flex-shrink: 0;
-  box-shadow: 0 0 0 4px rgba(37,99,235,.2);
-}
-.logo-icon svg { width: 22px; height: 22px; }
-.logo-text {
-  font-family: 'Syne', sans-serif;
-  font-weight: 800; font-size: 18px;
-  letter-spacing: .07em;
-  color: var(--paper);
-}
-.logo-text span {
-  display: block;
-  font-size: 10px; font-weight: 400;
-  letter-spacing: .2em; color: var(--cyan-lt);
-  margin-top: 1px;
+/* Error */
+.error-msg{
+  font-size:12px;color:#e05050;
+  margin-top:8px;display:none;
+  line-height:1.6;
 }
 
-/* キャッチコピー */
-.hero-title {
-  font-family: 'Syne', sans-serif;
-  font-weight: 800; font-size: clamp(26px, 5vw, 38px);
-  line-height: 1.2; letter-spacing: -.01em;
-  color: var(--paper);
-  margin-bottom: 14px;
-}
-.hero-title em {
-  font-style: normal;
-  background: linear-gradient(90deg, #93c5fd, #67e8f9);
-  -webkit-background-clip: text; -webkit-text-fill-color: transparent;
-  background-clip: text;
-}
-.hero-desc {
-  font-size: 13px; color: rgba(240,246,255,.82);
-  line-height: 1.8; margin-bottom: 32px;
-  max-width: 320px;
-}
-
-/* キーホルダー SVGイラスト */
-.keyholder-illo {
-  width: 100%; max-width: 320px;
-  margin: 0 auto 32px;
-  position: relative;
-}
-@media (min-width: 860px) {
-  .keyholder-illo { margin: 0 0 32px; }
-}
-
-.illo-card {
-  background: rgba(255,255,255,.07);
-  border: 1px solid rgba(255,255,255,.18);
-  border-radius: 20px;
-  padding: 24px;
-  display: flex; flex-direction: column; align-items: center; gap: 16px;
-  position: relative; overflow: hidden;
-}
-.illo-card::before {
-  content: '';
-  position: absolute; top: 0; left: 0; right: 0; height: 2px;
-  background: linear-gradient(90deg, var(--blue), var(--cyan));
-  border-radius: 20px 20px 0 0;
-}
-
-/* キーホルダーSVG本体 */
-.kh-svg-wrap {
-  display: flex; gap: 20px; align-items: flex-end;
-}
-
-/* フィーチャーチップ */
-.feature-chips {
-  display: flex; flex-wrap: wrap; gap: 6px;
-  justify-content: center;
-}
-@media (min-width: 860px) {
-  .feature-chips { justify-content: flex-start; }
-}
-.chip {
-  display: inline-flex; align-items: center; gap: 5px;
-  padding: 5px 10px;
-  background: rgba(37,99,235,.18);
-  border: 1px solid rgba(37,99,235,.3);
-  border-radius: 20px;
-  font-size: 11px; color: #60a5fa;
-  font-weight: 500; letter-spacing: .02em;
-}
-.chip.cyan {
-  background: rgba(8,145,178,.14);
-  border-color: rgba(8,145,178,.25);
-  color: #67e8f9;
-}
-.chip svg { width: 11px; height: 11px; flex-shrink: 0; }
-
-/* ============================================================
-   右パネル — 入力フォームカード
-   ============================================================ */
-.form-panel {
-  width: 100%; max-width: 420px;
-  flex-shrink: 0;
-}
-
-/* カード本体 — 明るく見やすく */
-.card {
-  background: rgba(255,255,255,.1);
-  border: 1.5px solid rgba(255,255,255,.18);
-  border-radius: 24px;
-  padding: 36px 32px 32px;
-  backdrop-filter: blur(20px);
-  -webkit-backdrop-filter: blur(20px);
-  box-shadow:
-    0 4px 24px rgba(0,0,0,.3),
-    0 0 0 1px rgba(255,255,255,.05) inset;
-}
-
-/* カード上部のアクセントライン */
-.card::before {
-  content: '';
-  display: block;
-  height: 3px;
-  margin: -36px -32px 28px;
-  border-radius: 24px 24px 0 0;
-  background: linear-gradient(90deg, var(--blue), var(--cyan));
-}
-
-/* ステップバッジ */
-.step-badge {
-  display: inline-flex; align-items: center; gap: 6px;
-  padding: 4px 10px;
-  background: rgba(37,99,235,.2);
-  border: 1px solid rgba(37,99,235,.35);
-  border-radius: 20px;
-  font-size: 10px; color: #60a5fa;
-  font-weight: 600; letter-spacing: .1em;
-  text-transform: uppercase;
-  margin-bottom: 16px;
-}
-.step-badge-dot {
-  width: 5px; height: 5px; border-radius: 50%;
-  background: #93c5fd;
-  animation: blink 1.4s ease-in-out infinite;
-}
-@keyframes blink {
-  0%,100% { opacity: 1; } 50% { opacity: .3; }
-}
-
-.card-title {
-  font-family: 'Syne', sans-serif;
-  font-size: 22px; font-weight: 800;
-  color: var(--paper);
-  margin-bottom: 8px; letter-spacing: -.01em;
-}
-.card-desc {
-  font-size: 12.5px;
-  color: rgba(240,246,255,.8);
-  line-height: 1.75;
-  margin-bottom: 28px;
-}
-
-/* ラベル */
-.field-label {
-  display: block;
-  font-size: 11px; font-weight: 600;
-  letter-spacing: .1em; text-transform: uppercase;
-  color: rgba(240,246,255,.75);
-  margin-bottom: 8px;
-}
-
-/* ── 入力フィールド ── 見やすく白ベース */
-.input-wrap { position: relative; }
-.input-wrap::after {
-  content: '';
-  position: absolute; bottom: 0; left: 50%; right: 50%;
-  height: 2px; background: var(--blue);
-  border-radius: 0 0 12px 12px;
-  transition: left .25s, right .25s;
-}
-.input-wrap:focus-within::after {
-  left: 0; right: 0;
-}
-
-input[type="text"] {
-  width: 100%;
-  padding: 15px 50px 15px 18px;
-  /* ── 白っぽい背景で文字をはっきり見せる ── */
-  background: rgba(255,255,255,.1);
-  border: 1.5px solid rgba(255,255,255,.22);
-  border-radius: 12px;
-  font-family: 'Noto Sans JP', sans-serif;
-  font-size: 16px; letter-spacing: .06em;
-  color: #fff;
-  outline: none;
-  transition: border-color .2s, background .2s, box-shadow .2s;
-}
-input[type="text"]::placeholder {
-  color: rgba(255,255,255,.35);
-  font-size: 14px; letter-spacing: .02em;
-}
-input[type="text"]:focus {
-  border-color: #60a5fa;
-  background: rgba(255,255,255,.16);
-  box-shadow: 0 0 0 3px rgba(37,99,235,.25);
-}
-
-.input-icon {
-  position: absolute; right: 15px; top: 50%; transform: translateY(-50%);
-  width: 28px; height: 28px;
-  display: flex; align-items: center; justify-content: center;
-  background: rgba(37,99,235,.25);
-  border-radius: 6px;
-  pointer-events: none;
-}
-.input-icon svg { width: 15px; height: 15px; color: #60a5fa; }
-
-.input-hint {
-  font-size: 11px; color: rgba(240,246,255,.6);
-  margin-top: 8px; line-height: 1.65;
-  padding-left: 2px;
-}
-
-/* エラーメッセージ */
-.error-msg {
-  display: none;
-  align-items: center; gap: 5px;
-  font-size: 12px; color: #f87171;
-  margin-top: 8px; padding-left: 2px;
-}
-.error-msg.show { display: flex; }
-.error-msg svg { width: 13px; height: 13px; flex-shrink: 0; }
-
-/* ── 注意書き ── */
-.notice {
-  margin-top: 18px;
-  padding: 11px 14px;
-  background: rgba(8,145,178,.1);
-  border: 1px solid rgba(8,145,178,.25);
-  border-left: 3px solid var(--cyan);
-  border-radius: 8px;
-  font-size: 11.5px;
-  color: #67e8f9;
-  line-height: 1.65;
-}
-.notice strong { color: #67e8f9; }
-
-/* ── 進むボタン ── */
-.btn-next {
-  display: flex; align-items: center; justify-content: center; gap: 8px;
-  width: 100%; margin-top: 24px;
-  padding: 17px;
-  background: linear-gradient(135deg, var(--blue) 0%, #1d4ed8 100%);
-  border: none; border-radius: 13px;
-  font-family: 'Noto Sans JP', sans-serif;
-  font-size: 15px; font-weight: 700;
-  color: #fff; cursor: pointer; letter-spacing: .04em;
-  transition: transform .15s, box-shadow .2s, filter .2s;
-  box-shadow: 0 4px 16px rgba(37,99,235,.45);
-  position: relative; overflow: hidden;
-}
-.btn-next::before {
-  content: '';
-  position: absolute; inset: 0;
-  background: linear-gradient(135deg, rgba(255,255,255,.1), transparent);
-  opacity: 0; transition: opacity .2s;
-}
-.btn-next:hover { transform: translateY(-2px); box-shadow: 0 8px 24px rgba(37,99,235,.5); filter: brightness(1.06); }
-.btn-next:hover::before { opacity: 1; }
-.btn-next:active { transform: translateY(0); }
-.btn-next svg { width: 18px; height: 18px; flex-shrink: 0; }
-
-/* ── ステッパー ── */
-.stepper {
-  display: flex; align-items: center; gap: 0;
-  margin-top: 28px; justify-content: center;
-}
-.step-item {
-  display: flex; align-items: center; gap: 0;
-}
-.step-circle {
-  width: 28px; height: 28px; border-radius: 50%;
-  display: flex; align-items: center; justify-content: center;
-  font-size: 11px; font-weight: 700;
-  border: 2px solid rgba(255,255,255,.28);
-  color: rgba(255,255,255,.55);
-  transition: all .3s;
-  flex-shrink: 0;
-}
-.step-circle.active {
-  background: var(--blue);
-  border-color: var(--blue);
-  color: #fff;
-  box-shadow: 0 0 0 4px rgba(37,99,235,.2);
-}
-.step-circle.done {
-  background: rgba(37,99,235,.3);
-  border-color: rgba(37,99,235,.4);
-  color: #60a5fa;
-}
-.step-line {
-  width: 40px; height: 2px;
-  background: rgba(255,255,255,.1);
-}
-.step-label {
-  font-size: 10px; color: rgba(255,255,255,.55);
-  text-align: center; margin-top: 5px;
-  white-space: nowrap;
-}
-.step-label.active { color: #60a5fa; }
-.step-col { display: flex; flex-direction: column; align-items: center; }
-
-/* フッター */
-.footer {
-  position: relative; z-index: 1;
-  text-align: center; padding: 16px 20px;
-  font-size: 11px; color: rgba(255,255,255,.4);
-  letter-spacing: .06em;
+.footer{
+  position:relative;z-index:1;
+  text-align:center;padding:20px;
+  font-size:11px;color:var(--muted);
+  letter-spacing:.04em;
 }
 </style>
 </head>
 <body>
+<div class="wrap">
+  <div class="logo-block">
+    <div class="logo-mark">
+      <svg viewBox="0 0 28 28" fill="none" xmlns="http://www.w3.org/2000/svg">
+        <rect x="2" y="2" width="10" height="10" rx="2" fill="#d4522a"/>
+        <rect x="16" y="2" width="10" height="10" rx="2" fill="rgba(255,255,255,.3)"/>
+        <rect x="2" y="16" width="10" height="10" rx="2" fill="rgba(255,255,255,.3)"/>
+        <rect x="16" y="16" width="10" height="10" rx="2" fill="rgba(255,255,255,.15)"/>
+      </svg>
+    </div>
+    <div class="logo-name">NFC ORDER</div>
+    <div class="logo-sub">Acrylic Keyholder Custom</div>
+  </div>
 
-<!-- 背景レイヤー -->
-<div class="bg-mesh"></div>
-<div class="bg-dots"></div>
-<div class="orb orb-1"></div>
-<div class="orb orb-2"></div>
-<div class="orb orb-3"></div>
+  <div class="card">
+    <div class="card-title">注文番号を入力</div>
+    <div class="card-desc">BOOTHでご購入いただいた際の注文確認メールに記載されている注文番号を入力してください。</div>
 
-<div class="page-wrap">
+    <label for="orderInput">BOOTH 注文番号</label>
+    <div class="input-wrap">
+      <input type="text" id="orderInput" placeholder="例：12345678" maxlength="20" autocomplete="off">
+      <span class="input-icon">🧾</span>
+    </div>
+    <div class="error-msg" id="errorMsg">注文番号を入力してください</div>
+    <div class="input-hint">※ BOOTHの注文確認メール「ご注文が確定しました」に記載されています</div>
 
-  <!-- ════ 左パネル：ブランド & イラスト ════ -->
-  <div class="hero">
-
-    <!-- ロゴ -->
-    <div class="logo-row">
-      <div class="logo-icon">
-        <!-- NFCウェーブアイコン -->
-        <svg viewBox="0 0 22 22" fill="none" xmlns="http://www.w3.org/2000/svg">
-          <circle cx="11" cy="13" r="3" fill="#fff"/>
-          <path d="M6 9.5C7.4 8.1 9.1 7.3 11 7.3s3.6.8 5 2.2" stroke="#fff" stroke-width="1.5" stroke-linecap="round"/>
-          <path d="M3 6.8C5.2 4.6 7.9 3.4 11 3.4s5.8 1.2 8 3.4" stroke="rgba(255,255,255,.45)" stroke-width="1.4" stroke-linecap="round"/>
-        </svg>
-      </div>
-      <div class="logo-text">
-        NFC ORDER
-        <span>Acrylic Keyholder Custom</span>
-      </div>
+    <div class="notice">
+      ⚠ 注文番号はオーダー内容と紐付けるために使用します。正確に入力してください。
     </div>
 
-    <!-- キャッチコピー -->
-    <h1 class="hero-title">
-      あなただけの<br>
-      <em>NFCキーホルダー</em>を<br>
-      カスタムオーダー
-    </h1>
+    <button class="btn-next" onclick="proceed()">
+      カスタマイズへ進む
+      <svg viewBox="0 0 16 16" fill="none"><path d="M3 8h10M9 4l4 4-4 4" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/></svg>
+    </button>
+  </div>
 
+  <div class="steps-hint">
+    <div class="dot"></div>
+    <div class="dot dot-off"></div>
+    <span class="steps-hint-label">ステップ 1 / 2</span>
+  </div>
+</div>
 
-    <!-- キーホルダーイラスト -->
-    <div class="keyholder-illo">
-      <div class="illo-card">
-        <!-- SVGキーホルダーイラスト -->
-        <div class="kh-svg-wrap">
-          <!-- キーホルダー1: 丸型 -->
-          <svg width="70" height="90" viewBox="0 0 70 90" fill="none" xmlns="http://www.w3.org/2000/svg">
-            <!-- 金具リング -->
-            <circle cx="35" cy="10" r="7" stroke="rgba(203,213,225,.9)" stroke-width="3" fill="none"/>
-            <circle cx="35" cy="10" r="3.5" fill="rgba(203,213,225,.7)"/>
-            <!-- 本体（丸型） -->
-            <circle cx="35" cy="56" r="30" fill="rgba(37,99,235,.28)" stroke="rgba(96,165,250,.7)" stroke-width="1.5"/>
-            <!-- NFCウェーブ -->
-            <circle cx="35" cy="56" r="10" fill="rgba(37,99,235,.55)"/>
-            <circle cx="35" cy="56" r="18" stroke="rgba(96,165,250,.65)" stroke-width="1.2" fill="none"/>
-            <circle cx="35" cy="56" r="24" stroke="rgba(96,165,250,.35)" stroke-width="1" fill="none"/>
-            <!-- チップ -->
-            <rect x="29" y="50" width="12" height="12" rx="2" fill="rgba(255,255,255,.7)"/>
-            <!-- 光沢 -->
-            <ellipse cx="26" cy="40" rx="10" ry="6" fill="rgba(255,255,255,.07)" transform="rotate(-20 26 40)"/>
-          </svg>
-
-          <!-- キーホルダー2: 四角型（少し回転） -->
-          <svg width="65" height="95" viewBox="0 0 65 95" fill="none" xmlns="http://www.w3.org/2000/svg" style="transform:rotate(5deg);margin-bottom:-4px;">
-            <!-- 金具 -->
-            <circle cx="32.5" cy="10" r="6.5" stroke="rgba(203,213,225,.9)" stroke-width="3" fill="none"/>
-            <circle cx="32.5" cy="10" r="3" fill="rgba(203,213,225,.7)"/>
-            <!-- 本体（角丸四角） -->
-            <rect x="4" y="22" width="58" height="68" rx="9" fill="rgba(8,145,178,.25)" stroke="rgba(34,211,238,.65)" stroke-width="1.5"/>
-            <!-- グラデーション内部 -->
-            <rect x="10" y="30" width="46" height="54" rx="6" fill="rgba(8,145,178,.35)"/>
-            <!-- QRコード風ドット -->
-            <rect x="18" y="40" width="5" height="5" rx="1" fill="rgba(255,255,255,.85)"/>
-            <rect x="25" y="40" width="5" height="5" rx="1" fill="rgba(255,255,255,.85)"/>
-            <rect x="32" y="40" width="5" height="5" rx="1" fill="rgba(255,255,255,.85)"/>
-            <rect x="39" y="40" width="5" height="5" rx="1" fill="rgba(255,255,255,.85)"/>
-            <rect x="18" y="47" width="5" height="5" rx="1" fill="rgba(255,255,255,.6)"/>
-            <rect x="25" y="47" width="12" height="5" rx="1" fill="rgba(255,255,255,.75)"/>
-            <rect x="39" y="47" width="5" height="5" rx="1" fill="rgba(255,255,255,.6)"/>
-            <rect x="18" y="54" width="5" height="5" rx="1" fill="rgba(255,255,255,.85)"/>
-            <rect x="25" y="54" width="5" height="5" rx="1" fill="rgba(255,255,255,.85)"/>
-            <rect x="32" y="54" width="5" height="5" rx="1" fill="rgba(255,255,255,.65)"/>
-            <rect x="39" y="54" width="5" height="5" rx="1" fill="rgba(255,255,255,.85)"/>
-            <!-- ラベル -->
-            <rect x="16" y="65" width="34" height="8" rx="3" fill="rgba(255,255,255,.28)"/>
-            <rect x="19" y="67.5" width="18" height="3" rx="1.5" fill="rgba(255,255,255,.65)"/>
-          </svg>
-
-          <!-- キーホルダー3: タグ型 -->
-          <svg width="55" height="85" viewBox="0 0 55 85" fill="none" xmlns="http://www.w3.org/2000/svg" style="margin-bottom:2px;">
-            <!-- 金具 -->
-            <circle cx="27.5" cy="10" r="6" stroke="rgba(203,213,225,.9)" stroke-width="3" fill="none"/>
-            <circle cx="27.5" cy="10" r="2.8" fill="rgba(203,213,225,.7)"/>
-            <!-- タグ本体 -->
-            <path d="M4 30 Q4 22 12 22 h32 Q48 22 48 30 L48 72 Q48 82 27.5 82 Q7 82 7 72 Z" fill="rgba(37,99,235,.25)" stroke="rgba(96,165,250,.6)" stroke-width="1.5"/>
-            <!-- ハート or スター -->
-            <path d="M27.5 48 C27.5 48 18 41 18 35.5 C18 32 20.7 29.5 24 29.5 C25.8 29.5 27.2 30.4 27.5 31.5 C27.8 30.4 29.2 29.5 31 29.5 C34.3 29.5 37 32 37 35.5 C37 41 27.5 48 27.5 48 Z" fill="rgba(147,197,253,.85)"/>
-            <!-- テキストライン -->
-            <rect x="14" y="54" width="28" height="3" rx="1.5" fill="rgba(255,255,255,.5)"/>
-            <rect x="18" y="59" width="20" height="2.5" rx="1.25" fill="rgba(255,255,255,.35)"/>
-          </svg>
-        </div>
-
-        <!-- カード内ラベル -->
-        <div style="font-size:11px;color:rgba(240,246,255,.65);letter-spacing:.08em;text-transform:uppercase;">
-          丸型 · 四角型 · ダイカット など
-        </div>
-      </div>
-    </div>
-
-    <!-- フィーチャーチップ -->
-    <div class="feature-chips">
-      <span class="chip">
-        <svg viewBox="0 0 12 12" fill="none"><circle cx="6" cy="6" r="2.5" fill="currentColor"/><path d="M3 6c0-.9.4-1.8 1-2.4M9 6c0 .9-.4 1.8-1 2.4" stroke="currentColor" stroke-width="1.2" stroke-linecap="round"/></svg>
-        NFCタグ搭載
-      </span>
-      <span class="chip cyan">
-        <svg viewBox="0 0 12 12" fill="none"><rect x="1.5" y="2" width="9" height="8" rx="1.5" stroke="currentColor" stroke-width="1.2"/><path d="M4 5.5h4M4 7.5h2.5" stroke="currentColor" stroke-width="1.2" stroke-linecap="round"/></svg>
-        QRコード印刷
-      </span>
-      <span class="chip">
-        <svg viewBox="0 0 12 12" fill="none"><path d="M6 1.5L7.5 4.5l3 .4-2.2 2.1.5 3L6 8.5 3.2 10l.5-3L1.5 4.9l3-.4L6 1.5z" fill="currentColor"/></svg>
-        アクリルUV印刷
-      </span>
-      <span class="chip cyan">
-        <svg viewBox="0 0 12 12" fill="none"><path d="M2 6l3 3 5-5" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/></svg>
-        表裏フルカラー
-      </span>
-    </div>
-
-  </div><!-- /.hero -->
-
-  <!-- ════ 右パネル：フォーム ════ -->
-  <div class="form-panel">
-    <div class="card">
-
-      <!-- ステップバッジ -->
-      <div class="step-badge">
-        <div class="step-badge-dot"></div>
-        STEP 1 / 2
-      </div>
-
-      <h2 class="card-title">注文番号を入力</h2>
-      <p class="card-desc">
-        BOOTHの注文確認メールに記載されている注文番号を入力してください。カスタマイズページに進みます。
-      </p>
-
-      <!-- 入力フィールド -->
-      <label class="field-label" for="orderInput">BOOTH 注文番号</label>
-      <div class="input-wrap">
-        <input
-          type="text"
-          id="orderInput"
-          placeholder="例：O-XXXXXXXX"
-          maxlength="20"
-          autocomplete="off"
-          spellcheck="false"
-        >
-        <span class="input-icon">
-          <svg viewBox="0 0 15 15" fill="none" xmlns="http://www.w3.org/2000/svg">
-            <rect x="1.5" y="2" width="12" height="11" rx="2" stroke="currentColor" stroke-width="1.3"/>
-            <path d="M4 5.5h7M4 8h4.5" stroke="currentColor" stroke-width="1.3" stroke-linecap="round"/>
-          </svg>
-        </span>
-      </div>
-
-      <!-- エラー -->
-      <div class="error-msg" id="errorMsg">
-        <svg viewBox="0 0 13 13" fill="none"><circle cx="6.5" cy="6.5" r="5.5" stroke="currentColor" stroke-width="1.3"/><path d="M6.5 4v3M6.5 8.5v.5" stroke="currentColor" stroke-width="1.4" stroke-linecap="round"/></svg>
-        注文番号を入力してください
-      </div>
-
-      <p class="input-hint">
-        ※ 注文確認メール「ご注文が確定しました」に記載されています
-      </p>
-
-      <!-- 注意書き -->
-      <div class="notice">
-        <strong>⚠ ご注意：</strong>
-        注文番号はオーダー内容と紐付けるために使用します。正確に入力してください。
-      </div>
-
-      <!-- 進むボタン -->
-      <button class="btn-next" onclick="proceed()">
-        カスタマイズへ進む
-        <svg viewBox="0 0 18 18" fill="none">
-          <path d="M4 9h10M10 5l4 4-4 4" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/>
-        </svg>
-      </button>
-
-      <!-- ステッパー -->
-      <div class="stepper">
-        <div class="step-col">
-          <div class="step-circle active">1</div>
-          <div class="step-label active">注文番号</div>
-        </div>
-        <div class="step-line"></div>
-        <div class="step-col">
-          <div class="step-circle">2</div>
-          <div class="step-label">カスタマイズ</div>
-        </div>
-      </div>
-
-    </div><!-- /.card -->
-  </div><!-- /.form-panel -->
-
-</div><!-- /.page-wrap -->
-
-<div class="footer">© NFC Order System — Acrylic Keyholder Custom</div>
+<div class="footer">© NFC Order System</div>
 
 <script>
-/* ── 注文番号バリデーション & ページ遷移 ── */
-function proceed() {
-  const val = document.getElementById('orderInput').value.trim();
-  const err = document.getElementById('errorMsg');
-  const inp = document.getElementById('orderInput');
+// Worker（バックエンド）のURL。page2 と同じものを使う。
+const WORKER_ORIGIN = sessionStorage.getItem('workerOrigin') || 'https://buki-booth.com';
 
-  if (!val) {
-    err.classList.add('show');
-    inp.style.borderColor = 'rgba(248,113,113,.6)';
-    inp.style.boxShadow   = '0 0 0 3px rgba(248,113,113,.15)';
-    inp.focus();
-    return;
-  }
-
-  // ローディング表示
-  const btn = document.querySelector('.btn-next');
-  btn.textContent = '移動中...';
-  btn.style.opacity = '.8';
-  btn.style.pointerEvents = 'none';
-
-  // 注文番号をsessionStorageに保存してpage2へ
-  sessionStorage.setItem('orderId', val);
+// page2 へ進む共通処理
+function goNext(orderId) {
+  sessionStorage.setItem('orderId', orderId);
   window.location.href = 'page2.html';
 }
 
-/* ── Enterキー対応 & エラーリセット ── */
-document.getElementById('orderInput').addEventListener('keydown', e => {
-  if (e.key === 'Enter') { proceed(); return; }
-  // 入力したらエラーをリセット
-  document.getElementById('errorMsg').classList.remove('show');
-  e.target.style.borderColor = '';
-  e.target.style.boxShadow   = '';
+async function proceed() {
+  const input = document.getElementById('orderInput');
+  const btn   = document.querySelector('.btn-next');
+  const val   = input.value.trim();
+  const err   = document.getElementById('errorMsg');
+
+  // 未入力チェック
+  if (!val) {
+    err.textContent = '注文番号を入力してください';
+    err.style.display = 'block';
+    input.style.borderColor = '#e05050';
+    return;
+  }
+
+  // KV に登録済みの注文番号かサーバーへ確認する。
+  // 登録済みなら桁数を問わず通す。未登録なら「間違い」として弾く。
+  btn.disabled = true;
+  const original = btn.textContent;
+  btn.textContent = '確認中...';
+  try {
+    const r = await fetch(WORKER_ORIGIN + '/api/customer-get?orderId=' + encodeURIComponent(val));
+    const d = await r.json();
+    if (d && d.exists) {
+      err.style.display = 'none';
+      goNext(val);
+    } else {
+      err.textContent = 'この注文番号は登録されていません。番号をご確認ください。';
+      err.style.display = 'block';
+      input.style.borderColor = '#e05050';
+    }
+  } catch (e) {
+    // 通信失敗時はブロックせず案内のみ（電波状況などの一時的な失敗対策）
+    err.textContent = '通信エラーが発生しました。電波状況をご確認のうえ、もう一度お試しください。';
+    err.style.display = 'block';
+    input.style.borderColor = '#e05050';
+  } finally {
+    btn.disabled = false;
+    btn.textContent = original;
+  }
+}
+
+const orderInput = document.getElementById('orderInput');
+
+orderInput.addEventListener('keydown', e => {
+  if (e.key === 'Enter') proceed();
+  document.getElementById('errorMsg').style.display = 'none';
+  orderInput.style.borderColor = '';
 });
 </script>
 </body>
