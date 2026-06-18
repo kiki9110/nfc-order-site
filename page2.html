@@ -1628,6 +1628,7 @@ function showUrlWarning(warnings, callback) {
 }
 
 function submitOrder(orderData) {
+  // sessionStorage には画像なしの軽量版を保存（page3表示用）
   try {
     sessionStorage.setItem('orderData', JSON.stringify(orderData));
   } catch(e) {
@@ -1640,25 +1641,71 @@ function submitOrder(orderData) {
   const btn = document.querySelector('.submit-btn');
   if (btn) { btn.textContent = '送信中...'; btn.disabled = true; }
 
+  // ── STEP 1: 画像を R2 にアップロードし、URLを取得 ──────────────
+  // base64 DataURL → Blob に変換するヘルパー
+  function dataURLtoBlob(dataUrl) {
+    const [header, b64] = dataUrl.split(',');
+    const mime = header.match(/:(.*?);/)[1];
+    const bin  = atob(b64);
+    const arr  = new Uint8Array(bin.length);
+    for (let i = 0; i < bin.length; i++) arr[i] = bin.charCodeAt(i);
+    return new Blob([arr], { type: mime });
+  }
+
+  // 画像1枚を R2 にアップロードして URL を返す
+  async function uploadImage(orderId, side, dataUrl) {
+    if (!dataUrl || dataUrl === '__large__') return null;
+    try {
+      const blob = dataURLtoBlob(dataUrl);
+      const fd   = new FormData();
+      fd.append('orderId', orderId);
+      fd.append('side',    side);
+      fd.append('file',    blob, side + '.png');
+      const res  = await fetch(WORKER_ORIGIN + '/api/upload-image', { method: 'POST', body: fd });
+      const data = await res.json();
+      return data.ok ? (WORKER_ORIGIN + data.url) : null;
+    } catch(e) {
+      return null; // アップロード失敗でも注文自体は続行
+    }
+  }
+
+  // ── STEP 2: テキスト情報 + 画像URL を KV に保存 ──────────────
   Promise.race([
-    Promise.all([
-      fetch(WORKER_ORIGIN + '/api/save-order', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(orderData),
-      }).catch(() => {}),
-      fetch(WORKER_ORIGIN + '/api/register', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer Kiki.n0825' },
-        body: JSON.stringify({
-          orderId: orderData.orderId,
-          nfcUrl:  orderData.nfcUrl || '',
-          qrUrl:   orderData.qrUrl  || '',
-          label:   (orderData.color || '') + ' / ' + (orderData.shape || ''),
-        }),
-      }).catch(() => {}),
-    ]),
-    new Promise(r => setTimeout(r, 4000))
+    (async () => {
+      // 画像を並行アップロード
+      const [frontUrl, backUrl] = await Promise.all([
+        uploadImage(orderData.orderId, 'front', orderData.imgFront),
+        orderData.backPrint ? uploadImage(orderData.orderId, 'back', orderData.imgBack) : Promise.resolve(null),
+      ]);
+
+      // 画像 base64 をURLに差し替え（KVには重いデータを入れない）
+      const orderMeta = {
+        ...orderData,
+        imgFront: frontUrl || null,  // R2のURL、または失敗時null
+        imgBack:  backUrl  || null,
+      };
+
+      await Promise.all([
+        // 注文詳細をKVに保存
+        fetch(WORKER_ORIGIN + '/api/save-order', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(orderMeta),
+        }).catch(() => {}),
+        // NFC/QR URLを登録
+        fetch(WORKER_ORIGIN + '/api/register', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer Kiki.n0825' },
+          body: JSON.stringify({
+            orderId: orderData.orderId,
+            nfcUrl:  orderData.nfcUrl || '',
+            qrUrl:   orderData.qrUrl  || '',
+            label:   (orderData.color || '') + ' / ' + (orderData.shape || ''),
+          }),
+        }).catch(() => {}),
+      ]);
+    })(),
+    new Promise(r => setTimeout(r, 8000)) // R2アップロード分タイムアウトを延長
   ]).then(() => {
     window.location.href = 'page3.html';
   });
