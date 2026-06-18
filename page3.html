@@ -324,6 +324,30 @@ function diePunchHoles(ctx, holes, ox, oy, w, h, mode, bg) {
   ctx.restore();
 }
 
+// ダイアカット：シルエットがフレームの何割を占めるか（page2のフィットと一致させる）
+const DIE_FIT = 0.82;
+// 折れ防止OFF用：画像のアルファに沿って本体を描く（穴・すき間はそのまま透過）。withImage=false で無地アクリル
+let _dieSilCv = null;
+function drawDieBodyAlpha(ctx, img, x, y, s, acryl, borderPx, withImage) {
+  s = Math.round(s);
+  const blank = (withImage === false);
+  const needSil = (borderPx >= 0.5) || blank;
+  if (needSil) {
+    const pad = Math.ceil(Math.max(0, borderPx)) + 1, tw = s + pad * 2;
+    if (!_dieSilCv) _dieSilCv = document.createElement('canvas');
+    if (_dieSilCv.width !== tw || _dieSilCv.height !== tw) { _dieSilCv.width = tw; _dieSilCv.height = tw; }
+    const sc = _dieSilCv.getContext('2d');
+    sc.setTransform(1,0,0,1,0,0); sc.clearRect(0,0,tw,tw);
+    sc.drawImage(img, pad, pad, s, s);
+    sc.globalCompositeOperation = 'source-in'; sc.fillStyle = acryl; sc.fillRect(0,0,tw,tw);
+    sc.globalCompositeOperation = 'source-over';
+    if (borderPx >= 0.5) { const steps = 20; for (let i = 0; i < steps; i++) { const a = i*2*Math.PI/steps; ctx.drawImage(_dieSilCv, x-pad+Math.cos(a)*borderPx, y-pad+Math.sin(a)*borderPx); } }
+    if (blank) ctx.drawImage(_dieSilCv, x-pad, y-pad);
+  }
+  if (!blank) ctx.drawImage(img, x, y, s, s);
+}
+function dieBorderPx(s) { return (O.sizeCm ? (O.borderCm || 0) / O.sizeCm : 0) * s * DIE_FIT; }
+
 // ─── 基本情報 ───
 document.getElementById('dispOrderId').textContent = O.orderId || '—';
 document.getElementById('dispDate').textContent    = O.submittedAt || '';
@@ -386,13 +410,16 @@ function drawImgCanvas(canvasEl, src, shape, poly, holes) {
       ctx.fillText('画像なし', 100, 100);
       return;
     }
-    if (isDie) {
+    if (shape === 'diecut' && O.dieReinforce === false) {
+      // 折れ防止OFF：画像のアルファに沿って縁取り＋穴抜き
+      drawDieBodyAlpha(ctx, img, 0, 0, 200, O.colorHex || '#d9d4c7', dieBorderPx(200), true);
+    } else if (isDie) {
+      // 折れ防止ON：外周ポリゴンで塗りつぶし
       const path = () => { ctx.beginPath(); ctx.moveTo(poly[0].x*200, poly[0].y*200); for (let i=1;i<poly.length;i++) ctx.lineTo(poly[i].x*200, poly[i].y*200); ctx.closePath(); };
       ctx.save(); path(); ctx.clip();
       ctx.fillStyle = O.colorHex || '#d9d4c7'; ctx.fillRect(0,0,200,200);
       ctx.drawImage(img, 0, 0, 200, 200);
       ctx.restore();
-      diePunchHoles(ctx, holes, 0, 0, 200, 200, 'cut');
       ctx.strokeStyle = 'rgba(0,0,0,.25)'; ctx.lineWidth = 1.5; path(); ctx.stroke();
     } else {
       ctx.drawImage(img, 0, 0, 200, 200);
@@ -473,28 +500,32 @@ if (O.qr && O.qrSide) {
         else if (O.shape === 'circle') ctx.arc(ox+kw/2, oy+kh/2, Math.min(kw,kh)/2, 0, Math.PI*2);
         else ctx.rect(ox,oy,kw,kh);
       }
-      // キーホルダー輪郭でクリップして画像を敷く
-      ctx.save();
-      khPath();
-      if (imgEl) {
-        ctx.clip();
-        if (isDie) { ctx.fillStyle = O.colorHex || '#d9d4c7'; ctx.fillRect(ox,oy,kw,kh); }
-        const ir = imgEl.naturalWidth/imgEl.naturalHeight;
-        const kr = kw/kh;
-        let dw,dh,dx,dy;
-        if(ir>kr){dh=kh;dw=dh*ir;dx=ox-(dw-kw)/2;dy=oy;}
-        else{dw=kw;dh=dw/ir;dy=oy-(dh-kh)/2;dx=ox;}
-        ctx.drawImage(imgEl,dx,dy,dw,dh);
+      // キーホルダー本体（画像＋アクリル）
+      const dieOff = (O.shape === 'diecut' && O.dieReinforce === false && imgEl);
+      if (dieOff) {
+        // 折れ防止OFF：アルファに沿って縁取り＋穴抜き（kw=kh の正方形に等倍）
+        drawDieBodyAlpha(ctx, imgEl, ox, oy, kw, O.colorHex || '#d9d4c7', (O.sizeCm ? (O.borderCm||0)/O.sizeCm : 0) * kw * DIE_FIT, true);
       } else {
-        ctx.fillStyle='#e8e5dc'; ctx.fill();
+        ctx.save();
+        khPath();
+        if (imgEl) {
+          ctx.clip();
+          if (isDie) { ctx.fillStyle = O.colorHex || '#d9d4c7'; ctx.fillRect(ox,oy,kw,kh); }
+          const ir = imgEl.naturalWidth/imgEl.naturalHeight;
+          const kr = kw/kh;
+          let dw,dh,dx,dy;
+          if(ir>kr){dh=kh;dw=dh*ir;dx=ox-(dw-kw)/2;dy=oy;}
+          else{dw=kw;dh=dw/ir;dy=oy-(dh-kh)/2;dx=ox;}
+          ctx.drawImage(imgEl,dx,dy,dw,dh);
+        } else {
+          ctx.fillStyle='#e8e5dc'; ctx.fill();
+        }
+        ctx.restore();
+        // 外枠（OFFはアルファ縁取りが境界になるので描かない）
+        ctx.strokeStyle='rgba(0,0,0,.15)'; ctx.lineWidth=1; khPath(); ctx.stroke();
       }
-      ctx.restore();
-      // 中抜き穴
-      if (isDie) diePunchHoles(ctx, holes, ox, oy, kw, kh, 'cut');
-      // 外枠
-      ctx.strokeStyle='rgba(0,0,0,.15)'; ctx.lineWidth=1; khPath(); ctx.stroke();
       // QR枠（QRコードは正方形なので四角のまま）
-      const pxPerCm = kw / (O.sizeCm || 7);
+      const pxPerCm = (O.shape === 'diecut' ? DIE_FIT * kw : kw) / (O.sizeCm || 7);
       const qpx = Math.max(8, qrData.cm * pxPerCm);
       const qx  = ox + kw * qrData.x/100 - qpx/2;
       const qy  = oy + kh * qrData.y/100 - qpx/2;
@@ -544,9 +575,11 @@ document.getElementById('diAttMode').textContent = (O.attMode === 'outside') ? '
 
   // 本体ジオメトリ（中央配置・サイズに比例して拡大縮小／最大15cmで枠いっぱい）
   const margin = 20, maxBody = Math.min(aw-margin*2, ah-margin*2);
-  const ppc = maxBody / 15, size = ppc * sizeCm;
+  const ppc = maxBody / 15;
+  // ダイアカットはフレームを 1/DIE_FIT 倍にし、中のシルエットが ppc*sizeCm になるようにする
+  const size = (shape === 'diecut') ? (ppc * sizeCm / DIE_FIT) : (ppc * sizeCm);
   const g = { cx: aw/2, cy: ah/2, size: size, r: size/2, x: aw/2-size/2, y: ah/2-size/2, rad: size*0.06 };
-  const pxPerCm = ppc;   // 穴は5mm固定 → 一定サイズ
+  const pxPerCm = ppc;   // 穴は5mm固定 → 一定サイズ（真のpx/cm）
 
   function rrect(c,x,y,w,h,r){ c.beginPath(); c.moveTo(x+r,y); c.arcTo(x+w,y,x+w,y+h,r); c.arcTo(x+w,y+h,x,y+h,r); c.arcTo(x,y+h,x,y,r); c.arcTo(x,y,x+w,y,r); c.closePath(); }
   // ダイアカットの実シルエット（正規化ポリゴン）→ ボックス座標
@@ -556,55 +589,63 @@ document.getElementById('diAttMode').textContent = (O.attMode === 'outside') ? '
   function pointInPoly(x,y,pts){ var c=false; for(var i=0,j=pts.length-1;i<pts.length;j=i++){ var xi=pts[i].x,yi=pts[i].y,xj=pts[j].x,yj=pts[j].y; if(((yi>y)!==(yj>y))&&(x<(xj-xi)*(y-yi)/(yj-yi)+xi)) c=!c; } return c; }
   function polyCentroid(pts){ var sx=0,sy=0; for(var i=0;i<pts.length;i++){sx+=pts[i].x;sy+=pts[i].y;} return {x:sx/pts.length,y:sy/pts.length}; }
   function segDist(px,py,ax,ay,bx,by){ var dx=bx-ax,dy=by-ay,l2=dx*dx+dy*dy,t=l2?((px-ax)*dx+(py-ay)*dy)/l2:0; t=Math.max(0,Math.min(1,t)); return Math.hypot(px-(ax+t*dx),py-(ay+t*dy)); }
+  function nearestOnPoly(px,py,pts){ var best=null,bd=1e18; for(var i=0,j=pts.length-1;i<pts.length;j=i++){ var ax=pts[j].x,ay=pts[j].y,bx=pts[i].x,by=pts[i].y,dx=bx-ax,dy=by-ay,l2=dx*dx+dy*dy,t=l2?((px-ax)*dx+(py-ay)*dy)/l2:0; t=Math.max(0,Math.min(1,t)); var qx=ax+t*dx,qy=ay+t*dy,d=(px-qx)*(px-qx)+(py-qy)*(py-qy); if(d<bd){bd=d;best={x:qx,y:qy};} } return best; }
   function minEdgeDist(x,y,pts){ var m=1e9; for(var i=0,j=pts.length-1;i<pts.length;j=i++) m=Math.min(m,segDist(x,y,pts[j].x,pts[j].y,pts[i].x,pts[i].y)); return m; }
   function segSegInt(x1,y1,x2,y2,x3,y3,x4,y4){ var d=(x2-x1)*(y4-y3)-(y2-y1)*(x4-x3); if(Math.abs(d)<1e-9) return null; var t=((x3-x1)*(y4-y3)-(y3-y1)*(x4-x3))/d,u=((x3-x1)*(y2-y1)-(y3-y1)*(x2-x1))/d; if(t>=0&&t<=1&&u>=0&&u<=1) return {x:x1+t*(x2-x1),y:y1+t*(y2-y1),t:t}; return null; }
   function rayPolyHit(cx,cy,px,py,pts){ var dx=px-cx,dy=py-cy,fx=cx+dx*1000,fy=cy+dy*1000,best=null,bt=-1; for(var i=0,j=pts.length-1;i<pts.length;j=i++){ var r=segSegInt(cx,cy,fx,fy,pts[j].x,pts[j].y,pts[i].x,pts[i].y); if(r&&r.t>bt){bt=r.t;best={x:r.x,y:r.y};} } return best; }
   function diePath(c){ c.beginPath(); c.moveTo(diePts[0].x,diePts[0].y); for(var i=1;i<diePts.length;i++) c.lineTo(diePts[i].x,diePts[i].y); c.closePath(); }
   function bodyPath(c){ if(shape==='diecut'&&diePts){ diePath(c); return; } c.beginPath(); if(shape==='circle') c.arc(g.cx,g.cy,g.r,0,Math.PI*2); else rrect(c,g.x,g.y,g.size,g.size,g.rad); }
   function lugFullyInside(px,py,lugR){ if(shape==='diecut'&&diePts) return pointInPoly(px,py,diePts)&&minEdgeDist(px,py,diePts)>=lugR; if(shape==='circle') return Math.hypot(px-g.cx,py-g.cy)+lugR<=g.r; return px>=g.x+lugR&&px<=g.x+g.size-lugR&&py>=g.y+lugR&&py<=g.y+g.size-lugR; }
-  function edgeAnchor(px,py){ if(shape==='diecut'&&diePts){ var c=polyCentroid(diePts); var hit=rayPolyHit(c.x,c.y,px,py,diePts); if(hit) return hit; } var an=Math.atan2(py-g.cy,px-g.cx); if(shape==='circle') return {x:g.cx+Math.cos(an)*g.r,y:g.cy+Math.sin(an)*g.r}; var dx=Math.cos(an),dy=Math.sin(an),hw=g.size/2,hh=g.size/2,tx=dx?hw/Math.abs(dx):1e9,ty=dy?hh/Math.abs(dy):1e9,t=Math.min(tx,ty); return {x:g.cx+dx*t,y:g.cy+dy*t}; }
+  function isInsideBody(px,py){ if(shape==='diecut'&&diePts) return pointInPoly(px,py,diePts); if(shape==='circle') return Math.hypot(px-g.cx,py-g.cy)<=g.r; return px>=g.x&&px<=g.x+g.size&&py>=g.y&&py<=g.y+g.size; }
+  function edgeAnchor(px,py){ if(shape==='diecut'&&diePts){ var a=nearestOnPoly(px,py,diePts); return {x:a.x,y:a.y,ang:Math.atan2(py-a.y,px-a.x)}; } if(shape==='circle'){ var an=Math.atan2(py-g.cy,px-g.cx); return {x:g.cx+Math.cos(an)*g.r,y:g.cy+Math.sin(an)*g.r,ang:an}; } var x2=g.x+g.size,y2=g.y+g.size,cs=[{x:Math.max(g.x,Math.min(x2,px)),y:g.y},{x:Math.max(g.x,Math.min(x2,px)),y:y2},{x:g.x,y:Math.max(g.y,Math.min(y2,py))},{x:x2,y:Math.max(g.y,Math.min(y2,py))}],be=cs[0],bd=1e18; for(var k=0;k<cs.length;k++){var dd=(px-cs[k].x)*(px-cs[k].x)+(py-cs[k].y)*(py-cs[k].y); if(dd<bd){bd=dd;be=cs[k];}} return {x:be.x,y:be.y,ang:Math.atan2(py-be.y,px-be.x)}; }
 
   const hx = g.x + size*attX/100, hy = g.y + size*attY/100;
   const holeR = Math.max(2, (holeCm/2)*pxPerCm);
   const lugR  = holeR + Math.max(8, holeR*0.9);
 
   // 補強のツメ（穴を囲むふち＋同じ太さの首、接合部は直角）
-  function buildTab(){
-    const a = edgeAnchor(hx,hy), an = Math.atan2(hy-g.cy,hx-g.cx);
+  function buildTab(withNeck){
+    const a = edgeAnchor(hx,hy), an = a.ang;   // 最近点→穴（辺に直角）
     const neckW = lugR*2, rootX = a.x-Math.cos(an)*lugR, rootY = a.y-Math.sin(an)*lugR;
     const BORDER = 'rgba(255,255,255,.30)';
     const tc = document.createElement('canvas'); tc.width=aw; tc.height=ah;
     const t = tc.getContext('2d'); t.lineCap='round'; t.lineJoin='round';
-    t.strokeStyle=BORDER; t.lineWidth=neckW+3; t.beginPath(); t.moveTo(rootX,rootY); t.lineTo(hx,hy); t.stroke();
+    if(withNeck){ t.strokeStyle=BORDER; t.lineWidth=neckW+3; t.beginPath(); t.moveTo(rootX,rootY); t.lineTo(hx,hy); t.stroke(); }
     t.fillStyle=BORDER; t.beginPath(); t.arc(hx,hy,lugR+1.5,0,Math.PI*2); t.fill();
-    t.strokeStyle=acryl; t.lineWidth=neckW; t.beginPath(); t.moveTo(rootX,rootY); t.lineTo(hx,hy); t.stroke();
+    if(withNeck){ t.strokeStyle=acryl; t.lineWidth=neckW; t.beginPath(); t.moveTo(rootX,rootY); t.lineTo(hx,hy); t.stroke(); }
     t.fillStyle=acryl; t.beginPath(); t.arc(hx,hy,lugR,0,Math.PI*2); t.fill();
-    t.globalCompositeOperation='destination-out'; t.fillStyle='#000'; bodyPath(t); t.fill();
-    t.globalCompositeOperation='source-over';
+    if(!(shape==='diecut' && O.dieReinforce===false)){ t.globalCompositeOperation='destination-out'; t.fillStyle='#000'; bodyPath(t); t.fill(); t.globalCompositeOperation='source-over'; }
     return tc;
   }
 
-  function draw(imgEl){
+  function draw(imgEl, blank){
     ctx.clearRect(0,0,aw,ah);
     ctx.fillStyle=WRAP_BG; ctx.fillRect(0,0,aw,ah);
-    if(!lugFullyInside(hx,hy,lugR)) ctx.drawImage(buildTab(),0,0,aw,ah);  // 補強リング/ツメ（本体の下）
+    if(!isInsideBody(hx,hy)) ctx.drawImage(buildTab(true),0,0,aw,ah);            // 外付け：首付きツメ
+    else if(!lugFullyInside(hx,hy,lugR)) ctx.drawImage(buildTab(false),0,0,aw,ah); // 本体内・縁近く：丸い膨らみのみ
     // 本体（画像 or 単色）
-    ctx.save(); bodyPath(ctx); ctx.clip();
-    if(shape==='diecut'&&diePts){ ctx.fillStyle=acryl; ctx.fill(); }   // ダイアカットは土台色（縁取り）
-    if(imgEl){ const ir=imgEl.naturalWidth/imgEl.naturalHeight; let dw,dh,dx,dy; if(ir>1){dh=g.size;dw=dh*ir;dx=g.x-(dw-g.size)/2;dy=g.y;} else {dw=g.size;dh=dw/ir;dy=g.y-(dh-g.size)/2;dx=g.x;} ctx.drawImage(imgEl,dx,dy,dw,dh); }
-    else if(shape!=='diecut'){ ctx.fillStyle=acryl; ctx.fill(); }
-    ctx.restore();
-    if(shape==='diecut') diePunchHoles(ctx, dieHoles, g.x, g.y, g.size, g.size, 'fill', WRAP_BG);  // イラストの中抜き穴
-    ctx.strokeStyle='rgba(255,255,255,.30)'; ctx.lineWidth=1.5; bodyPath(ctx); ctx.stroke();
-    // 穴をくり抜く
+    if(shape==='diecut' && O.dieReinforce===false && imgEl){
+      // 折れ防止OFF：画像のアルファに沿って縁取り＋穴抜き（無地のときは画像を重ねない）
+      drawDieBodyAlpha(ctx, imgEl, g.x, g.y, g.size, acryl, dieBorderPx(g.size), !blank);
+    } else {
+      ctx.save(); bodyPath(ctx); ctx.clip();
+      if(shape==='diecut'&&diePts){ ctx.fillStyle=acryl; ctx.fill(); }   // ダイアカットは土台色（縁取り）
+      if(imgEl && !blank){ const ir=imgEl.naturalWidth/imgEl.naturalHeight; let dw,dh,dx,dy; if(ir>1){dh=g.size;dw=dh*ir;dx=g.x-(dw-g.size)/2;dy=g.y;} else {dw=g.size;dh=dw/ir;dy=g.y-(dh-g.size)/2;dx=g.x;} ctx.drawImage(imgEl,dx,dy,dw,dh); }
+      else if(shape!=='diecut'){ ctx.fillStyle=acryl; ctx.fill(); }
+      ctx.restore();
+      if(!(shape==='diecut' && O.dieReinforce===false)){ ctx.strokeStyle='rgba(255,255,255,.30)'; ctx.lineWidth=1.5; bodyPath(ctx); ctx.stroke(); }
+    }
+    // 取り付け穴をくり抜く
     ctx.beginPath(); ctx.arc(hx,hy,holeR,0,Math.PI*2); ctx.fillStyle=WRAP_BG; ctx.fill();
     ctx.lineWidth=1.4; ctx.strokeStyle='rgba(0,0,0,.45)'; ctx.beginPath(); ctx.arc(hx,hy,holeR,0,Math.PI*2); ctx.stroke();
     ctx.lineWidth=1; ctx.strokeStyle='rgba(255,255,255,.22)'; ctx.beginPath(); ctx.arc(hx,hy,Math.max(1,holeR-1.4),0,Math.PI*2); ctx.stroke();
   }
 
-  const useImg = (O.attachView==='back' ? O.imgBack : O.imgFront) || O.imgFront;
-  if(useImg){ const im=new Image(); im.onload=()=>draw(im); im.onerror=()=>draw(null); im.src=useImg; }
-  else draw(null);
+  const backNoPrint = (O.attachView==='back' && !O.imgBack);   // 裏面・印刷なし
+  const contentSrc  = backNoPrint ? null : ((O.attachView==='back' ? O.imgBack : O.imgFront) || O.imgFront);
+  const loadSrc     = contentSrc || (shape==='diecut' ? O.imgFront : null);   // 無地でもシルエット用に表画像を読む
+  if(loadSrc){ const im=new Image(); im.onload=()=>draw(im, !contentSrc); im.onerror=()=>draw(null, true); im.src=loadSrc; }
+  else draw(null, true);
 })();
 </script>
 </body>
