@@ -143,15 +143,16 @@ body{font-family:'Noto Sans JP',sans-serif;background:var(--paper);color:var(--i
   transform:translate(-50%,-50%);
   box-shadow:0 1px 4px rgba(0,0,0,.2);
 }
-.qr-info-row{display:flex;align-items:center;gap:12px;}
+.qr-info-row{display:flex;align-items:center;gap:12px;flex-wrap:wrap;}
 .qr-info-text{font-size:12px;color:var(--muted);line-height:1.7;}
 
 /* ATTACH MINI */
 .attach-mini{
   position:relative;
-  width:80px;height:80px;
+  width:200px;height:200px;
+  max-width:100%;
   background:#18181a;
-  border-radius:8px;
+  border-radius:10px;
   overflow:hidden;
   flex-shrink:0;
 }
@@ -499,9 +500,7 @@ document.getElementById('diAttMode').textContent = (O.attMode === 'outside') ? '
 (function drawAttach(){
   const cv = document.getElementById('attachMiniCv');
   const aw = 200, ah = 200;
-  cv.width = aw; cv.height = ah;
-  cv.style.width = '200px'; cv.style.height = '200px';
-  cv.style.borderRadius = '10px';
+  cv.width = aw; cv.height = ah;   // 内部解像度（表示サイズはCSSの .attach-mini に従う）
   const ctx = cv.getContext('2d');
   const WRAP_BG = '#16161a';
   const shape  = O.shape || 'circle';
