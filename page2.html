@@ -187,6 +187,8 @@ body{font-family:'Noto Sans JP',sans-serif;background:var(--paper);color:var(--i
 /* TOAST */
 .toast{position:fixed;bottom:82px;left:50%;transform:translateX(-50%) translateY(8px);background:var(--ink);color:var(--paper);padding:9px 18px;border-radius:30px;font-size:13px;opacity:0;pointer-events:none;transition:all .25s;white-space:nowrap;z-index:400;}
 .toast.show{opacity:1;transform:translateX(-50%) translateY(0);}
+/* ロック用：赤系で目立たせる（オプション未購入の通知） */
+.toast.alert{background:#e0392b;color:#fff;font-weight:600;box-shadow:0 4px 16px rgba(224,57,43,.4);}
 </style>
 </head>
 <body>
@@ -600,10 +602,9 @@ async function initPurchasedOptions() {
 
   try {
     const r = await fetch(WORKER_ORIGIN + '/api/customer-get?orderId=' + encodeURIComponent(oid));
-    if (!r.ok) { console.warn('[オプション取得] HTTPエラー', r.status); return; }
+    if (!r.ok) return;            // 取得失敗 → フォールバック（全て使用可）
     const d = await r.json();
-    console.log('[オプション取得] APIレスポンス:', d); // ← デバッグ用
-    if (!d || !d.exists) { console.warn('[オプション取得] 未登録または不正'); return; }
+    if (!d || !d.exists) return;  // 未登録 → フォールバック（全て使用可）
 
     // 取得した購入状況を反映（値が無いオプションは false 扱い＝ロック）
     const opt = d.options || {};
@@ -612,9 +613,7 @@ async function initPurchasedOptions() {
       double: !!opt.double,
       diecut: !!opt.diecut,
     };
-    console.log('[オプション取得] ロック判定:', S.purchased); // ← デバッグ用
   } catch (e) {
-    console.warn('[オプション取得] 通信エラー', e);
     return; // 通信エラー → フォールバック（全て使用可）
   }
 
@@ -659,11 +658,11 @@ function setShapeLock(purchased) {
 // SECTION TOGGLE
 // ═══════════════════════════════════════════════════════
 function toggle(n) {
-  // ロックされたオプションセクション（未購入）は開かず、alert を出す
+  // ロックされたオプションセクション（未購入）は開かず、赤いトーストで通知
   const sec = document.getElementById('sec' + n);
   if (sec && sec.classList.contains('opt-locked')) {
     const name = sec.getAttribute('data-opt-name') || 'このオプション';
-    alert(name + 'は注文されていません。');
+    toast(name + 'は注文されていません', 'alert');
     return;
   }
   const sb = document.getElementById('sb' + n);
@@ -773,9 +772,9 @@ initPurchasedOptions();
 // SHAPE
 // ═══════════════════════════════════════════════════════
 function pickShape(sh) {
-  // ダイアカットが未購入のときは選択させず、alert を出す
+  // ダイアカットが未購入のときは選択させず、赤いトーストで通知
   if (sh === 'diecut' && !S.purchased.diecut) {
-    alert('ダイアカットは注文されていません。');
+    toast('ダイアカットは注文されていません', 'alert');
     return;
   }
   ['circle','square','diecut'].forEach(s => {
@@ -2073,9 +2072,12 @@ function submitOrder(orderData) {
 // ═══════════════════════════════════════════════════════
 // TOAST
 // ═══════════════════════════════════════════════════════
-function toast(msg) {
+function toast(msg, type) {
   const el = document.getElementById('toast');
-  el.textContent = msg; el.classList.add('show');
+  el.textContent = msg;
+  // type='alert' のとき赤系で目立たせる（オプション未購入など）
+  el.classList.toggle('alert', type === 'alert');
+  el.classList.add('show');
   setTimeout(() => el.classList.remove('show'), 2800);
 }
 </script>
