@@ -593,7 +593,8 @@ document.getElementById('topOrder').textContent = S.orderId;
 // page1 で入力された注文番号をもとに「何が購入されたか」を取得し、
 // 購入されていないオプション（NFC・両面印刷・ダイアカット）をロックする。
 // ロックされた項目は灰色＋斜線で表示し、押すと「注文されていません」と alert を出す。
-(async function initPurchasedOptions() {
+// ※ この関数は WORKER_ORIGIN 定義後に呼び出す（下部の initColors の後で実行）。
+async function initPurchasedOptions() {
   const oid = S.orderId;
   if (!oid || oid === '—') return; // 注文番号が無い場合は何もしない（全て使用可のまま）
 
@@ -618,7 +619,7 @@ document.getElementById('topOrder').textContent = S.orderId;
   }
 
   applyOptionLocks();
-})();
+}
 
 // 購入状況に応じて各オプションUIをロック表示にする
 function applyOptionLocks() {
@@ -764,6 +765,9 @@ const WORKER_ORIGIN = sessionStorage.getItem('workerOrigin') || 'https://buki-bo
   });
   row.style.paddingBottom = '20px'; // 在庫切れバッジが被らないよう余白
 })();
+
+// 購入オプションを取得してロックを適用（WORKER_ORIGIN 定義後に実行）
+initPurchasedOptions();
 
 // ═══════════════════════════════════════════════════════
 // SHAPE
