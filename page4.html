@@ -1,0 +1,248 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>オプション追加 — 注文番号の紐付け</title>
+<style>
+@import url('https://fonts.googleapis.com/css2?family=Noto+Sans+JP:wght@300;400;500;700&family=Syne:wght@400;700;800&display=swap');
+
+:root {
+  --ink: #0f0f0d;
+  --paper: #f5f2ec;
+  --cream: #ece8df;
+  --accent: #d4522a;
+  --accent2: #e8a020;
+  --muted: #6b6860;
+  --border: #ccc8be;
+  --ok: #2e9e5b;
+  --err: #e0392b;
+}
+*,*::before,*::after{box-sizing:border-box;margin:0;padding:0;}
+html,body{height:100%;}
+body{
+  font-family:'Noto Sans JP',sans-serif;
+  background:var(--ink);
+  color:var(--paper);
+  display:flex;flex-direction:column;
+  min-height:100vh;
+  overflow-x:hidden;
+}
+/* 背景パターン（page1 と統一） */
+body::before{
+  content:'';position:fixed;inset:0;
+  background-image:
+    repeating-linear-gradient(0deg,transparent,transparent 39px,rgba(255,255,255,.03) 39px,rgba(255,255,255,.03) 40px),
+    repeating-linear-gradient(90deg,transparent,transparent 39px,rgba(255,255,255,.03) 39px,rgba(255,255,255,.03) 40px);
+  pointer-events:none;z-index:0;
+}
+
+.wrap{
+  position:relative;z-index:1;
+  display:flex;flex-direction:column;
+  align-items:center;justify-content:center;
+  flex:1;
+  padding:40px 24px;
+}
+
+/* ロゴ */
+.logo-block{text-align:center;margin-bottom:40px;}
+.logo-mark{
+  display:inline-flex;align-items:center;justify-content:center;
+  width:56px;height:56px;
+  border:2px solid var(--accent);
+  border-radius:12px;
+  margin-bottom:14px;
+}
+.logo-mark svg{width:28px;height:28px;}
+.logo-name{
+  font-family:'Syne',sans-serif;
+  font-size:22px;font-weight:800;
+  letter-spacing:.08em;
+}
+.logo-sub{font-size:12px;color:var(--muted);margin-top:6px;letter-spacing:.05em;}
+
+/* カード */
+.card{
+  width:100%;max-width:440px;
+  background:rgba(245,242,236,.04);
+  border:1.5px solid rgba(255,255,255,.1);
+  border-radius:18px;
+  padding:28px 24px;
+}
+.card-title{font-size:17px;font-weight:700;margin-bottom:8px;}
+.card-desc{font-size:13px;color:var(--muted);line-height:1.7;margin-bottom:22px;}
+
+.field{margin-bottom:18px;}
+.field-label{display:block;font-size:13px;font-weight:500;margin-bottom:8px;}
+.field-label .num{
+  display:inline-flex;align-items:center;justify-content:center;
+  width:20px;height:20px;border-radius:50%;
+  background:var(--accent);color:#fff;font-size:12px;font-weight:700;
+  margin-right:8px;
+}
+.field input{
+  width:100%;padding:13px 14px;
+  border:1.5px solid rgba(255,255,255,.18);
+  border-radius:10px;
+  background:rgba(0,0,0,.25);
+  color:var(--paper);
+  font-size:15px;font-family:inherit;
+}
+.field input::placeholder{color:rgba(255,255,255,.3);}
+.field input:focus{outline:none;border-color:var(--accent);}
+.field-hint{font-size:11px;color:var(--muted);margin-top:6px;line-height:1.6;}
+
+.btn{
+  width:100%;padding:14px;
+  background:var(--accent);
+  border:none;border-radius:10px;
+  color:#fff;font-size:15px;font-weight:700;font-family:inherit;
+  cursor:pointer;transition:all .15s;margin-top:6px;
+}
+.btn:hover{background:#bd4624;}
+.btn:disabled{opacity:.5;cursor:not-allowed;}
+
+/* 結果メッセージ */
+.result{
+  margin-top:20px;padding:16px;border-radius:12px;
+  font-size:13px;line-height:1.7;display:none;
+}
+.result.show{display:block;}
+.result.ok{background:rgba(46,158,91,.15);border:1.5px solid var(--ok);}
+.result.err{background:rgba(224,57,43,.15);border:1.5px solid var(--err);}
+.result-title{font-weight:700;margin-bottom:6px;}
+.result-list{margin-top:8px;}
+.result-list span{
+  display:inline-block;background:rgba(255,255,255,.12);
+  padding:3px 10px;border-radius:20px;font-size:12px;
+  margin:3px 4px 3px 0;
+}
+
+.footer{
+  position:relative;z-index:1;
+  text-align:center;padding:20px;
+  font-size:11px;color:var(--muted);letter-spacing:.04em;
+}
+.back-link{color:var(--muted);font-size:12px;text-decoration:none;margin-top:18px;display:inline-block;}
+.back-link:hover{color:var(--paper);}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <div class="logo-block">
+    <div class="logo-mark">
+      <svg viewBox="0 0 24 24" fill="none" stroke="#d4522a" stroke-width="2">
+        <circle cx="12" cy="12" r="9"/><path d="M12 7v10M7 12h10"/>
+      </svg>
+    </div>
+    <div class="logo-name">ALICE</div>
+    <div class="logo-sub">オプション追加</div>
+  </div>
+
+  <div class="card">
+    <div class="card-title">オプションを後から追加</div>
+    <div class="card-desc">
+      キーホルダー購入後にオプションを別途ご購入された場合、こちらで紐付けできます。<br>
+      2つの注文番号を入力してください。
+    </div>
+
+    <div class="field">
+      <label class="field-label" for="bodyOrder"><span class="num">1</span>キーホルダー本体の注文番号</label>
+      <input type="text" id="bodyOrder" placeholder="例：82579079" autocomplete="off">
+      <div class="field-hint">※ オプションを追加したいキーホルダーの注文番号</div>
+    </div>
+
+    <div class="field">
+      <label class="field-label" for="optOrder"><span class="num">2</span>追加オプションの注文番号</label>
+      <input type="text" id="optOrder" placeholder="例：83079157" autocomplete="off">
+      <div class="field-hint">※ 別途ご購入されたオプションの注文番号</div>
+    </div>
+
+    <button class="btn" id="applyBtn" onclick="applyOption()">オプションを紐付ける</button>
+
+    <div class="result" id="result"></div>
+
+    <div style="text-align:center;">
+      <a href="page1.html" class="back-link">← 注文ページに戻る</a>
+    </div>
+  </div>
+</div>
+
+<div class="footer">© ALICE</div>
+
+<script>
+// Worker（バックエンド）のURL
+const WORKER_ORIGIN = sessionStorage.getItem('workerOrigin') || 'https://buki-booth.com';
+
+// オプション識別子 → 表示名
+const OPT_NAMES = { nfc: 'NFCタグ', double: '両面印刷', diecut: 'ダイアカット' };
+
+function showResult(type, html) {
+  const r = document.getElementById('result');
+  r.className = 'result show ' + type;
+  r.innerHTML = html;
+}
+
+async function applyOption() {
+  const bodyOrderId = document.getElementById('bodyOrder').value.trim();
+  const optOrderId  = document.getElementById('optOrder').value.trim();
+  const btn = document.getElementById('applyBtn');
+
+  // 入力チェック
+  if (!bodyOrderId || !optOrderId) {
+    showResult('err', '<div class="result-title">⚠ 入力エラー</div>2つの注文番号を両方入力してください。');
+    return;
+  }
+
+  btn.disabled = true;
+  const orig = btn.textContent;
+  btn.textContent = '処理中...';
+
+  try {
+    const res = await fetch(WORKER_ORIGIN + '/api/opt-apply', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ bodyOrderId, optOrderId }),
+    });
+    const d = await res.json();
+
+    if (d.ok) {
+      // 適用されたオプションを表示
+      const applied = d.applied || {};
+      const labels = Object.keys(applied)
+        .filter(function(k){ return applied[k]; })
+        .map(function(k){ return '<span>' + (OPT_NAMES[k] || k) + '</span>'; });
+      let listHtml = '';
+      if (labels.length) listHtml += '<div class="result-list">' + labels.join('') + '</div>';
+      if (d.addonAdded > 0) listHtml += '<div class="result-list"><span>2枚目以降 ' + d.addonAdded + '枚 追加</span></div>';
+      if (!labels.length && !d.addonAdded) listHtml = '<div style="margin-top:6px;color:var(--muted);">（このオプション注文に有効な項目がありませんでした）</div>';
+
+      showResult('ok',
+        '<div class="result-title">✓ 紐付けが完了しました</div>' +
+        'キーホルダー注文 <strong>' + bodyOrderId + '</strong> に以下を追加しました：' +
+        listHtml +
+        '<div style="margin-top:10px;font-size:12px;color:var(--muted);">注文ページで追加したオプションが選べるようになります。</div>'
+      );
+      // 成功したら入力を消してボタンを無効化（二重適用防止）
+      document.getElementById('optOrder').value = '';
+    } else {
+      showResult('err', '<div class="result-title">⚠ 紐付けできませんでした</div>' + (d.error || '不明なエラーが発生しました。'));
+    }
+  } catch (e) {
+    showResult('err', '<div class="result-title">⚠ 通信エラー</div>電波状況をご確認のうえ、もう一度お試しください。');
+  } finally {
+    btn.disabled = false;
+    btn.textContent = orig;
+  }
+}
+
+// Enterキーで実行
+['bodyOrder','optOrder'].forEach(function(id){
+  document.getElementById(id).addEventListener('keydown', function(e){
+    if (e.key === 'Enter') applyOption();
+  });
+});
+</script>
+</body>
+</html>
