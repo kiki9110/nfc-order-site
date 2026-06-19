@@ -599,9 +599,10 @@ document.getElementById('topOrder').textContent = S.orderId;
 
   try {
     const r = await fetch(WORKER_ORIGIN + '/api/customer-get?orderId=' + encodeURIComponent(oid));
-    if (!r.ok) return;            // 取得失敗 → フォールバック（全て使用可）
+    if (!r.ok) { console.warn('[オプション取得] HTTPエラー', r.status); return; }
     const d = await r.json();
-    if (!d || !d.exists) return;  // 未登録 → フォールバック（全て使用可）
+    console.log('[オプション取得] APIレスポンス:', d); // ← デバッグ用
+    if (!d || !d.exists) { console.warn('[オプション取得] 未登録または不正'); return; }
 
     // 取得した購入状況を反映（値が無いオプションは false 扱い＝ロック）
     const opt = d.options || {};
@@ -610,7 +611,9 @@ document.getElementById('topOrder').textContent = S.orderId;
       double: !!opt.double,
       diecut: !!opt.diecut,
     };
+    console.log('[オプション取得] ロック判定:', S.purchased); // ← デバッグ用
   } catch (e) {
+    console.warn('[オプション取得] 通信エラー', e);
     return; // 通信エラー → フォールバック（全て使用可）
   }
 
