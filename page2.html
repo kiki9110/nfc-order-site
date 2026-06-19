@@ -43,6 +43,27 @@ body{font-family:'Noto Sans JP',sans-serif;background:var(--paper);color:var(--i
 .lock-bar{display:none;font-size:11px;color:var(--accent);padding:7px 16px;background:#fff8f5;border-top:1px solid #f5d0c0;cursor:pointer;}
 .sec.locked .lock-bar{display:block;}
 
+/* OPTION LOCK（未購入オプションのロック表示：灰色＋斜線） */
+/* セクション見出し（NFC・両面印刷）と形状ボタン（ダイアカット）に適用 */
+.opt-locked{
+  position:relative;
+  cursor:not-allowed !important;
+  /* 灰色の斜線（ストライプ）を重ねて「使えない」ことを明確にする */
+  background-image:repeating-linear-gradient(
+    45deg,
+    rgba(150,150,150,.18),
+    rgba(150,150,150,.18) 6px,
+    rgba(150,150,150,.07) 6px,
+    rgba(150,150,150,.07) 12px
+  ) !important;
+}
+/* 見出しの場合：文字を灰色に */
+.sec.opt-locked .sec-head{color:#9a9a9a;}
+.sec.opt-locked .sec-status::after{content:' 🔒';}
+/* 形状ボタンの場合：中身を少し薄く＋鍵マーク */
+.shape-btn.opt-locked{border-color:#d5d5d5 !important;background-color:#f3f3f3 !important;}
+.shape-btn.opt-locked .shape-name::after{content:' 🔒';font-size:10px;}
+
 /* COLOR SWATCHES */
 .color-row{display:flex;flex-wrap:wrap;gap:8px;}
 .csw{width:42px;height:42px;border-radius:9px;border:2px solid transparent;cursor:pointer;transition:transform .12s,border-color .12s;box-shadow:0 1px 5px rgba(0,0,0,.13);}
@@ -556,15 +577,91 @@ const S = {
   borderCm:   0.3,     // ダイアカットの縁の厚さ(cm)
   attMode:    'inside', // 'inside'(本体に穴) / 'outside'(外付けツメ)
   attachView: 'front',
+  // 購入済みオプション（読み込み時に customer-get から取得）。
+  // ここが false のオプションは page2 上でロックされ、押すと alert を出す。
+  // 取得に失敗した場合のフォールバックは「全て true（=ロックしない）」とし、
+  // 通信不調で注文できなくなる事故を防ぐ。
+  purchased:  { nfc: true, double: true, diecut: true },
 };
 let cropTarget = 'front';
 
 document.getElementById('topOrder').textContent = S.orderId;
 
 // ═══════════════════════════════════════════════════════
+// 購入オプションの取得とロック適用
+// ═══════════════════════════════════════════════════════
+// page1 で入力された注文番号をもとに「何が購入されたか」を取得し、
+// 購入されていないオプション（NFC・両面印刷・ダイアカット）をロックする。
+// ロックされた項目は灰色＋斜線で表示し、押すと「注文されていません」と alert を出す。
+(async function initPurchasedOptions() {
+  const oid = S.orderId;
+  if (!oid || oid === '—') return; // 注文番号が無い場合は何もしない（全て使用可のまま）
+
+  try {
+    const r = await fetch(WORKER_ORIGIN + '/api/customer-get?orderId=' + encodeURIComponent(oid));
+    if (!r.ok) return;            // 取得失敗 → フォールバック（全て使用可）
+    const d = await r.json();
+    if (!d || !d.exists) return;  // 未登録 → フォールバック（全て使用可）
+
+    // 取得した購入状況を反映（値が無いオプションは false 扱い＝ロック）
+    const opt = d.options || {};
+    S.purchased = {
+      nfc:    !!opt.nfc,
+      double: !!opt.double,
+      diecut: !!opt.diecut,
+    };
+  } catch (e) {
+    return; // 通信エラー → フォールバック（全て使用可）
+  }
+
+  applyOptionLocks();
+})();
+
+// 購入状況に応じて各オプションUIをロック表示にする
+function applyOptionLocks() {
+  // NFC（セクション3）
+  setSectionLock('sec3', S.purchased.nfc, 'NFCタグ');
+  // 両面印刷（セクション35）
+  setSectionLock('sec35', S.purchased.double, '両面印刷');
+  // ダイアカット（形状ボタン）
+  setShapeLock(S.purchased.diecut);
+}
+
+// セクション（NFC・両面印刷）をロック/解除する。
+// locked=false（未購入）のとき、見出しに opt-locked クラスを付け、開かないようにする。
+function setSectionLock(secId, purchased, optName) {
+  const sec = document.getElementById(secId);
+  if (!sec) return;
+  if (purchased) {
+    sec.classList.remove('opt-locked');
+    return;
+  }
+  // 未購入 → ロック表示にし、本文は閉じておく
+  sec.classList.add('opt-locked');
+  const body = sec.querySelector('.sec-body');
+  if (body) body.classList.add('hidden');
+  // ロック対象の名前を記録（alert メッセージ用）
+  sec.setAttribute('data-opt-name', optName);
+}
+
+// ダイアカットの形状ボタンをロック/解除する。
+function setShapeLock(purchased) {
+  const btn = document.getElementById('sh-diecut');
+  if (!btn) return;
+  btn.classList.toggle('opt-locked', !purchased);
+}
+
+// ═══════════════════════════════════════════════════════
 // SECTION TOGGLE
 // ═══════════════════════════════════════════════════════
 function toggle(n) {
+  // ロックされたオプションセクション（未購入）は開かず、alert を出す
+  const sec = document.getElementById('sec' + n);
+  if (sec && sec.classList.contains('opt-locked')) {
+    const name = sec.getAttribute('data-opt-name') || 'このオプション';
+    alert(name + 'は注文されていません。');
+    return;
+  }
   const sb = document.getElementById('sb' + n);
   if (!sb) return;
   sb.classList.toggle('hidden');
@@ -669,6 +766,11 @@ const WORKER_ORIGIN = sessionStorage.getItem('workerOrigin') || 'https://buki-bo
 // SHAPE
 // ═══════════════════════════════════════════════════════
 function pickShape(sh) {
+  // ダイアカットが未購入のときは選択させず、alert を出す
+  if (sh === 'diecut' && !S.purchased.diecut) {
+    alert('ダイアカットは注文されていません。');
+    return;
+  }
   ['circle','square','diecut'].forEach(s => {
     document.getElementById('sh-' + s).classList.toggle('sel', s === sh);
   });
@@ -1152,24 +1254,75 @@ function diePathScreen(ctx, poly, ox, oy, size) {
 // 画像を s×s で (x,y) に敷き、その不透明部分を borderPx ぶん外側へ膨張させた縁取りを付ける。
 // 穴・手足のすき間など透明な部分はそのまま抜ける（ポリゴンでは出せない完璧な抜き）。
 // withImage=false なら画像を重ねずアクリル色のシルエットのみ（裏面・印刷なし用）。
-let _dieSilCv = null;
+// 縁取りは「シルエットを距離変換で borderPx ぶん外側へ膨張」させて生成する。
+// 以前は円周上に20枚スタンプしていたが、縁を太くするとスタンプ同士の隙間が広がり
+// 半透明エッジが補強されず縁がぼやけた（スカラップ状になった）。距離変換なら太さに
+// 関係なく均一な不透明の縁になり、輪郭もなめらかに保てる。
+let _dieSilCache = new Map();    // key: src|s|border|色 → 膨張済みシルエットcanvas（ドラッグ時の再計算を回避）
+const _cssRgbCache = new Map();
+// CSS色文字列 → [r,g,b]（hex以外でも1pxキャンバス経由で確実に解釈）
+function _cssToRgb(c) {
+  if (_cssRgbCache.has(c)) return _cssRgbCache.get(c);
+  const cv = document.createElement('canvas'); cv.width = cv.height = 1;
+  const x = cv.getContext('2d'); x.fillStyle = '#000'; x.fillStyle = c; x.fillRect(0, 0, 1, 1);
+  const d = x.getImageData(0, 0, 1, 1).data, rgb = [d[0], d[1], d[2]];
+  _cssRgbCache.set(c, rgb); return rgb;
+}
+// 1次元ユークリッド距離変換（Felzenszwalb法・二乗距離を d に書き込む。v,z は作業用バッファ）
+function _edt1d(f, n, d, v, z) {
+  let k = 0; v[0] = 0; z[0] = -1e20; z[1] = 1e20;
+  for (let q = 1; q < n; q++) {
+    let s = ((f[q] + q * q) - (f[v[k]] + v[k] * v[k])) / (2 * q - 2 * v[k]);
+    while (s <= z[k]) { k--; s = ((f[q] + q * q) - (f[v[k]] + v[k] * v[k])) / (2 * q - 2 * v[k]); }
+    k++; v[k] = q; z[k] = s; z[k + 1] = 1e20;
+  }
+  k = 0;
+  for (let q = 0; q < n; q++) { while (z[k + 1] < q) k++; d[q] = (q - v[k]) * (q - v[k]) + f[v[k]]; }
+}
+// 画像の不透明部分を borderPx ぶん膨張させ、acryl色で塗ったシルエットcanvasを返す
+// （画像の左上が canvas の (pad, pad) に来る）。外周の境界1pxはアンチエイリアスする。
+function dieDilatedSilhouette(img, s, borderPx, acryl) {
+  const br = Math.max(0, borderPx);
+  const key = (img.src || '') + '|' + s + '|' + br.toFixed(2) + '|' + acryl;
+  const hit = _dieSilCache.get(key);
+  if (hit) return hit;
+  const pad = Math.ceil(br) + 2, tw = s + pad * 2;
+  const cv = document.createElement('canvas'); cv.width = tw; cv.height = tw;
+  const cx = cv.getContext('2d');
+  cx.drawImage(img, pad, pad, s, s);
+  const sd = cx.getImageData(0, 0, tw, tw).data;
+  // 内側=0／外側=∞ の格子を作り、行→列の順に2次元距離変換
+  const INF = 1e20, n = tw * tw, grid = new Float64Array(n);
+  for (let i = 0; i < n; i++) grid[i] = sd[i * 4 + 3] > 40 ? 0 : INF;
+  const col = new Float64Array(tw), dout = new Float64Array(tw);
+  const v = new Int32Array(tw), z = new Float64Array(tw + 1);
+  for (let y = 0; y < tw; y++) { const o = y * tw; _edt1d(grid.subarray(o, o + tw), tw, dout, v, z); for (let x = 0; x < tw; x++) grid[o + x] = dout[x]; }
+  for (let x = 0; x < tw; x++) { for (let y = 0; y < tw; y++) col[y] = grid[y * tw + x]; _edt1d(col, tw, dout, v, z); for (let y = 0; y < tw; y++) grid[y * tw + x] = dout[y]; }
+  // 距離(px) → 塗り：内側は完全不透明、borderPx まで塗り、境界±0.5pxだけ半透明（なめらかな縁）
+  const rgb = _cssToRgb(acryl), R = rgb[0], G = rgb[1], B = rgb[2];
+  const out = cx.createImageData(tw, tw), od = out.data;
+  for (let i = 0; i < n; i++) {
+    const dist = Math.sqrt(grid[i]);
+    let cov = dist <= 0 ? 1 : (br - dist + 0.5);
+    if (cov <= 0) continue;
+    if (cov > 1) cov = 1;
+    const j = i * 4; od[j] = R; od[j + 1] = G; od[j + 2] = B; od[j + 3] = (cov * 255) | 0;
+  }
+  cx.putImageData(out, 0, 0);
+  if (_dieSilCache.size > 8) _dieSilCache.delete(_dieSilCache.keys().next().value);
+  _dieSilCache.set(key, cv);
+  return cv;
+}
 function drawDieBodyAlpha(ctx, img, x, y, s, acryl, borderPx, withImage) {
   s = Math.round(s);
   const blank = (withImage === false);
-  const needSil = (borderPx >= 0.5) || blank;
-  if (needSil) {
-    const pad = Math.ceil(Math.max(0, borderPx)) + 1, tw = s + pad * 2;
-    if (!_dieSilCv) _dieSilCv = document.createElement('canvas');
-    if (_dieSilCv.width !== tw || _dieSilCv.height !== tw) { _dieSilCv.width = tw; _dieSilCv.height = tw; }
-    const sc = _dieSilCv.getContext('2d');
-    sc.setTransform(1, 0, 0, 1, 0, 0); sc.clearRect(0, 0, tw, tw);
-    sc.drawImage(img, pad, pad, s, s);
-    sc.globalCompositeOperation = 'source-in'; sc.fillStyle = acryl; sc.fillRect(0, 0, tw, tw);
-    sc.globalCompositeOperation = 'source-over';
-    if (borderPx >= 0.5) { const steps = 20; for (let i = 0; i < steps; i++) { const a = i * 2 * Math.PI / steps; ctx.drawImage(_dieSilCv, x - pad + Math.cos(a) * borderPx, y - pad + Math.sin(a) * borderPx); } }
-    if (blank) ctx.drawImage(_dieSilCv, x - pad, y - pad);
+  const br = Math.max(0, borderPx);
+  if (br >= 0.5 || blank) {
+    const sil = dieDilatedSilhouette(img, s, br, acryl);   // 縁(+裏面はこれが本体)
+    const pad = (sil.width - s) / 2;
+    ctx.drawImage(sil, x - pad, y - pad);
   }
-  if (!blank) ctx.drawImage(img, x, y, s, s);
+  if (!blank) ctx.drawImage(img, x, y, s, s);              // 表面はイラストを上に重ねる
 }
 // borderPx 計算：シルエット長辺が s*DIE_FIT(px)=sizeCm に相当するので borderCm を px へ換算
 function dieBorderPx(s) { return (S.sizeCm ? (S.borderCm || 0) / S.sizeCm : 0) * s * DIE_FIT; }
@@ -1194,6 +1347,41 @@ function dieFitCanvas(srcCv, out) {
   fit.getContext('2d').drawImage(srcCv, bcx - cropSide/2, bcy - cropSide/2, cropSide, cropSide, 0, 0, out, out);
   return fit;
 }
+// フレーム領域に映る被写体（不透明部分）の範囲を、フレーム比[0..1]で返す（低解像度プローブで高速判定）
+function dieSubjectBBoxNorm(imgEl, drawX, drawY, frameSrc, rot, probeN) {
+  const p = document.createElement('canvas'); p.width = probeN; p.height = probeN;
+  const pc = p.getContext('2d');
+  pc.translate(probeN/2, probeN/2); pc.rotate(rot * Math.PI/180);
+  pc.drawImage(imgEl, -drawX - frameSrc/2, -drawY - frameSrc/2, frameSrc, frameSrc, -probeN/2, -probeN/2, probeN, probeN);
+  pc.setTransform(1, 0, 0, 1, 0, 0);
+  const d = pc.getImageData(0, 0, probeN, probeN).data;
+  let minX = probeN, minY = probeN, maxX = -1, maxY = -1;
+  for (let y = 0; y < probeN; y++) for (let x = 0; x < probeN; x++) { if (d[(y*probeN+x)*4+3] > 40) { if (x<minX)minX=x; if (x>maxX)maxX=x; if (y<minY)minY=y; if (y>maxY)maxY=y; } }
+  if (maxX < 0) return null;
+  return { x0: minX/probeN, y0: minY/probeN, x1: (maxX+1)/probeN, y1: (maxY+1)/probeN };
+}
+// ダイアカット：元画像から被写体を「元解像度を保ったまま」切り出し、DIE_FITで中央に収めた outN×outN を返す。
+// 被写体を小さく配置しても、固定サイズへ縮小→拡大せず、必要な高解像度で一旦描いてからフィットするので粗くならない。
+function dieFitFromSource(imgEl, drawX, drawY, frameSrc, rot, outN) {
+  const bb = dieSubjectBBoxNorm(imgEl, drawX, drawY, frameSrc, rot, 360);
+  if (!bb) return null;
+  const longFrac = Math.max(bb.x1 - bb.x0, bb.y1 - bb.y0);      // 被写体長辺 ÷ フレーム
+  const bcx = (bb.x0 + bb.x1) / 2, bcy = (bb.y0 + bb.y1) / 2;   // 被写体中心（フレーム比）
+  // フィット後の被写体長辺 = outN*DIE_FIT。それを満たす最小の中間解像度HRで一旦描く＝元解像度を無駄なく保つ
+  const targetSubjPx = outN * DIE_FIT;
+  let HR = Math.round(targetSubjPx / Math.max(longFrac, 1e-3));
+  HR = Math.max(outN, Math.min(2400, HR));                      // 上限で巨大キャンバスを防止
+  const hi = document.createElement('canvas'); hi.width = HR; hi.height = HR;
+  const hc = hi.getContext('2d'); hc.imageSmoothingEnabled = true; hc.imageSmoothingQuality = 'high';
+  hc.translate(HR/2, HR/2); hc.rotate(rot * Math.PI/180);
+  hc.drawImage(imgEl, -drawX - frameSrc/2, -drawY - frameSrc/2, frameSrc, frameSrc, -HR/2, -HR/2, HR, HR);
+  hc.setTransform(1, 0, 0, 1, 0, 0);
+  const cxh = bcx*HR, cyh = bcy*HR, cropSide = (longFrac*HR) / DIE_FIT;   // 被写体をDIE_FITで占めるよう切り出し
+  const fit = document.createElement('canvas'); fit.width = outN; fit.height = outN;
+  const fc = fit.getContext('2d'); fc.imageSmoothingEnabled = true; fc.imageSmoothingQuality = 'high';
+  fc.drawImage(hi, cxh - cropSide/2, cyh - cropSide/2, cropSide, cropSide, 0, 0, outN, outN);
+  return fit;
+}
 function applyCrop() {
   const ca = document.getElementById('cropArea');
   const cw = ca.offsetWidth||360, ch = ca.offsetHeight||290;
@@ -1216,9 +1404,11 @@ function applyCrop() {
   ctx.drawImage(imgEl, -drawX - frameSrc/2, -drawY - frameSrc/2, frameSrc, frameSrc, -out/2, -out/2, out, out);
   ctx.restore();
   // ダイアカットはシルエットをフレームへ自動フィット（小さく切り取っても同じsizeCmなら同じ大きさに）
+  // さらに元画像の解像度を保つため、固定サイズへ縮小済みのcvではなく元画像から高解像度でフィットする
+  const dieOut = 600;                                          // 出力解像度（被写体を鮮明に保つため高め）
   let url, dieOuter = null, dieHoles = [];
   if (sh === 'diecut') {
-    const fit = dieFitCanvas(cv, out) || cv;
+    const fit = dieFitFromSource(imgEl, drawX, drawY, frameSrc, C.rot, dieOut) || dieFitCanvas(cv, out) || cv;
     url = fit.toDataURL('image/png');
     if (cropTarget === 'back' && S.dieFront) { dieOuter = S.dieFront; dieHoles = S.dieHolesFront || []; }
     else {
@@ -1251,9 +1441,15 @@ function drawPreview(target) {
   const src  = target === 'back' ? S.imgBack  : S.imgFront;
   const poly = target === 'back' ? S.dieBack  : S.dieFront;
   cvEl.style.borderRadius = S.shape==='circle' ? '50%' : '8px';
-  const ctx = cvEl.getContext('2d'); ctx.clearRect(0,0,200,200);
+  cvEl.style.width = '200px'; cvEl.style.height = '200px';     // 表示は200pxに固定（バッキングストアだけ拡大）
+  const dpr = Math.min(devicePixelRatio || 1, 2);              // Retinaでも鮮明に
+  if (cvEl.width !== 200*dpr) { cvEl.width = 200*dpr; cvEl.height = 200*dpr; }
+  const ctx = cvEl.getContext('2d');
+  ctx.imageSmoothingEnabled = true; ctx.imageSmoothingQuality = 'high';
+  ctx.setTransform(dpr,0,0,dpr,0,0); ctx.clearRect(0,0,200,200);
   const img = new Image();
   img.onload = () => {
+    ctx.setTransform(dpr,0,0,dpr,0,0); ctx.clearRect(0,0,200,200);
     if (S.shape === 'diecut' && S.dieReinforce === false) {
       // 折れ防止OFF：画像のアルファに沿って縁取り＋穴抜き（完璧な抜き）
       drawDieBodyAlpha(ctx, img, 0, 0, 200, S.colorHex || '#d9d4c7', dieBorderPx(200), true);
