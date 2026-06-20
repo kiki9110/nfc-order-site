@@ -44,9 +44,11 @@ body{font-family:'Noto Sans JP',sans-serif;background:var(--paper);color:var(--i
 .sec.locked .lock-bar{display:block;}
 
 /* OPTION LOCK（未購入オプションのロック表示：灰色＋斜線） */
+/* セクション見出し（NFC・両面印刷）と形状ボタン（ダイアカット）に適用 */
 .opt-locked{
   position:relative;
   cursor:not-allowed !important;
+  /* 灰色の斜線（ストライプ）を重ねて「使えない」ことを明確にする */
   background-image:repeating-linear-gradient(
     45deg,
     rgba(150,150,150,.18),
@@ -55,8 +57,10 @@ body{font-family:'Noto Sans JP',sans-serif;background:var(--paper);color:var(--i
     rgba(150,150,150,.07) 12px
   ) !important;
 }
+/* 見出しの場合：文字を灰色に */
 .sec.opt-locked .sec-head{color:#9a9a9a;}
 .sec.opt-locked .sec-status::after{content:' 🔒';}
+/* 形状ボタンの場合：中身を少し薄く＋鍵マーク */
 .shape-btn.opt-locked{border-color:#d5d5d5 !important;background-color:#f3f3f3 !important;}
 .shape-btn.opt-locked .shape-name::after{content:' 🔒';font-size:10px;}
 
@@ -439,15 +443,6 @@ body{font-family:'Noto Sans JP',sans-serif;background:var(--paper);color:var(--i
         </div>
       </div>
     </div>
-    <!-- 折れ防止（ダイアカットのみ）：手足のすき間や中抜きを埋めて補強するか、イラストどおりに残すか -->
-    <div class="slider-group" id="obGroup" style="display:none;">
-      <label>折れ防止（すき間・中抜きを埋める）</label>
-      <div style="display:flex;gap:8px;margin-top:6px;">
-        <button class="yn-btn sel" id="ob-on"  onclick="setReinforce(true)">あり（推奨）</button>
-        <button class="yn-btn"      id="ob-off" onclick="setReinforce(false)">なし（残す）</button>
-      </div>
-      <div style="font-size:11px;color:var(--muted);margin-top:6px;line-height:1.6;">「あり」は手足のすき間や中抜き部分を埋めて壊れにくくします（小さいすき間は折れ防止になります）。「なし」はイラストどおりにすき間・穴を残します（細い部分は折れやすくなるのでご注意ください）。</div>
-    </div>
     <div style="font-size:11px;color:var(--muted);margin-top:4px;line-height:1.6;">※ 長辺（最長部分）でサイズを指定します。丸・四角は最大10cm、ダイアカットは最大15cmです。</div>
   </div>
 </div>
@@ -565,7 +560,7 @@ const S = {
   cropStateFront: null, cropStateBack: null, // 前回のクロップ設定
   dieFront:   null, dieBack: null,       // ダイアカットの実シルエット外周（正規化ポリゴン）
   dieHolesFront: [], dieHolesBack: [],   // ダイアカットの中抜き穴（折れ防止OFF時に検出される正規化ポリゴンの配列）
-  dieReinforce:  true,                   // 折れ防止（true=手足のすき間・中抜きを埋めて補強 / false=イラストどおりに残す）
+  dieReinforce:  false,                  // 折れ防止は廃止：常に false（イラストどおりにすき間・中抜き穴を残す）
   qr:         false, qrSide: null, qrUrl: '',
   qrFront:    { x: 50, y: 50, cm: 2 },
   qrBack:     { x: 50, y: 50, cm: 2 },
@@ -576,8 +571,9 @@ const S = {
   attMode:    'inside', // 'inside'(本体に穴) / 'outside'(外付けツメ)
   attachView: 'front',
   // 購入済みオプション（読み込み時に customer-get から取得）。
-  // false のオプションはロックされ、押すと赤いトーストを出す。
-  // 取得失敗時は「全て true（ロックしない）」として注文不能の事故を防ぐ。
+  // ここが false のオプションは page2 上でロックされ、押すと alert を出す。
+  // 取得に失敗した場合のフォールバックは「全て true（=ロックしない）」とし、
+  // 通信不調で注文できなくなる事故を防ぐ。
   purchased:  { nfc: true, double: true, diecut: true },
 };
 let cropTarget = 'front';
@@ -587,20 +583,27 @@ document.getElementById('topOrder').textContent = S.orderId;
 // ═══════════════════════════════════════════════════════
 // 購入オプションの取得とロック適用
 // ═══════════════════════════════════════════════════════
+// page1 で入力された注文番号をもとに「何が購入されたか」を取得し、
 // 購入されていないオプション（NFC・両面印刷・ダイアカット）をロックする。
-// ロックされた項目は灰色＋斜線で表示し、押すと赤いトーストを出す。
-// ※ この関数は WORKER_ORIGIN 定義後に呼び出す（initColors の後で実行）。
+// ロックされた項目は灰色＋斜線で表示し、押すと「注文されていません」と alert を出す。
+// ※ この関数は WORKER_ORIGIN 定義後に呼び出す（下部の initColors の後で実行）。
 async function initPurchasedOptions() {
   const oid = S.orderId;
-  if (!oid || oid === '—') return;
+  if (!oid || oid === '—') return; // 注文番号が無い場合は何もしない（全て使用可のまま）
 
   try {
     const r = await fetch(WORKER_ORIGIN + '/api/customer-get?orderId=' + encodeURIComponent(oid));
-    if (!r.ok) return;
+    if (!r.ok) return;            // 取得失敗 → フォールバック（全て使用可）
     const d = await r.json();
-    if (!d || !d.exists) return;
+    if (!d || !d.exists) return;  // 未登録 → フォールバック（全て使用可）
+
+    // 取得した購入状況を反映（値が無いオプションは false 扱い＝ロック）
     const opt = d.options || {};
-    S.purchased = { nfc: !!opt.nfc, double: !!opt.double, diecut: !!opt.diecut };
+    S.purchased = {
+      nfc:    !!opt.nfc,
+      double: !!opt.double,
+      diecut: !!opt.diecut,
+    };
   } catch (e) {
     return; // 通信エラー → フォールバック（全て使用可）
   }
@@ -608,24 +611,34 @@ async function initPurchasedOptions() {
   applyOptionLocks();
 }
 
+// 購入状況に応じて各オプションUIをロック表示にする
 function applyOptionLocks() {
+  // NFC（セクション3）
   setSectionLock('sec3', S.purchased.nfc, 'NFCタグ');
+  // 両面印刷（セクション35）
   setSectionLock('sec35', S.purchased.double, '両面印刷');
+  // ダイアカット（形状ボタン）
   setShapeLock(S.purchased.diecut);
 }
 
-// セクション（NFC・両面印刷）をロック/解除する
+// セクション（NFC・両面印刷）をロック/解除する。
+// locked=false（未購入）のとき、見出しに opt-locked クラスを付け、開かないようにする。
 function setSectionLock(secId, purchased, optName) {
   const sec = document.getElementById(secId);
   if (!sec) return;
-  if (purchased) { sec.classList.remove('opt-locked'); return; }
+  if (purchased) {
+    sec.classList.remove('opt-locked');
+    return;
+  }
+  // 未購入 → ロック表示にし、本文は閉じておく
   sec.classList.add('opt-locked');
   const body = sec.querySelector('.sec-body');
   if (body) body.classList.add('hidden');
+  // ロック対象の名前を記録（alert メッセージ用）
   sec.setAttribute('data-opt-name', optName);
 }
 
-// ダイアカットの形状ボタンをロック/解除する
+// ダイアカットの形状ボタンをロック/解除する。
 function setShapeLock(purchased) {
   const btn = document.getElementById('sh-diecut');
   if (!btn) return;
@@ -764,7 +777,6 @@ function pickShape(sh) {
   document.getElementById('pd-shape').textContent = { circle:'丸', square:'四角', diecut:'ダイカ' }[sh];
   document.getElementById('diecut-note').style.display = sh === 'diecut' ? 'block' : 'none';
   document.getElementById('bdGroup').style.display     = sh === 'diecut' ? 'block' : 'none';
-  document.getElementById('obGroup').style.display     = sh === 'diecut' ? 'block' : 'none';
   // 形状ごとのサイズ上限を反映（丸・四角=10cm / ダイアカット=15cm）
   const mx = maxSizeFor(sh);
   document.getElementById('szSlider').max = mx;
@@ -1121,13 +1133,7 @@ function dieFloodOutside(g, N) {
   }
   return out;
 }
-// 折れ防止ON：中抜き穴をすべて前景で埋める
-function dieFillHoles(g, N) {
-  const outside = dieFloodOutside(g, N), out = new Uint8Array(N * N);
-  for (let i = 0; i < N * N; i++) out[i] = (g[i] || !outside[i]) ? 1 : 0;
-  return out;
-}
-// 折れ防止OFF：中抜き穴（外側に繋がっていない背景の塊）を検出して輪郭ポリゴンの配列で返す
+// 中抜き穴（外側に繋がっていない背景の塊）を検出して輪郭ポリゴンの配列で返す（標準動作：穴はそのまま残す）
 function dieDetectHoles(g, N, minArea) {
   const outside = dieFloodOutside(g, N);
   const hole = new Uint8Array(N * N);
@@ -1155,28 +1161,27 @@ function dieDetectHoles(g, N, minArea) {
   return polys;
 }
 // alpha グリッド → シルエット外周＋中抜き穴。戻り値 { outer:[{x,y}...], holes:[[{x,y}...], ...] }
-function dieMorphTrace(g, N, sizeCm, borderCm, reinforce) {
+// 標準動作：イラストどおりにすき間・中抜き穴を残す（軽いクロージングでノイズ除去のみ）
+function dieMorphTrace(g, N, sizeCm, borderCm) {
   let any = false; for (let i = 0; i < g.length; i++) if (g[i]) { any = true; break; }
   if (!any) return null;
-  // reinforce=ON は強めのクロージングで細い隙間をブリッジ、OFF はノイズ除去程度に留める
-  const closeR  = reinforce ? Math.max(2, Math.round(N * .045)) : Math.max(1, Math.round(N * .012));
+  // 細い隙間は埋めず、微小なノイズだけ除去する軽いクロージング
+  const closeR  = Math.max(1, Math.round(N * .012));
   const borderR = Math.max(0, Math.round((borderCm / (sizeCm || 7)) * N * DIE_FIT));
   g = dieMorph(g, N, closeR, false); g = dieMorph(g, N, closeR, true); // クロージング
-  if (reinforce) g = dieFillHoles(g, N);                                // ON のみ中抜きを埋める
   if (borderR > 0) g = dieMorph(g, N, borderR, false);                  // 縁取り（外周を太らせ、穴は内側へ縮む）
   let c = dieTrace(g, N);
   if (c.length < 6) return null;
   c = c.filter((_, i) => i % Math.max(1, Math.floor(c.length / 70)) === 0);
   c = dieChaikin(c, 1);
   const outer = c.map(p => ({ x: +(p[0] / N).toFixed(4), y: +(p[1] / N).toFixed(4) }));
-  let holes = [];
-  if (!reinforce) holes = dieDetectHoles(g, N, Math.max(18, Math.round(N * N * 0.0015)));
+  const holes = dieDetectHoles(g, N, Math.max(18, Math.round(N * N * 0.0015)));
   return { outer, holes };
 }
 function computeDiePoly() {
   const imgEl = document.getElementById('cropImg');
   if (!imgEl || !imgEl.complete || !imgEl.naturalWidth) return null;
-  return dieMorphTrace(dieAlphaGrid(140), 140, S.sizeCm, S.borderCm != null ? S.borderCm : 0.3, S.dieReinforce !== false);
+  return dieMorphTrace(dieAlphaGrid(140), 140, S.sizeCm, S.borderCm != null ? S.borderCm : 0.3);
 }
 function dieGridFrom(imgEl, cs, N) {
   const tmp = document.createElement('canvas'); tmp.width = N; tmp.height = N;
@@ -1205,7 +1210,7 @@ function recomputeDie(face, cb) {
   if (S.shape !== 'diecut' || !src) { if (cb) cb(); return; }
   const im = new Image();
   im.onload  = () => {
-    const res = dieMorphTrace(dieGridFromImage(im, 140), 140, S.sizeCm, S.borderCm != null ? S.borderCm : 0.3, S.dieReinforce !== false);
+    const res = dieMorphTrace(dieGridFromImage(im, 140), 140, S.sizeCm, S.borderCm != null ? S.borderCm : 0.3);
     if (face === 'back') { S.dieBack  = res ? res.outer : null; S.dieHolesBack  = res ? res.holes : []; }
     else                 { S.dieFront = res ? res.outer : null; S.dieHolesFront = res ? res.holes : []; }
     if (cb) cb();
@@ -1396,7 +1401,7 @@ function applyCrop() {
     url = fit.toDataURL('image/png');
     if (cropTarget === 'back' && S.dieFront) { dieOuter = S.dieFront; dieHoles = S.dieHolesFront || []; }
     else {
-      const res = dieMorphTrace(dieGridFromImage(fit, 140), 140, S.sizeCm, S.borderCm != null ? S.borderCm : 0.3, S.dieReinforce !== false);
+      const res = dieMorphTrace(dieGridFromImage(fit, 140), 140, S.sizeCm, S.borderCm != null ? S.borderCm : 0.3);
       if (res) { dieOuter = res.outer; dieHoles = res.holes || []; }
     }
   } else {
@@ -1423,7 +1428,6 @@ function applyCrop() {
 function drawPreview(target) {
   const cvEl = document.getElementById('cv-' + target);
   const src  = target === 'back' ? S.imgBack  : S.imgFront;
-  const poly = target === 'back' ? S.dieBack  : S.dieFront;
   cvEl.style.borderRadius = S.shape==='circle' ? '50%' : '8px';
   cvEl.style.width = '200px'; cvEl.style.height = '200px';     // 表示は200pxに固定（バッキングストアだけ拡大）
   const dpr = Math.min(devicePixelRatio || 1, 2);              // Retinaでも鮮明に
@@ -1434,17 +1438,9 @@ function drawPreview(target) {
   const img = new Image();
   img.onload = () => {
     ctx.setTransform(dpr,0,0,dpr,0,0); ctx.clearRect(0,0,200,200);
-    if (S.shape === 'diecut' && S.dieReinforce === false) {
-      // 折れ防止OFF：画像のアルファに沿って縁取り＋穴抜き（完璧な抜き）
+    if (S.shape === 'diecut') {
+      // ダイアカット：画像のアルファに沿って縁取り＋穴抜き（イラストどおりにすき間・穴を残す）
       drawDieBodyAlpha(ctx, img, 0, 0, 200, S.colorHex || '#d9d4c7', dieBorderPx(200), true);
-    } else if (S.shape === 'diecut' && poly && poly.length >= 3) {
-      // 折れ防止ON：外周ポリゴンで塗りつぶし（穴も埋めたソリッド）
-      const path = () => { ctx.beginPath(); ctx.moveTo(poly[0].x*200, poly[0].y*200); for (let i=1;i<poly.length;i++) ctx.lineTo(poly[i].x*200, poly[i].y*200); ctx.closePath(); };
-      ctx.save(); path(); ctx.clip();
-      ctx.fillStyle = S.colorHex || '#d9d4c7'; ctx.fillRect(0,0,200,200);
-      ctx.drawImage(img,0,0,200,200);
-      ctx.restore();
-      ctx.strokeStyle='rgba(0,0,0,.25)'; ctx.lineWidth=1.5; path(); ctx.stroke();
     } else { ctx.drawImage(img,0,0,200,200); }
   };
   img.src = src;
@@ -1516,14 +1512,13 @@ function drawQRBg(side, cv, aw, ah) {
   if (src) {
     const img = new Image();
     img.onload = () => {
-      if (S.shape === 'diecut' && S.dieReinforce === false) {
-        // 折れ防止OFF：アルファに沿って縁取り＋穴抜き（kw=kh の正方形領域に等倍）
+      if (S.shape === 'diecut') {
+        // ダイアカット：アルファに沿って縁取り＋穴抜き（kw=kh の正方形領域に等倍）
         drawDieBodyAlpha(ctx, img, ox, oy, kw, acryl, (S.sizeCm ? (S.borderCm||0)/S.sizeCm : 0) * kw * DIE_FIT, true);
         drawScaleBar(ctx, ox, oy, kw, kh, pxPerCm);
         return;
       }
       ctx.save(); khPath(); ctx.clip();
-      if (S.shape === 'diecut' && diePoly) { ctx.fillStyle = acryl; ctx.fillRect(ox, oy, kw, kh); }
       const ir = img.naturalWidth / img.naturalHeight, kr = kw / kh;
       let dw, dh, dx, dy;
       if (ir > kr) { dh=kh; dw=dh*ir; dx=ox-(dw-kw)/2; dy=oy; }
@@ -1678,22 +1673,6 @@ function onBdSlider() { setBorderCm(+document.getElementById('bdSlider').value);
 function onBdInput()  { setBorderCm(+document.getElementById('bdN').value); }
 function stepBd(d)    { setBorderCm((+document.getElementById('bdN').value || 0) + d); }
 
-// 折れ防止のオン/オフ（ダイアカットのみ）。切り替えるとシルエットを再計算する。
-function setReinforce(v) {
-  S.dieReinforce = v;
-  document.getElementById('ob-on').classList.toggle('sel', v);
-  document.getElementById('ob-off').classList.toggle('sel', !v);
-  if (S.shape !== 'diecut') return;
-  if (S.imgFrontSrc && S.cropStateFront) {
-    recomputeDie('front', () => {
-      if (S.dieBack || S.imgBack) { S.dieBack = S.dieFront; S.dieHolesBack = S.dieHolesFront; }
-      if (window._redrawAttach) window._redrawAttach();
-      drawPreview('front'); if (S.imgBack) drawPreview('back');
-      if (S.qr) { ['front','back'].forEach(s => { const c = document.getElementById('qrBg-'+s); if (c) drawQRBg(s, c, c.width||260, c.height||220); }); }
-    });
-  } else if (window._redrawAttach) window._redrawAttach();
-}
-
 setSz(7); setTh(2); // 初期値
 
 // ═══════════════════════════════════════════════════════
@@ -1773,12 +1752,12 @@ function setAttachView(side) {
     const backNoPrint = (S.attachView === 'back' && !S.imgBack);   // 裏面・印刷なし
     const imgEl = backNoPrint ? null : (S.attachView === 'back' ? (imgBackEl || imgFrontEl) : imgFrontEl);
     const acryl = S.colorHex || '#d9d4c7';
-    // ダイアカット・折れ防止OFF：画像のアルファに沿って描画（穴・すき間はそのまま透過）
-    if (S.shape === 'diecut' && S.dieReinforce === false && imgFrontEl) {
+    // ダイアカット：画像のアルファに沿って描画（穴・すき間はそのまま透過）。表画像が必要
+    if (S.shape === 'diecut' && imgFrontEl) {
       drawDieBodyAlpha(ctx, imgEl || imgFrontEl, g.x, g.y, g.size, acryl, dieBorderPx(g.size), !!imgEl);
       return;
     }
-    // それ以外（折れ防止ON／丸・四角）：形状でクリップして塗り＋画像
+    // それ以外（丸・四角／ダイアカットで表画像未読込）：形状でクリップして塗り＋画像
     ctx.save(); bodyPath(g); ctx.clip();
     if (S.shape === 'diecut') { ctx.fillStyle = acryl; ctx.fill(); }
     if (imgEl) {
@@ -1808,12 +1787,11 @@ function setAttachView(side) {
     tctx.fillStyle = BORDER; tctx.beginPath(); tctx.arc(hx, hy, lugR+1.5, 0, Math.PI*2); tctx.fill();
     if (withNeck) { tctx.strokeStyle = acryl; tctx.lineWidth = neckW; tctx.beginPath(); tctx.moveTo(rootX, rootY); tctx.lineTo(hx, hy); tctx.stroke(); }
     tctx.fillStyle = acryl; tctx.beginPath(); tctx.arc(hx, hy, lugR, 0, Math.PI*2); tctx.fill();
-    // 折れ防止ONのみ本体ポリゴンをくり抜く（OFFはアルファ本体を上に重ねるため、くり抜くと輪郭ズレで透明帯ができる）
-    if (!(S.shape === 'diecut' && S.dieReinforce === false)) {
+    // 丸・四角のみ本体形状をくり抜く（ダイアカットはアルファ本体を上に重ねるため、くり抜くと輪郭ズレで透明帯ができる）
+    if (S.shape !== 'diecut') {
       tctx.globalCompositeOperation = 'destination-out'; tctx.fillStyle = '#000';
       tctx.beginPath();
       if (S.shape === 'circle') tctx.arc(g.cx, g.cy, g.r, 0, Math.PI*2);
-      else if (S.shape === 'diecut' && diePtsBox(g)) { const pts=diePtsBox(g); tctx.moveTo(pts[0].x,pts[0].y); for(let i=1;i<pts.length;i++) tctx.lineTo(pts[i].x,pts[i].y); tctx.closePath(); }
       else rrect(tctx, g.x, g.y, g.size, g.size, g.rad);
       tctx.fill(); tctx.globalCompositeOperation = 'source-over';
     }
@@ -1857,7 +1835,7 @@ function setAttachView(side) {
       ctx.drawImage(tab, 0, 0, aw, ah);
     }
     drawBody(g);
-    if (!(S.shape === 'diecut' && S.dieReinforce === false)) { ctx.strokeStyle = 'rgba(255,255,255,.30)'; ctx.lineWidth = 1.5; bodyPath(g); ctx.stroke(); }
+    if (S.shape !== 'diecut') { ctx.strokeStyle = 'rgba(255,255,255,.30)'; ctx.lineWidth = 1.5; bodyPath(g); ctx.stroke(); }
 
     // 穴を抜く
     ctx.beginPath(); ctx.arc(hx, hy, holeR, 0, Math.PI*2);
@@ -1970,7 +1948,7 @@ function doSubmit() {
     dieBack:    S.dieBack  || null,
     dieHolesFront: S.dieHolesFront || [],
     dieHolesBack:  S.dieHolesBack  || [],
-    dieReinforce:  S.dieReinforce !== false,
+    dieReinforce:  false,                  // 折れ防止は廃止：常に false（page3/worker へ送る注文データも固定）
     borderCm:      S.borderCm != null ? S.borderCm : 0.3,
     submittedAt: new Date().toLocaleString('ja-JP'),
   };
@@ -2053,6 +2031,7 @@ function submitOrder(orderData) {
 function toast(msg, type) {
   const el = document.getElementById('toast');
   el.textContent = msg;
+  // type='alert' のとき赤系で目立たせる（オプション未購入など）
   el.classList.toggle('alert', type === 'alert');
   el.classList.add('show');
   setTimeout(() => el.classList.remove('show'), 2800);
