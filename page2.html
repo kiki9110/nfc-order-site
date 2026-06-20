@@ -411,7 +411,7 @@ body{font-family:'Noto Sans JP',sans-serif;background:var(--paper);color:var(--i
   <div class="sec-head" onclick="toggle(6)">
     <div class="sec-num" id="sn6">6</div>
     <div class="sec-title">サイズ設定</div>
-    <div class="sec-status" id="ss6">7.0cm / 厚さ2.5cm</div>
+    <div class="sec-status" id="ss6">7.0cm / 厚さ2.5mm</div>
   </div>
   <div class="sec-body hidden" id="sb6">
     <!-- 丸・四角・ダイアカット：長辺1本のスライダー -->
@@ -466,7 +466,7 @@ body{font-family:'Noto Sans JP',sans-serif;background:var(--paper);color:var(--i
         <div class="num-step">
           <button onclick="stepTh(-0.5)">−</button>
           <input type="number" id="thN" min="2.5" max="5" step="0.5" value="2.5" oninput="onThInput()">
-          <span class="unit">cm</span>
+          <span class="unit">mm</span>
           <button onclick="stepTh(0.5)">＋</button>
         </div>
       </div>
@@ -522,7 +522,7 @@ body{font-family:'Noto Sans JP',sans-serif;background:var(--paper);color:var(--i
     </div>
     <div class="size-pills">
       <div class="pill"><div class="pill-label">長辺</div><div class="pill-val" id="pd-size">7.0cm</div></div>
-      <div class="pill"><div class="pill-label">厚さ</div><div class="pill-val" id="pd-thick">2.5cm</div></div>
+      <div class="pill"><div class="pill-label">厚さ</div><div class="pill-val" id="pd-thick">2.5mm</div></div>
       <div class="pill"><div class="pill-label">形状</div><div class="pill-val" id="pd-shape">—</div></div>
       <div class="pill"><div class="pill-label">カラー</div><div class="pill-val" id="pd-color">—</div></div>
     </div>
@@ -1791,7 +1791,7 @@ function reopenSilent() { /* 縦横入れ替え時は既存画像をそのまま
 
 // サイズのステータス文言（自由四角は横×縦、ダイアは長辺×短辺を表示）
 function applySizeStatus() {
-  const t = S.thickCm.toFixed(1) + 'cm';
+  const t = S.thickCm.toFixed(1) + 'mm';
   let s;
   if (S.shape === 'rect')        s = S.widthCm.toFixed(1) + '×' + S.heightCm.toFixed(1) + 'cm';
   else if (S.shape === 'diecut') s = S.sizeCm.toFixed(1) + '×' + (S.sizeCm * dieAspect()).toFixed(1) + 'cm';
@@ -1812,7 +1812,7 @@ function setTh(v) {
   document.getElementById('thSlider').value = v;
   document.getElementById('thN').value      = v;
   S.thickCm = v;
-  document.getElementById('pd-thick').textContent = v.toFixed(1) + 'cm';
+  document.getElementById('pd-thick').textContent = v.toFixed(1) + 'mm';
   applySizeStatus();
   done(6); updateProg();
 }
