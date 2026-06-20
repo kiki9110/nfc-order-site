@@ -73,14 +73,17 @@ body{font-family:'Noto Sans JP',sans-serif;background:var(--paper);color:var(--i
 .color-name{font-size:11px;color:var(--muted);margin-top:8px;}
 
 /* SHAPE BUTTONS */
-.shape-row{display:flex;gap:8px;}
-.shape-btn{flex:1;padding:12px 6px;border:2px solid var(--border);border-radius:10px;background:#fff;cursor:pointer;text-align:center;transition:all .15s;}
+.shape-row{display:flex;flex-wrap:wrap;gap:8px;}
+/* 4つの形状ボタンが入るので、狭い画面では2×2に折り返す */
+.shape-btn{flex:1 1 calc(50% - 4px);min-width:calc(50% - 4px);padding:12px 6px;border:2px solid var(--border);border-radius:10px;background:#fff;cursor:pointer;text-align:center;transition:all .15s;}
 .shape-btn:hover{border-color:var(--ink);}
 .shape-btn.sel{border-color:var(--accent);background:#fff8f5;}
 .sh-icon{margin:0 auto 8px;display:flex;align-items:center;justify-content:center;width:44px;height:44px;}
 .sh-circle{width:40px;height:40px;border-radius:50%;border:2.5px solid var(--ink);background:var(--cream);}
 .sh-square{width:40px;height:40px;border-radius:4px;border:2.5px solid var(--ink);background:var(--cream);}
-.shape-btn.sel .sh-circle,.shape-btn.sel .sh-square{border-color:var(--accent);background:#fde8e0;}
+/* 自由四角（長方形）アイコン：横長の枠 */
+.sh-rect{width:42px;height:26px;border-radius:4px;border:2.5px solid var(--ink);background:var(--cream);}
+.shape-btn.sel .sh-circle,.shape-btn.sel .sh-square,.shape-btn.sel .sh-rect{border-color:var(--accent);background:#fde8e0;}
 .shape-name{font-size:12px;font-weight:500;}
 .shape-sub{font-size:10px;color:var(--muted);margin-top:2px;}
 
@@ -231,7 +234,11 @@ body{font-family:'Noto Sans JP',sans-serif;background:var(--paper);color:var(--i
       </button>
       <button class="shape-btn" id="sh-square" onclick="pickShape('square')">
         <div class="sh-icon"><div class="sh-square"></div></div>
-        <div class="shape-name">四角形</div><div class="shape-sub">50×50mm</div>
+        <div class="shape-name">四角形</div><div class="shape-sub">最大90×90mm</div>
+      </button>
+      <button class="shape-btn" id="sh-rect" onclick="pickShape('rect')">
+        <div class="sh-icon"><div class="sh-rect"></div></div>
+        <div class="shape-name">自由四角</div><div class="shape-sub">縦横を自由に</div>
       </button>
       <button class="shape-btn" id="sh-diecut" onclick="pickShape('diecut')">
         <div class="sh-icon">
@@ -407,18 +414,51 @@ body{font-family:'Noto Sans JP',sans-serif;background:var(--paper);color:var(--i
     <div class="sec-status" id="ss6">7.0cm / 厚さ2.0cm</div>
   </div>
   <div class="sec-body hidden" id="sb6">
-    <div class="slider-group">
-      <label>長辺（最長部分）</label>
+    <!-- 丸・四角・ダイアカット：長辺1本のスライダー -->
+    <div class="slider-group" id="szGroup">
+      <label id="szLabel">長辺（最長部分）</label>
       <div class="slider-row">
-        <input type="range" id="szSlider" min="5" max="10" step="0.5" value="7" oninput="onSzSlider()">
+        <input type="range" id="szSlider" min="3" max="9" step="0.5" value="7" oninput="onSzSlider()">
         <div class="num-step">
           <button onclick="stepSz(-0.5)">−</button>
-          <input type="number" id="szN" min="5" max="10" step="0.5" value="7" oninput="onSzInput()">
+          <input type="number" id="szN" min="3" max="9" step="0.5" value="7" oninput="onSzInput()">
           <span class="unit">cm</span>
           <button onclick="stepSz(0.5)">＋</button>
         </div>
       </div>
+      <!-- ダイアカットのみ：短辺の自動計算値を表示 -->
+      <div id="dieShort" style="display:none;margin-top:6px;font-size:12px;color:var(--accent);font-weight:600;"></div>
     </div>
+
+    <!-- 自由四角：横・縦を独立で調整＋入れ替え -->
+    <div id="rectGroup" style="display:none;">
+      <div class="slider-group">
+        <label>横（幅）</label>
+        <div class="slider-row">
+          <input type="range" id="rwSlider" min="3" max="15" step="0.5" value="12" oninput="onRwSlider()">
+          <div class="num-step">
+            <button onclick="stepRw(-0.5)">−</button>
+            <input type="number" id="rwN" min="3" max="15" step="0.5" value="12" oninput="onRwInput()">
+            <span class="unit">cm</span>
+            <button onclick="stepRw(0.5)">＋</button>
+          </div>
+        </div>
+      </div>
+      <div class="slider-group">
+        <label>縦（高さ）</label>
+        <div class="slider-row">
+          <input type="range" id="rhSlider" min="3" max="15" step="0.5" value="6" oninput="onRhSlider()">
+          <div class="num-step">
+            <button onclick="stepRh(-0.5)">−</button>
+            <input type="number" id="rhN" min="3" max="15" step="0.5" value="6" oninput="onRhInput()">
+            <span class="unit">cm</span>
+            <button onclick="stepRh(0.5)">＋</button>
+          </div>
+        </div>
+      </div>
+      <button type="button" onclick="swapWH()" style="margin-top:2px;padding:9px 14px;border:1.5px solid var(--border);border-radius:9px;background:#fff;cursor:pointer;font-size:13px;font-weight:600;color:var(--ink);">⇄ 縦横を入れ替え</button>
+    </div>
+
     <div class="slider-group">
       <label>厚さ</label>
       <div class="slider-row">
@@ -443,7 +483,7 @@ body{font-family:'Noto Sans JP',sans-serif;background:var(--paper);color:var(--i
         </div>
       </div>
     </div>
-    <div style="font-size:11px;color:var(--muted);margin-top:4px;line-height:1.6;">※ 長辺（最長部分）でサイズを指定します。丸・四角は最大10cm、ダイアカットは最大15cmです。</div>
+    <div style="font-size:11px;color:var(--muted);margin-top:4px;line-height:1.6;">※ 丸・四角は最大9cm。自由四角は片方を最大15cm・もう片方を最大9cm（最小3cm）。ダイアカットは長辺15cm・短辺9cmの枠に収まります。</div>
   </div>
 </div>
 
@@ -564,7 +604,9 @@ const S = {
   qr:         false, qrSide: null, qrUrl: '',
   qrFront:    { x: 50, y: 50, cm: 2 },
   qrBack:     { x: 50, y: 50, cm: 2 },
-  sizeCm:     7, thickCm: 2,
+  sizeCm:     7, thickCm: 2,        // sizeCm = 長辺（丸/四角=辺, 自由四角=max(縦横), ダイア=長辺）
+  widthCm:    12, heightCm: 6,      // 自由四角(rect)専用：横・縦
+
   attX:       50, attY: 10, attAngle: 0,
   holeCm:     0.5,     // 穴の直径(cm) ＝ 5mm 固定
   borderCm:   0.3,     // ダイアカットの縁の厚さ(cm)
@@ -768,20 +810,23 @@ function pickShape(sh) {
     toast('ダイアカットは注文されていません', 'alert');
     return;
   }
-  ['circle','square','diecut'].forEach(s => {
+  ['circle','square','rect','diecut'].forEach(s => {
     document.getElementById('sh-' + s).classList.toggle('sel', s === sh);
   });
   S.shape = sh;
-  const names = { circle:'丸型', square:'四角形', diecut:'ダイアカット' };
+  const names = { circle:'丸型', square:'四角形', rect:'自由四角', diecut:'ダイアカット' };
   document.getElementById('ss2').textContent = names[sh];
-  document.getElementById('pd-shape').textContent = { circle:'丸', square:'四角', diecut:'ダイカ' }[sh];
+  document.getElementById('pd-shape').textContent = { circle:'丸', square:'四角', rect:'長方形', diecut:'ダイカ' }[sh];
   document.getElementById('diecut-note').style.display = sh === 'diecut' ? 'block' : 'none';
   document.getElementById('bdGroup').style.display     = sh === 'diecut' ? 'block' : 'none';
-  // 形状ごとのサイズ上限を反映（丸・四角=10cm / ダイアカット=15cm）
-  const mx = maxSizeFor(sh);
-  document.getElementById('szSlider').max = mx;
-  document.getElementById('szN').max      = mx;
-  if (S.sizeCm > mx) setSz(mx);
+  // サイズ操作UIの切り替え：自由四角は横/縦の2本、それ以外は長辺1本
+  const isRect = sh === 'rect';
+  document.getElementById('rectGroup').style.display = isRect ? 'block' : 'none';
+  document.getElementById('szGroup').style.display   = isRect ? 'none'  : 'block';
+  // 長辺ラベルを形状に合わせて変更
+  document.getElementById('szLabel').textContent = sh === 'circle' ? '直径' : (sh === 'diecut' ? '長辺（最長部分）' : '1辺');
+  if (isRect) { setW(S.widthCm, true); setH(S.heightCm, true); }   // sizeCm を縦横に同期
+  updateSizeUI();
   // 丸型「上」マーカー
   const isCircle = sh === 'circle';
   document.getElementById('upBadge').style.display     = isCircle ? 'block' : 'none';
@@ -904,7 +949,7 @@ function reopenCrop(target) {
       setCropSz(Math.round(C.scale / C.fitScale * 100), false);
       setCropRot(C.rot, false);
     } else {
-      const fw = cw * .78, fh = ch * .78;
+      const ff = cropFitWH(cw, ch), fw = ff.fw, fh = ff.fh;
       C.fitScale = Math.min(fw / C.imgW, fh / C.imgH);
       C.scale = .5 * C.fitScale;
       setCropSz(50, false); setCropRot(0, false);
@@ -913,7 +958,7 @@ function reopenCrop(target) {
     posImg(); drawMask();
     const sh = S.shape || 'circle';
     document.getElementById('dicutBar').style.display = sh === 'diecut' ? 'block' : 'none';
-    document.getElementById('rotRow').style.display   = (sh === 'circle' || sh === 'square') ? 'flex' : 'none';
+    document.getElementById('rotRow').style.display   = (sh === 'circle' || sh === 'square' || sh === 'rect') ? 'flex' : 'none';
     document.getElementById('cropTitle').textContent  = '画像を再調整（元の画像から）';
     document.getElementById('cropModal').classList.add('open');
   };
@@ -949,7 +994,7 @@ function openCropModal() {
   requestAnimationFrame(() => {
     const cw = ca.offsetWidth || 360, ch = ca.offsetHeight || 290;
     C.imgW = img.naturalWidth; C.imgH = img.naturalHeight; C.rot = 0;
-    const fw = cw * .78, fh = ch * .78;
+    const ff = cropFitWH(cw, ch), fw = ff.fw, fh = ff.fh;
     C.fitScale = Math.min(fw / C.imgW, fh / C.imgH);
     C.scale = .5 * C.fitScale;
     setCropSz(50, false); setCropRot(0, false);
@@ -961,7 +1006,7 @@ function openCropModal() {
     document.getElementById('dicutBar').textContent = backDie
       ? '📐 裏面は表面の形に合わせて切り抜きます。位置・大きさだけ調整してください。'
       : '📐 ダイアカット：画像の輪郭に沿って切り抜きます。背景透過PNGを推奨。';
-    document.getElementById('rotRow').style.display = (sh === 'circle' || sh === 'square') ? 'flex' : 'none';
+    document.getElementById('rotRow').style.display = (sh === 'circle' || sh === 'square' || sh === 'rect') ? 'flex' : 'none';
     document.getElementById('cropTitle').textContent = sh === 'diecut'
       ? (backDie ? '裏面の位置を調整（形は表面に同じ）' : 'ダイアカット輪郭を確定') : '画像の位置・サイズを調整';
     document.getElementById('cropModal').classList.add('open');
@@ -976,7 +1021,8 @@ function setCropSz(pct, doUpdate = true) {
   if (!doUpdate) return;
   const ca = document.getElementById('cropArea');
   const cw = ca.offsetWidth || 360, ch = ca.offsetHeight || 290;
-  C.fitScale = Math.min(cw * .78 / C.imgW, ch * .78 / C.imgH);
+  const ff = cropFitWH(cw, ch);
+  C.fitScale = Math.min(ff.fw / C.imgW, ff.fh / C.imgH);
   const prev = C.scale || .001;
   C.scale = pct / 100 * C.fitScale;
   const cx = cw / 2, cy = ch / 2;
@@ -1012,6 +1058,12 @@ function posImg() {
   img.style.transform       = 'rotate(' + C.rot + 'deg)';
 }
 
+// ズーム100%の基準となる枠サイズ。自由四角は長方形枠、その他は従来どおり.78エリア。
+function cropFitWH(cw, ch){
+  if (S.shape === 'rect'){ const base = Math.min(cw,ch)*.78, ar=(S.widthCm||7)/(S.heightCm||7); return ar>=1 ? {fw:base, fh:base/ar} : {fw:base*ar, fh:base}; }
+  return { fw: cw*.78, fh: ch*.78 };
+}
+
 function drawMask() {
   const ca = document.getElementById('cropArea');
   const cw = ca.offsetWidth || 360, ch = ca.offsetHeight || 290;
@@ -1019,7 +1071,10 @@ function drawMask() {
   cv.width = cw; cv.height = ch;
   const ctx = cv.getContext('2d');
   const size = Math.min(cw, ch) * .78, cx = cw / 2, cy = ch / 2;
-  const ox = cx - size / 2, oy = cy - size / 2;
+  // 自由四角は枠を縦横比に合わせた長方形にする
+  let fw = size, fh = size;
+  if (S.shape === 'rect') { const ar = (S.widthCm||7)/(S.heightCm||7); if (ar >= 1) { fw = size; fh = size/ar; } else { fh = size; fw = size*ar; } }
+  const ox = cx - fw / 2, oy = cy - fh / 2;
   ctx.clearRect(0, 0, cw, ch);
   ctx.fillStyle = 'rgba(0,0,0,.62)'; ctx.fillRect(0, 0, cw, ch);
   const sh = S.shape || 'circle';
@@ -1036,7 +1091,7 @@ function drawMask() {
     ctx.beginPath();
     if (sh === 'circle')                       ctx.arc(cx, cy, size / 2, 0, Math.PI * 2);
     else if (sh === 'diecut' && poly)        { diePathScreen(ctx, poly, ox, oy, size); for (const hl of holes) if (hl && hl.length >= 3) diePathScreen(ctx, hl, ox, oy, size); }
-    else                                       rrect(ctx, ox, oy, size, size, sh === 'diecut' ? size * .08 : size * .06);
+    else                                       rrect(ctx, ox, oy, fw, fh, Math.min(fw,fh) * (sh === 'diecut' ? .08 : .06));
   }
   // 中抜き穴も切り抜き対象外にするため evenodd で塗る（穴部分はマスクが残る＝対象外）
   ctx.globalCompositeOperation = 'destination-out'; pathShape(); ctx.fill('evenodd');
@@ -1374,30 +1429,39 @@ function dieFitFromSource(imgEl, drawX, drawY, frameSrc, rot, outN) {
 function applyCrop() {
   const ca = document.getElementById('cropArea');
   const cw = ca.offsetWidth||360, ch = ca.offsetHeight||290;
-  const size = Math.min(cw,ch)*.78, cx = cw/2, cy = ch/2;
-  const out = 400;
-  const cv = document.createElement('canvas'); cv.width=out; cv.height=out;
-  const ctx = cv.getContext('2d');
+  const baseFrame = Math.min(cw,ch)*.78, cx = cw/2, cy = ch/2;
   const sh  = S.shape || 'circle';
+  // 自由四角は枠も出力キャンバスも縦横比に合わせた長方形にする
+  let fw = baseFrame, fh = baseFrame, outW = 400, outH = 400;
+  if (sh === 'rect') {
+    const ar = (S.widthCm||7)/(S.heightCm||7);
+    if (ar >= 1) { fw = baseFrame; fh = baseFrame/ar; outW = 400; outH = Math.round(400/ar); }
+    else         { fh = baseFrame; fw = baseFrame*ar; outH = 400; outW = Math.round(400*ar); }
+  }
+  const cv = document.createElement('canvas'); cv.width=outW; cv.height=outH;
+  const ctx = cv.getContext('2d');
+  ctx.imageSmoothingEnabled = true; ctx.imageSmoothingQuality = 'high';
   ctx.beginPath();
-  if (sh==='circle') { ctx.arc(out/2,out/2,out/2,0,Math.PI*2); ctx.clip(); }
-  else if (sh==='square') { rrect(ctx,0,0,out,out,out*.06); ctx.clip(); }
+  if (sh==='circle') { ctx.arc(outW/2,outH/2,outW/2,0,Math.PI*2); ctx.clip(); }
+  else if (sh==='square') { rrect(ctx,0,0,outW,outH,outW*.06); ctx.clip(); }
+  else if (sh==='rect') { rrect(ctx,0,0,outW,outH,Math.min(outW,outH)*.06); ctx.clip(); }
   // ダイアカットはクリップしない（実シルエットはポリゴンで保持）
   const imgEl = document.getElementById('cropImg');
   ctx.save();
-  ctx.translate(out/2, out/2);
+  ctx.translate(outW/2, outH/2);
   ctx.rotate(C.rot * Math.PI / 180);
   const drawX   = (C.x - cx) / C.scale;
   const drawY   = (C.y - cy) / C.scale;
-  const frameSrc = size / C.scale;
-  ctx.drawImage(imgEl, -drawX - frameSrc/2, -drawY - frameSrc/2, frameSrc, frameSrc, -out/2, -out/2, out, out);
+  const frameSrcW = fw / C.scale, frameSrcH = fh / C.scale;
+  ctx.drawImage(imgEl, -drawX - frameSrcW/2, -drawY - frameSrcH/2, frameSrcW, frameSrcH, -outW/2, -outH/2, outW, outH);
   ctx.restore();
   // ダイアカットはシルエットをフレームへ自動フィット（小さく切り取っても同じsizeCmなら同じ大きさに）
   // さらに元画像の解像度を保つため、固定サイズへ縮小済みのcvではなく元画像から高解像度でフィットする
   const dieOut = 600;                                          // 出力解像度（被写体を鮮明に保つため高め）
+  const frameSrc = baseFrame / C.scale;                        // ダイアカット用（正方形フレーム）
   let url, dieOuter = null, dieHoles = [];
   if (sh === 'diecut') {
-    const fit = dieFitFromSource(imgEl, drawX, drawY, frameSrc, C.rot, dieOut) || dieFitCanvas(cv, out) || cv;
+    const fit = dieFitFromSource(imgEl, drawX, drawY, frameSrc, C.rot, dieOut) || dieFitCanvas(cv, outW) || cv;
     url = fit.toDataURL('image/png');
     if (cropTarget === 'back' && S.dieFront) { dieOuter = S.dieFront; dieHoles = S.dieHolesFront || []; }
     else {
@@ -1422,6 +1486,8 @@ function applyCrop() {
   }
   if (S.qr) { ['front','back'].forEach(s => { const c = document.getElementById('qrBg-'+s); if (c && c.width) drawQRBg(s, c, c.width, c.height); }); }
   document.getElementById('ss4').textContent = '設定済み';
+  // ダイアカットはシルエットの縦横比が確定したので、長辺の上限・短辺表示を更新
+  if (S.shape === 'diecut') updateSizeUI();
   done(4); updateProg(); if (window._redrawAttach) window._redrawAttach(); closeCrop();
 }
 
@@ -1441,6 +1507,17 @@ function drawPreview(target) {
     if (S.shape === 'diecut') {
       // ダイアカット：画像のアルファに沿って縁取り＋穴抜き（イラストどおりにすき間・穴を残す）
       drawDieBodyAlpha(ctx, img, 0, 0, 200, S.colorHex || '#d9d4c7', dieBorderPx(200), true);
+    } else if (S.shape === 'rect') {
+      // 自由四角：縦横比に合わせた長方形でプレビュー（画像はcoverで充填）
+      const ar = (S.widthCm||7)/(S.heightCm||7);
+      let w, h; if (ar >= 1) { w = 200; h = 200/ar; } else { h = 200; w = 200*ar; }
+      const x = (200-w)/2, y = (200-h)/2;
+      ctx.save();
+      ctx.beginPath(); rrect(ctx, x, y, w, h, Math.min(w,h)*.06); ctx.clip();
+      const ir = img.naturalWidth/img.naturalHeight, br = w/h;
+      let dw,dh,dx,dy; if (ir > br) { dh=h; dw=dh*ir; dx=x-(dw-w)/2; dy=y; } else { dw=w; dh=dw/ir; dy=y-(dh-h)/2; dx=x; }
+      ctx.drawImage(img, dx, dy, dw, dh);
+      ctx.restore();
     } else { ctx.drawImage(img,0,0,200,200); }
   };
   img.src = src;
@@ -1472,11 +1549,15 @@ const QRS = { front:{x:50,y:50,cm:2}, back:{x:50,y:50,cm:2} };
 
 function getKHRect(aw, ah) {
   const margin = 14;
-  const side2  = Math.min(aw - margin*2, ah - margin*2);
-  const kw = side2, kh = side2;
+  const box  = Math.min(aw - margin*2, ah - margin*2);
+  let kw = box, kh = box;
+  if (S.shape === 'rect') { const ar = (S.widthCm||7)/(S.heightCm||7); if (ar >= 1) { kw = box; kh = box/ar; } else { kh = box; kw = box*ar; } }
   const ox = (aw - kw) / 2, oy = (ah - kh) / 2;
-  // ダイアカットはシルエット(=DIE_FIT*kw)が sizeCm。それ以外はフレーム(kw)が sizeCm
-  const pxPerCm = (S.shape === 'diecut' ? DIE_FIT * kw : kw) / (S.sizeCm || 7);
+  // ダイア:シルエット(=DIE_FIT*kw)が sizeCm / 自由四角:kw=widthCm / 丸・四角:kw=sizeCm
+  let pxPerCm;
+  if (S.shape === 'diecut')    pxPerCm = DIE_FIT * kw / (S.sizeCm || 7);
+  else if (S.shape === 'rect') pxPerCm = kw / (S.widthCm || 7);
+  else                         pxPerCm = kw / (S.sizeCm || 7);
   return { ox, oy, kw, kh, pxPerCm };
 }
 
@@ -1587,7 +1668,8 @@ function setupQRDrag(side, wrap, box, bgCv) {
   window.addEventListener('touchend', ()=>drag=false);
 }
 
-function clampQRSz(v) { return Math.min(S.sizeCm||7, Math.max(1.2, Math.round(v*10)/10)); }
+function bodyShortCm() { return S.shape === 'rect' ? Math.min(S.widthCm, S.heightCm) : (S.sizeCm || 7); }
+function clampQRSz(v) { return Math.min(bodyShortCm(), Math.max(1.2, Math.round(v*10)/10)); }
 function setQRSz(side, v) {
   QRS[side].cm = clampQRSz(v);
   document.getElementById('qrSz-'+side).value  = QRS[side].cm;
@@ -1608,7 +1690,7 @@ function resyncQR(side) {
   if (!wrap || !bgCv || !box) return;
   const aw = wrap.offsetWidth || 260, ah = wrap.offsetHeight || 220;
   bgCv.width = aw; bgCv.height = ah;
-  QRS[side].cm = Math.min(QRS[side].cm, S.sizeCm);
+  QRS[side].cm = Math.min(QRS[side].cm, bodyShortCm());
   document.getElementById('qrSz-'+side).value  = QRS[side].cm;
   document.getElementById('qrSzN-'+side).value = QRS[side].cm;
   drawQRBg(side, bgCv, aw, ah);
@@ -1619,30 +1701,123 @@ function resyncQR(side) {
 // ═══════════════════════════════════════════════════════
 // SIZE
 // ═══════════════════════════════════════════════════════
-function maxSizeFor(shape) { return shape === 'diecut' ? 15 : 10; }
-function clampSz(v) { return Math.min(maxSizeFor(S.shape), Math.max(5, Math.round(v*10)/10)); }
+// 本体の縦横(cm)。丸/四角=sizeCm、自由四角=横/縦、ダイア=長辺(枠は正方形でシルエットが縦横比を持つ)
+function bWcm() { return S.shape === 'rect' ? S.widthCm  : S.sizeCm; }
+function bHcm() { return S.shape === 'rect' ? S.heightCm : S.sizeCm; }
+
+// ダイアカット：シルエット外周の「短辺÷長辺」(0〜1)。画像未確定なら1(=正方形扱い)。
+function dieAspect() {
+  const p = S.dieFront || S.dieBack;
+  if (!p || p.length < 3) return 1;
+  let x0=1, y0=1, x1=0, y1=0;
+  for (const q of p) { if(q.x<x0)x0=q.x; if(q.x>x1)x1=q.x; if(q.y<y0)y0=q.y; if(q.y>y1)y1=q.y; }
+  const lng = Math.max(x1-x0, y1-y0), sht = Math.min(x1-x0, y1-y0);
+  return lng > 0 ? sht/lng : 1;
+}
+
+// 長辺スライダー（丸・四角・ダイア）の上限。ダイアは短辺が9cmを超えないよう縦横比から決める。
+function maxSizeFor(shape) {
+  if (shape === 'diecut') return Math.round(Math.min(15, 9 / Math.max(dieAspect(), 1e-3)) * 10) / 10;
+  return 9; // 丸・四角
+}
+function clampSz(v) { return Math.min(maxSizeFor(S.shape), Math.max(3, Math.round(v*10)/10)); }
 function clampTh(v) { return Math.min(4, Math.max(1, Math.round(v*10)/10)); }
+
+// 自由四角の縦横ルール：各辺3〜15cm。ただし9cmを超えられるのは片方だけ（動かした側を優先）。
+function clamp1(v) { return Math.min(15, Math.max(3, Math.round(v*10)/10)); }
+function applyRectRule(w, h, changed) {
+  w = clamp1(w); h = clamp1(h);
+  if (changed === 'w') { if (w > 9) h = Math.min(h, 9); else if (h > 9) w = Math.min(w, 9); }
+  else                 { if (h > 9) w = Math.min(w, 9); else if (w > 9) h = Math.min(h, 9); }
+  return { w, h };
+}
+
+// 長辺スライダーの上限/最小・ダイア短辺表示をまとめて更新
+function updateSizeUI() {
+  const mx = maxSizeFor(S.shape);
+  const sl = document.getElementById('szSlider'), sn = document.getElementById('szN');
+  sl.min = 3; sn.min = 3; sl.max = mx; sn.max = mx;
+  if (S.shape !== 'rect') {
+    if (S.sizeCm > mx) { setSz(mx); return; }
+    if (S.sizeCm < 3)  { setSz(3);  return; }
+    setSz(S.sizeCm); // 表示同期
+  }
+  const ds = document.getElementById('dieShort');
+  if (S.shape === 'diecut') {
+    ds.style.display = 'block';
+    ds.textContent = '短辺：約 ' + (S.sizeCm * dieAspect()).toFixed(1) + 'cm（枠 最大15×9cm）';
+  } else { ds.style.display = 'none'; }
+}
 
 function setSz(v) {
   v = clampSz(v);
   document.getElementById('szSlider').value = v;
   document.getElementById('szN').value      = v;
   S.sizeCm = v;
-  const s = v.toFixed(1)+'cm', t = S.thickCm.toFixed(1)+'cm';
-  document.getElementById('pd-size').textContent = s;
-  document.getElementById('ss6').textContent     = s + ' / 厚さ' + t;
+  if (S.shape === 'diecut') {
+    const ds = document.getElementById('dieShort');
+    ds.style.display = 'block';
+    ds.textContent = '短辺：約 ' + (v * dieAspect()).toFixed(1) + 'cm（枠 最大15×9cm）';
+  }
+  applySizeStatus();
   done(6); updateProg();
   if (window._redrawAttach) window._redrawAttach();
   if (S.qr) { ['front','back'].forEach(s => { const w = document.getElementById('qrWrap-'+s); if (w && w.offsetWidth > 0) resyncQR(s); }); }
 }
+
+// 自由四角：横(width)
+function setW(v, silent) {
+  const r = applyRectRule(v, S.heightCm, 'w');
+  S.widthCm = r.w; S.heightCm = r.h; S.sizeCm = Math.max(r.w, r.h);
+  document.getElementById('rwSlider').value = r.w; document.getElementById('rwN').value = r.w;
+  document.getElementById('rhSlider').value = r.h; document.getElementById('rhN').value = r.h;
+  if (!silent) { applySizeStatus(); done(6); updateProg(); if (window._redrawAttach) window._redrawAttach(); if (S.qr) syncQRAll(); }
+}
+// 自由四角：縦(height)
+function setH(v, silent) {
+  const r = applyRectRule(S.widthCm, v, 'h');
+  S.widthCm = r.w; S.heightCm = r.h; S.sizeCm = Math.max(r.w, r.h);
+  document.getElementById('rwSlider').value = r.w; document.getElementById('rwN').value = r.w;
+  document.getElementById('rhSlider').value = r.h; document.getElementById('rhN').value = r.h;
+  if (!silent) { applySizeStatus(); done(6); updateProg(); if (window._redrawAttach) window._redrawAttach(); if (S.qr) syncQRAll(); }
+}
+function swapWH() {
+  const t = S.widthCm; S.widthCm = S.heightCm; S.heightCm = t; S.sizeCm = Math.max(S.widthCm, S.heightCm);
+  document.getElementById('rwSlider').value = S.widthCm; document.getElementById('rwN').value = S.widthCm;
+  document.getElementById('rhSlider').value = S.heightCm; document.getElementById('rhN').value = S.heightCm;
+  applySizeStatus(); done(6); updateProg();
+  if (window._redrawAttach) window._redrawAttach();
+  if (S.imgFront && S.cropStateFront) { reopenSilent(); } // 画像の縦横比を新しい形へ合わせ直す（必要時）
+  if (S.qr) syncQRAll();
+}
+function syncQRAll() { ['front','back'].forEach(s => { const w = document.getElementById('qrWrap-'+s); if (w && w.offsetWidth > 0) resyncQR(s); }); }
+function reopenSilent() { /* 縦横入れ替え時は既存画像をそのまま再フィット表示（drawPreview側でcover）。再切り抜きは不要 */ if (window._redrawAttach) window._redrawAttach(); drawPreview('front'); if (S.imgBack) drawPreview('back'); }
+
+// サイズのステータス文言（自由四角は横×縦、ダイアは長辺×短辺を表示）
+function applySizeStatus() {
+  const t = S.thickCm.toFixed(1) + 'cm';
+  let s;
+  if (S.shape === 'rect')        s = S.widthCm.toFixed(1) + '×' + S.heightCm.toFixed(1) + 'cm';
+  else if (S.shape === 'diecut') s = S.sizeCm.toFixed(1) + '×' + (S.sizeCm * dieAspect()).toFixed(1) + 'cm';
+  else                           s = S.sizeCm.toFixed(1) + 'cm';
+  document.getElementById('pd-size').textContent = s;
+  document.getElementById('ss6').textContent     = s + ' / 厚さ' + t;
+}
+
+function onRwSlider() { setW(+document.getElementById('rwSlider').value); }
+function onRwInput()  { setW(+document.getElementById('rwN').value); }
+function stepRw(d)    { setW(S.widthCm + d); }
+function onRhSlider() { setH(+document.getElementById('rhSlider').value); }
+function onRhInput()  { setH(+document.getElementById('rhN').value); }
+function stepRh(d)    { setH(S.heightCm + d); }
+
 function setTh(v) {
   v = clampTh(v);
   document.getElementById('thSlider').value = v;
   document.getElementById('thN').value      = v;
   S.thickCm = v;
-  const s = S.sizeCm.toFixed(1)+'cm', t = v.toFixed(1)+'cm';
-  document.getElementById('pd-thick').textContent = t;
-  document.getElementById('ss6').textContent      = s + ' / 厚さ' + t;
+  document.getElementById('pd-thick').textContent = v.toFixed(1) + 'cm';
+  applySizeStatus();
   done(6); updateProg();
 }
 function onSzSlider() { setSz(+document.getElementById('szSlider').value); }
@@ -1700,10 +1875,44 @@ function setAttachView(side) {
   function bodyGeom(aw, ah){
     const margin = 22;
     const maxBody = Math.min(aw - margin*2, ah - margin*2);
-    const ppc  = maxBody / 15;          // 1cmあたりpx（丸・四角の基準）
-    // ダイアカットはフレームを 1/DIE_FIT 倍にし、中のシルエット(=DIE_FIT)が ppc*sizeCm（=丸/四角と同じ見た目の大きさ）になるようにする
-    const size = (S.shape === 'diecut') ? (ppc * (S.sizeCm || 7) / DIE_FIT) : (ppc * (S.sizeCm || 7));
-    return { cx:aw/2, cy:ah/2, size:size, r:size/2, x:aw/2-size/2, y:ah/2-size/2, rad:size*0.06, ppc:ppc };
+    const ppc  = maxBody / 15;          // 1cmあたりpx（15cm=枠いっぱい）
+    // ダイアカットはフレームを 1/DIE_FIT 倍にし、中のシルエット(=DIE_FIT)が ppc*sizeCm（丸/四角と同じ見た目の大きさ）になるようにする
+    let w, h;
+    if (S.shape === 'diecut')    { w = h = ppc * (S.sizeCm || 7) / DIE_FIT; }
+    else if (S.shape === 'rect') { w = ppc * (S.widthCm || 7); h = ppc * (S.heightCm || 7); }
+    else                         { w = h = ppc * (S.sizeCm || 7); }
+    return { cx:aw/2, cy:ah/2, w:w, h:h, size:Math.max(w,h), r:Math.min(w,h)/2, x:aw/2-w/2, y:ah/2-h/2, rad:Math.min(w,h)*0.06, ppc:ppc };
+  }
+
+  // 本体の縦横の実寸(cm)を寸法線で表示。ダイアカットはシルエット外周の外接box、自由四角は本体そのもの。
+  function drawDims(g){
+    let bx0, by0, bx1, by1, wCm, hCm;
+    if (S.shape === 'diecut'){
+      const pts = diePtsBox(g); if (!pts) return;
+      bx0=1e9; by0=1e9; bx1=-1e9; by1=-1e9;
+      for (const p of pts){ if(p.x<bx0)bx0=p.x; if(p.x>bx1)bx1=p.x; if(p.y<by0)by0=p.y; if(p.y>by1)by1=p.y; }
+      const longPx = Math.max(bx1-bx0, by1-by0) || 1;
+      wCm = S.sizeCm * (bx1-bx0)/longPx; hCm = S.sizeCm * (by1-by0)/longPx;
+    } else if (S.shape === 'rect'){
+      bx0=g.x; by0=g.y; bx1=g.x+g.w; by1=g.y+g.h; wCm=S.widthCm; hCm=S.heightCm;
+    } else { return; }
+    const aw2 = cv.width / (Math.min(devicePixelRatio||1,2)), ah2 = cv.height / (Math.min(devicePixelRatio||1,2));
+    ctx.save();
+    ctx.strokeStyle='rgba(255,255,255,.55)'; ctx.fillStyle='rgba(255,255,255,.92)';
+    ctx.lineWidth=1; ctx.setLineDash([]); ctx.font='10px sans-serif';
+    // 横寸法線（下側）
+    const yb = Math.min(by1 + 11, ah2 - 3);
+    ctx.beginPath(); ctx.moveTo(bx0,yb); ctx.lineTo(bx1,yb);
+    ctx.moveTo(bx0,yb-3); ctx.lineTo(bx0,yb+3); ctx.moveTo(bx1,yb-3); ctx.lineTo(bx1,yb+3); ctx.stroke();
+    ctx.textAlign='center'; ctx.textBaseline='top';
+    ctx.fillText(wCm.toFixed(1)+'cm', (bx0+bx1)/2, yb+2);
+    // 縦寸法線（右側）
+    const xr = Math.min(bx1 + 11, aw2 - 3);
+    ctx.beginPath(); ctx.moveTo(xr,by0); ctx.lineTo(xr,by1);
+    ctx.moveTo(xr-3,by0); ctx.lineTo(xr+3,by0); ctx.moveTo(xr-3,by1); ctx.lineTo(xr+3,by1); ctx.stroke();
+    ctx.save(); ctx.translate(xr+2, (by0+by1)/2); ctx.rotate(Math.PI/2);
+    ctx.textAlign='center'; ctx.textBaseline='bottom'; ctx.fillText(hCm.toFixed(1)+'cm', 0, 0); ctx.restore();
+    ctx.restore();
   }
 
   // ダイアカット ポリゴンユーティリティ
@@ -1722,12 +1931,12 @@ function setAttachView(side) {
   function isInsideBody(px, py, g){
     if (S.shape === 'circle') return Math.hypot(px-g.cx, py-g.cy) <= g.r;
     if (S.shape === 'diecut'){ const pts=diePtsBox(g); if(pts) return pointInPoly(px,py,pts); }
-    return px>=g.x && px<=g.x+g.size && py>=g.y && py<=g.y+g.size;
+    return px>=g.x && px<=g.x+g.w && py>=g.y && py<=g.y+g.h;
   }
   function lugFullyInside(px, py, g, lugR){
     if (S.shape === 'circle') return Math.hypot(px-g.cx, py-g.cy)+lugR <= g.r;
     if (S.shape === 'diecut'){ const pts=diePtsBox(g); if(pts) return pointInPoly(px,py,pts) && minEdgeDist(px,py,pts)>=lugR; }
-    return px>=g.x+lugR && px<=g.x+g.size-lugR && py>=g.y+lugR && py<=g.y+g.size-lugR;
+    return px>=g.x+lugR && px<=g.x+g.w-lugR && py>=g.y+lugR && py<=g.y+g.h-lugR;
   }
   // 穴の付け根（本体の縁）と、首の向き ang を返す。
   // ダイアカット／四角：穴から一番近い縁の点。向きは「最近点→穴」（＝辺に直角に接続）
@@ -1736,7 +1945,7 @@ function setAttachView(side) {
     if (S.shape === 'diecut'){ const pts=diePtsBox(g); if(pts){ const a=nearestOnPoly(hx,hy,pts); return {x:a.x, y:a.y, ang:Math.atan2(hy-a.y, hx-a.x)}; } }
     if (S.shape === 'circle'){ const ang = Math.atan2(hy-g.cy, hx-g.cx); return {x:g.cx+Math.cos(ang)*g.r, y:g.cy+Math.sin(ang)*g.r, ang:ang}; }
     // 四角：外周の最近点（一番近い辺へ直角／角では角へ）
-    const x2=g.x+g.size, y2=g.y+g.size;
+    const x2=g.x+g.w, y2=g.y+g.h;
     const cands=[{x:Math.max(g.x,Math.min(x2,hx)),y:g.y},{x:Math.max(g.x,Math.min(x2,hx)),y:y2},{x:g.x,y:Math.max(g.y,Math.min(y2,hy))},{x:x2,y:Math.max(g.y,Math.min(y2,hy))}];
     let best=cands[0],bd=Infinity; for(const c of cands){const d=(hx-c.x)*(hx-c.x)+(hy-c.y)*(hy-c.y); if(d<bd){bd=d;best=c;}}
     return {x:best.x, y:best.y, ang:Math.atan2(hy-best.y, hx-best.x)};
@@ -1746,7 +1955,7 @@ function setAttachView(side) {
     ctx.beginPath();
     if (S.shape === 'circle') { ctx.arc(g.cx, g.cy, g.r, 0, Math.PI*2); return; }
     if (S.shape === 'diecut'){ const pts=diePtsBox(g); if(pts){ ctx.moveTo(pts[0].x,pts[0].y); for(let i=1;i<pts.length;i++) ctx.lineTo(pts[i].x,pts[i].y); ctx.closePath(); return; } }
-    rrect(ctx, g.x, g.y, g.size, g.size, g.rad);
+    rrect(ctx, g.x, g.y, g.w, g.h, g.rad);
   }
   function drawBody(g){
     const backNoPrint = (S.attachView === 'back' && !S.imgBack);   // 裏面・印刷なし
@@ -1761,10 +1970,10 @@ function setAttachView(side) {
     ctx.save(); bodyPath(g); ctx.clip();
     if (S.shape === 'diecut') { ctx.fillStyle = acryl; ctx.fill(); }
     if (imgEl) {
-      const ir = imgEl.naturalWidth / imgEl.naturalHeight;
+      const ir = imgEl.naturalWidth / imgEl.naturalHeight, br = g.w / g.h;
       let dw,dh,dx,dy;
-      if (ir > 1) { dh=g.size;dw=dh*ir;dx=g.x-(dw-g.size)/2;dy=g.y; }
-      else         { dw=g.size;dh=dw/ir;dy=g.y-(dh-g.size)/2;dx=g.x; }
+      if (ir > br) { dh=g.h; dw=dh*ir; dx=g.x-(dw-g.w)/2; dy=g.y; }
+      else         { dw=g.w; dh=dw/ir; dy=g.y-(dh-g.h)/2; dx=g.x; }
       ctx.drawImage(imgEl, dx, dy, dw, dh);
     } else { ctx.fillStyle = acryl; ctx.fill(); }   // 画像なし（裏面印刷なし含む）＝アクリル単色
     ctx.restore();
@@ -1792,7 +2001,7 @@ function setAttachView(side) {
       tctx.globalCompositeOperation = 'destination-out'; tctx.fillStyle = '#000';
       tctx.beginPath();
       if (S.shape === 'circle') tctx.arc(g.cx, g.cy, g.r, 0, Math.PI*2);
-      else rrect(tctx, g.x, g.y, g.size, g.size, g.rad);
+      else rrect(tctx, g.x, g.y, g.w, g.h, g.rad);
       tctx.fill(); tctx.globalCompositeOperation = 'source-over';
     }
     return _tabCv;
@@ -1815,7 +2024,7 @@ function setAttachView(side) {
     ctx.clearRect(0,0,aw,ah);
 
     const g     = bodyGeom(aw, ah);
-    const hx    = g.x + g.size * S.attX/100, hy = g.y + g.size * S.attY/100;
+    const hx    = g.x + g.w * S.attX/100, hy = g.y + g.h * S.attY/100;
     const holeR = Math.max(2, (S.holeCm/2) * g.ppc);
     const lugR  = holeR + Math.max(8, holeR * 0.9);
     const inside = isInsideBody(hx, hy, g);
@@ -1850,6 +2059,9 @@ function setAttachView(side) {
     ctx.beginPath(); ctx.arc(hx,hy,holeR+5,0,Math.PI*2); ctx.stroke(); ctx.setLineDash([]);
 
     ctx.restore();
+
+    // ダイアカット／自由四角：本体の寸法線（縦・横の実寸cm）をプレビュー上に表示
+    drawDims(g);
 
     // 面ラベル
     ctx.fillStyle='rgba(255,255,255,.5)';
@@ -1886,8 +2098,8 @@ function setAttachView(side) {
         hy = a.y + Math.sin(ang) * maxOut;
       }
     }
-    S.attX = (hx - g.x) / g.size * 100;
-    S.attY = (hy - g.y) / g.size * 100;
+    S.attX = (hx - g.x) / g.w * 100;
+    S.attY = (hy - g.y) / g.h * 100;
     redraw();
   }
   wrap.addEventListener('mousedown',  e => { drag=true; e.preventDefault(); setFromPointer(e.clientX, e.clientY); });
@@ -1938,6 +2150,8 @@ function doSubmit() {
     qrFront:    { ...QRS.front },
     qrBack:     { ...QRS.back },
     sizeCm:     S.sizeCm,
+    widthCm:    S.shape === 'rect' ? S.widthCm  : S.sizeCm,
+    heightCm:   S.shape === 'rect' ? S.heightCm : S.sizeCm,
     thickCm:    S.thickCm,
     attX:       S.attX,
     attY:       S.attY,
