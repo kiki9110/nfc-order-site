@@ -435,10 +435,10 @@ body{font-family:'Noto Sans JP',sans-serif;background:var(--paper);color:var(--i
       <div class="slider-group">
         <label>横（幅）</label>
         <div class="slider-row">
-          <input type="range" id="rwSlider" min="3" max="15" step="0.5" value="12" oninput="onRwSlider()">
+          <input type="range" id="rwSlider" min="3" max="9" step="0.5" value="9" oninput="onRwSlider()">
           <div class="num-step">
             <button onclick="stepRw(-0.5)">−</button>
-            <input type="number" id="rwN" min="3" max="15" step="0.5" value="12" oninput="onRwInput()">
+            <input type="number" id="rwN" min="3" max="9" step="0.5" value="9" oninput="onRwInput()">
             <span class="unit">cm</span>
             <button onclick="stepRw(0.5)">＋</button>
           </div>
@@ -447,10 +447,10 @@ body{font-family:'Noto Sans JP',sans-serif;background:var(--paper);color:var(--i
       <div class="slider-group">
         <label>縦（高さ）</label>
         <div class="slider-row">
-          <input type="range" id="rhSlider" min="3" max="15" step="0.5" value="6" oninput="onRhSlider()">
+          <input type="range" id="rhSlider" min="3" max="9" step="0.5" value="6" oninput="onRhSlider()">
           <div class="num-step">
             <button onclick="stepRh(-0.5)">−</button>
-            <input type="number" id="rhN" min="3" max="15" step="0.5" value="6" oninput="onRhInput()">
+            <input type="number" id="rhN" min="3" max="9" step="0.5" value="6" oninput="onRhInput()">
             <span class="unit">cm</span>
             <button onclick="stepRh(0.5)">＋</button>
           </div>
@@ -483,7 +483,7 @@ body{font-family:'Noto Sans JP',sans-serif;background:var(--paper);color:var(--i
         </div>
       </div>
     </div>
-    <div style="font-size:11px;color:var(--muted);margin-top:4px;line-height:1.6;">※ 丸・四角は最大9cm。自由四角は片方を最大15cm・もう片方を最大9cm（最小3cm）。ダイアカットは長辺15cm・短辺9cmの枠に収まります。</div>
+    <div style="font-size:11px;color:var(--muted);margin-top:4px;line-height:1.6;">※ サイズはすべての形状で最小3cm・最大9cmです。自由四角は縦横それぞれ3〜9cm、ダイアカットは9×9cmの枠に収まります。</div>
   </div>
 </div>
 
@@ -605,7 +605,7 @@ const S = {
   qrFront:    { x: 50, y: 50, cm: 2 },
   qrBack:     { x: 50, y: 50, cm: 2 },
   sizeCm:     7, thickCm: 2.5,        // sizeCm = 長辺（丸/四角=辺, 自由四角=max(縦横), ダイア=長辺）
-  widthCm:    12, heightCm: 6,      // 自由四角(rect)専用：横・縦
+  widthCm:    9, heightCm: 6,      // 自由四角(rect)専用：横・縦
 
   attX:       50, attY: 10, attAngle: 0,
   holeCm:     0.5,     // 穴の直径(cm) ＝ 5mm 固定
@@ -1715,21 +1715,17 @@ function dieAspect() {
   return lng > 0 ? sht/lng : 1;
 }
 
-// 長辺スライダー（丸・四角・ダイア）の上限。ダイアは短辺が9cmを超えないよう縦横比から決める。
+// 長辺スライダー（丸・四角・ダイア）の上限。すべて9cm。
 function maxSizeFor(shape) {
-  if (shape === 'diecut') return Math.round(Math.min(15, 9 / Math.max(dieAspect(), 1e-3)) * 10) / 10;
-  return 9; // 丸・四角
+  return 9; // 丸・四角・ダイアカット すべて長辺9cm（ダイアは短辺も自動で9cm以内）
 }
 function clampSz(v) { return Math.min(maxSizeFor(S.shape), Math.max(3, Math.round(v*10)/10)); }
 function clampTh(v) { return Math.min(5, Math.max(2.5, Math.round(v*10)/10)); }
 
-// 自由四角の縦横ルール：各辺3〜15cm。ただし9cmを超えられるのは片方だけ（動かした側を優先）。
-function clamp1(v) { return Math.min(15, Math.max(3, Math.round(v*10)/10)); }
+// 自由四角の縦横ルール：各辺3〜9cm。
+function clamp1(v) { return Math.min(9, Math.max(3, Math.round(v*10)/10)); }
 function applyRectRule(w, h, changed) {
-  w = clamp1(w); h = clamp1(h);
-  if (changed === 'w') { if (w > 9) h = Math.min(h, 9); else if (h > 9) w = Math.min(w, 9); }
-  else                 { if (h > 9) w = Math.min(w, 9); else if (w > 9) h = Math.min(h, 9); }
-  return { w, h };
+  return { w: clamp1(w), h: clamp1(h) };   // 各辺3〜9cm（上限9cm）
 }
 
 // 長辺スライダーの上限/最小・ダイア短辺表示をまとめて更新
@@ -1745,7 +1741,7 @@ function updateSizeUI() {
   const ds = document.getElementById('dieShort');
   if (S.shape === 'diecut') {
     ds.style.display = 'block';
-    ds.textContent = '短辺：約 ' + (S.sizeCm * dieAspect()).toFixed(1) + 'cm（枠 最大15×9cm）';
+    ds.textContent = '短辺：約 ' + (S.sizeCm * dieAspect()).toFixed(1) + 'cm（枠 最大9×9cm）';
   } else { ds.style.display = 'none'; }
 }
 
@@ -1757,7 +1753,7 @@ function setSz(v) {
   if (S.shape === 'diecut') {
     const ds = document.getElementById('dieShort');
     ds.style.display = 'block';
-    ds.textContent = '短辺：約 ' + (v * dieAspect()).toFixed(1) + 'cm（枠 最大15×9cm）';
+    ds.textContent = '短辺：約 ' + (v * dieAspect()).toFixed(1) + 'cm（枠 最大9×9cm）';
   }
   applySizeStatus();
   done(6); updateProg();
