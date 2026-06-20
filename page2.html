@@ -44,11 +44,9 @@ body{font-family:'Noto Sans JP',sans-serif;background:var(--paper);color:var(--i
 .sec.locked .lock-bar{display:block;}
 
 /* OPTION LOCK（未購入オプションのロック表示：灰色＋斜線） */
-/* セクション見出し（NFC・両面印刷）と形状ボタン（ダイアカット）に適用 */
 .opt-locked{
   position:relative;
   cursor:not-allowed !important;
-  /* 灰色の斜線（ストライプ）を重ねて「使えない」ことを明確にする */
   background-image:repeating-linear-gradient(
     45deg,
     rgba(150,150,150,.18),
@@ -57,10 +55,8 @@ body{font-family:'Noto Sans JP',sans-serif;background:var(--paper);color:var(--i
     rgba(150,150,150,.07) 12px
   ) !important;
 }
-/* 見出しの場合：文字を灰色に */
 .sec.opt-locked .sec-head{color:#9a9a9a;}
 .sec.opt-locked .sec-status::after{content:' 🔒';}
-/* 形状ボタンの場合：中身を少し薄く＋鍵マーク */
 .shape-btn.opt-locked{border-color:#d5d5d5 !important;background-color:#f3f3f3 !important;}
 .shape-btn.opt-locked .shape-name::after{content:' 🔒';font-size:10px;}
 
@@ -580,9 +576,8 @@ const S = {
   attMode:    'inside', // 'inside'(本体に穴) / 'outside'(外付けツメ)
   attachView: 'front',
   // 購入済みオプション（読み込み時に customer-get から取得）。
-  // ここが false のオプションは page2 上でロックされ、押すと alert を出す。
-  // 取得に失敗した場合のフォールバックは「全て true（=ロックしない）」とし、
-  // 通信不調で注文できなくなる事故を防ぐ。
+  // false のオプションはロックされ、押すと赤いトーストを出す。
+  // 取得失敗時は「全て true（ロックしない）」として注文不能の事故を防ぐ。
   purchased:  { nfc: true, double: true, diecut: true },
 };
 let cropTarget = 'front';
@@ -592,27 +587,20 @@ document.getElementById('topOrder').textContent = S.orderId;
 // ═══════════════════════════════════════════════════════
 // 購入オプションの取得とロック適用
 // ═══════════════════════════════════════════════════════
-// page1 で入力された注文番号をもとに「何が購入されたか」を取得し、
 // 購入されていないオプション（NFC・両面印刷・ダイアカット）をロックする。
-// ロックされた項目は灰色＋斜線で表示し、押すと「注文されていません」と alert を出す。
-// ※ この関数は WORKER_ORIGIN 定義後に呼び出す（下部の initColors の後で実行）。
+// ロックされた項目は灰色＋斜線で表示し、押すと赤いトーストを出す。
+// ※ この関数は WORKER_ORIGIN 定義後に呼び出す（initColors の後で実行）。
 async function initPurchasedOptions() {
   const oid = S.orderId;
-  if (!oid || oid === '—') return; // 注文番号が無い場合は何もしない（全て使用可のまま）
+  if (!oid || oid === '—') return;
 
   try {
     const r = await fetch(WORKER_ORIGIN + '/api/customer-get?orderId=' + encodeURIComponent(oid));
-    if (!r.ok) return;            // 取得失敗 → フォールバック（全て使用可）
+    if (!r.ok) return;
     const d = await r.json();
-    if (!d || !d.exists) return;  // 未登録 → フォールバック（全て使用可）
-
-    // 取得した購入状況を反映（値が無いオプションは false 扱い＝ロック）
+    if (!d || !d.exists) return;
     const opt = d.options || {};
-    S.purchased = {
-      nfc:    !!opt.nfc,
-      double: !!opt.double,
-      diecut: !!opt.diecut,
-    };
+    S.purchased = { nfc: !!opt.nfc, double: !!opt.double, diecut: !!opt.diecut };
   } catch (e) {
     return; // 通信エラー → フォールバック（全て使用可）
   }
@@ -620,34 +608,24 @@ async function initPurchasedOptions() {
   applyOptionLocks();
 }
 
-// 購入状況に応じて各オプションUIをロック表示にする
 function applyOptionLocks() {
-  // NFC（セクション3）
   setSectionLock('sec3', S.purchased.nfc, 'NFCタグ');
-  // 両面印刷（セクション35）
   setSectionLock('sec35', S.purchased.double, '両面印刷');
-  // ダイアカット（形状ボタン）
   setShapeLock(S.purchased.diecut);
 }
 
-// セクション（NFC・両面印刷）をロック/解除する。
-// locked=false（未購入）のとき、見出しに opt-locked クラスを付け、開かないようにする。
+// セクション（NFC・両面印刷）をロック/解除する
 function setSectionLock(secId, purchased, optName) {
   const sec = document.getElementById(secId);
   if (!sec) return;
-  if (purchased) {
-    sec.classList.remove('opt-locked');
-    return;
-  }
-  // 未購入 → ロック表示にし、本文は閉じておく
+  if (purchased) { sec.classList.remove('opt-locked'); return; }
   sec.classList.add('opt-locked');
   const body = sec.querySelector('.sec-body');
   if (body) body.classList.add('hidden');
-  // ロック対象の名前を記録（alert メッセージ用）
   sec.setAttribute('data-opt-name', optName);
 }
 
-// ダイアカットの形状ボタンをロック/解除する。
+// ダイアカットの形状ボタンをロック/解除する
 function setShapeLock(purchased) {
   const btn = document.getElementById('sh-diecut');
   if (!btn) return;
@@ -2075,7 +2053,6 @@ function submitOrder(orderData) {
 function toast(msg, type) {
   const el = document.getElementById('toast');
   el.textContent = msg;
-  // type='alert' のとき赤系で目立たせる（オプション未購入など）
   el.classList.toggle('alert', type === 'alert');
   el.classList.add('show');
   setTimeout(() => el.classList.remove('show'), 2800);
