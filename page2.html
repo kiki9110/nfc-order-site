@@ -411,7 +411,7 @@ body{font-family:'Noto Sans JP',sans-serif;background:var(--paper);color:var(--i
   <div class="sec-head" onclick="toggle(6)">
     <div class="sec-num" id="sn6">6</div>
     <div class="sec-title">サイズ設定</div>
-    <div class="sec-status" id="ss6">7.0cm / 厚さ2.0cm</div>
+    <div class="sec-status" id="ss6">7.0cm / 厚さ2.5cm</div>
   </div>
   <div class="sec-body hidden" id="sb6">
     <!-- 丸・四角・ダイアカット：長辺1本のスライダー -->
@@ -462,10 +462,10 @@ body{font-family:'Noto Sans JP',sans-serif;background:var(--paper);color:var(--i
     <div class="slider-group">
       <label>厚さ</label>
       <div class="slider-row">
-        <input type="range" id="thSlider" min="1" max="4" step="0.5" value="2" oninput="onThSlider()">
+        <input type="range" id="thSlider" min="2.5" max="5" step="0.5" value="2.5" oninput="onThSlider()">
         <div class="num-step">
           <button onclick="stepTh(-0.5)">−</button>
-          <input type="number" id="thN" min="1" max="4" step="0.5" value="2" oninput="onThInput()">
+          <input type="number" id="thN" min="2.5" max="5" step="0.5" value="2.5" oninput="onThInput()">
           <span class="unit">cm</span>
           <button onclick="stepTh(0.5)">＋</button>
         </div>
@@ -522,7 +522,7 @@ body{font-family:'Noto Sans JP',sans-serif;background:var(--paper);color:var(--i
     </div>
     <div class="size-pills">
       <div class="pill"><div class="pill-label">長辺</div><div class="pill-val" id="pd-size">7.0cm</div></div>
-      <div class="pill"><div class="pill-label">厚さ</div><div class="pill-val" id="pd-thick">2.0cm</div></div>
+      <div class="pill"><div class="pill-label">厚さ</div><div class="pill-val" id="pd-thick">2.5cm</div></div>
       <div class="pill"><div class="pill-label">形状</div><div class="pill-val" id="pd-shape">—</div></div>
       <div class="pill"><div class="pill-label">カラー</div><div class="pill-val" id="pd-color">—</div></div>
     </div>
@@ -604,7 +604,7 @@ const S = {
   qr:         false, qrSide: null, qrUrl: '',
   qrFront:    { x: 50, y: 50, cm: 2 },
   qrBack:     { x: 50, y: 50, cm: 2 },
-  sizeCm:     7, thickCm: 2,        // sizeCm = 長辺（丸/四角=辺, 自由四角=max(縦横), ダイア=長辺）
+  sizeCm:     7, thickCm: 2.5,        // sizeCm = 長辺（丸/四角=辺, 自由四角=max(縦横), ダイア=長辺）
   widthCm:    12, heightCm: 6,      // 自由四角(rect)専用：横・縦
 
   attX:       50, attY: 10, attAngle: 0,
@@ -1721,7 +1721,7 @@ function maxSizeFor(shape) {
   return 9; // 丸・四角
 }
 function clampSz(v) { return Math.min(maxSizeFor(S.shape), Math.max(3, Math.round(v*10)/10)); }
-function clampTh(v) { return Math.min(4, Math.max(1, Math.round(v*10)/10)); }
+function clampTh(v) { return Math.min(5, Math.max(2.5, Math.round(v*10)/10)); }
 
 // 自由四角の縦横ルール：各辺3〜15cm。ただし9cmを超えられるのは片方だけ（動かした側を優先）。
 function clamp1(v) { return Math.min(15, Math.max(3, Math.round(v*10)/10)); }
@@ -1848,7 +1848,7 @@ function onBdSlider() { setBorderCm(+document.getElementById('bdSlider').value);
 function onBdInput()  { setBorderCm(+document.getElementById('bdN').value); }
 function stepBd(d)    { setBorderCm((+document.getElementById('bdN').value || 0) + d); }
 
-setSz(7); setTh(2); // 初期値
+setSz(7); setTh(2.5); // 初期値
 
 // ═══════════════════════════════════════════════════════
 // 穴エディタ（canvas直接ドラッグ・5mm固定）
