@@ -44,7 +44,7 @@ body{font-family:'Noto Sans JP',sans-serif;background:var(--paper);color:var(--i
 .sec.locked .lock-bar{display:block;}
 
 /* OPTION LOCK（未購入オプションのロック表示：灰色＋斜線） */
-/* セクション見出し（NFC・両面印刷）と形状ボタン（ダイアカット）に適用 */
+/* セクション見出し（NFC・両面印刷）と形状ボタン（ダイカット）に適用 */
 .opt-locked{
   position:relative;
   cursor:not-allowed !important;
@@ -247,7 +247,7 @@ body{font-family:'Noto Sans JP',sans-serif;background:var(--paper);color:var(--i
             <circle cx="20" cy="14" r="4" fill="#ccc8be"/>
           </svg>
         </div>
-        <div class="shape-name">ダイアカット</div>
+        <div class="shape-name">ダイカット</div>
         <div class="shape-sub">輪郭切抜</div>
         <div style="display:inline-block;margin-top:4px;font-size:10px;font-weight:700;padding:2px 7px;background:#fde8e0;color:var(--accent);border-radius:20px;">+¥150</div>
       </button>
@@ -411,10 +411,10 @@ body{font-family:'Noto Sans JP',sans-serif;background:var(--paper);color:var(--i
   <div class="sec-head" onclick="toggle(6)">
     <div class="sec-num" id="sn6">6</div>
     <div class="sec-title">サイズ設定</div>
-    <div class="sec-status" id="ss6">7.0cm / 厚さ2.5mm</div>
+    <div class="sec-status" id="ss6">7.0cm / 厚さ2.5cm</div>
   </div>
   <div class="sec-body hidden" id="sb6">
-    <!-- 丸・四角・ダイアカット：長辺1本のスライダー -->
+    <!-- 丸・四角・ダイカット：長辺1本のスライダー -->
     <div class="slider-group" id="szGroup">
       <label id="szLabel">長辺（最長部分）</label>
       <div class="slider-row">
@@ -426,7 +426,7 @@ body{font-family:'Noto Sans JP',sans-serif;background:var(--paper);color:var(--i
           <button onclick="stepSz(0.5)">＋</button>
         </div>
       </div>
-      <!-- ダイアカットのみ：短辺の自動計算値を表示 -->
+      <!-- ダイカットのみ：短辺の自動計算値を表示 -->
       <div id="dieShort" style="display:none;margin-top:6px;font-size:12px;color:var(--accent);font-weight:600;"></div>
     </div>
 
@@ -466,13 +466,13 @@ body{font-family:'Noto Sans JP',sans-serif;background:var(--paper);color:var(--i
         <div class="num-step">
           <button onclick="stepTh(-0.5)">−</button>
           <input type="number" id="thN" min="2.5" max="5" step="0.5" value="2.5" oninput="onThInput()">
-          <span class="unit">mm</span>
+          <span class="unit">cm</span>
           <button onclick="stepTh(0.5)">＋</button>
         </div>
       </div>
     </div>
     <div class="slider-group" id="bdGroup" style="display:none;">
-      <label>縁の厚さ（ダイアカットの枠）</label>
+      <label>縁の厚さ（ダイカットの枠）</label>
       <div class="slider-row">
         <input type="range" id="bdSlider" min="0" max="1" step="0.1" value="0.3" oninput="onBdSlider()">
         <div class="num-step">
@@ -483,7 +483,7 @@ body{font-family:'Noto Sans JP',sans-serif;background:var(--paper);color:var(--i
         </div>
       </div>
     </div>
-    <div style="font-size:11px;color:var(--muted);margin-top:4px;line-height:1.6;">※ サイズはすべての形状で最小3cm・最大9cmです。自由四角は縦横それぞれ3〜9cm、ダイアカットは9×9cmの枠に収まります。</div>
+    <div style="font-size:11px;color:var(--muted);margin-top:4px;line-height:1.6;">※ サイズはすべての形状で最小3cm・最大9cmです。自由四角は縦横それぞれ3〜9cm、ダイカットは9×9cmの枠に収まります。</div>
   </div>
 </div>
 
@@ -522,7 +522,7 @@ body{font-family:'Noto Sans JP',sans-serif;background:var(--paper);color:var(--i
     </div>
     <div class="size-pills">
       <div class="pill"><div class="pill-label">長辺</div><div class="pill-val" id="pd-size">7.0cm</div></div>
-      <div class="pill"><div class="pill-label">厚さ</div><div class="pill-val" id="pd-thick">2.5mm</div></div>
+      <div class="pill"><div class="pill-label">厚さ</div><div class="pill-val" id="pd-thick">2.5cm</div></div>
       <div class="pill"><div class="pill-label">形状</div><div class="pill-val" id="pd-shape">—</div></div>
       <div class="pill"><div class="pill-label">カラー</div><div class="pill-val" id="pd-color">—</div></div>
     </div>
@@ -551,7 +551,7 @@ body{font-family:'Noto Sans JP',sans-serif;background:var(--paper);color:var(--i
       <img id="cropImg" src="" alt="">
       <canvas id="maskCv"></canvas>
     </div>
-    <div class="dicut-bar" id="dicutBar">📐 ダイアカット：画像の輪郭に沿って切り抜きます。背景透過PNGを推奨。</div>
+    <div class="dicut-bar" id="dicutBar">📐 ダイカット：画像の輪郭に沿って切り抜きます。背景透過PNGを推奨。</div>
     <div class="crop-ctrl">
       <div class="cr-row">
         <span class="cr-label">サイズ</span>
@@ -598,8 +598,8 @@ const S = {
   imgFront:   null, imgBack: null,
   imgFrontSrc:null, imgBackSrc: null,   // オリジナルソース（再調整用）
   cropStateFront: null, cropStateBack: null, // 前回のクロップ設定
-  dieFront:   null, dieBack: null,       // ダイアカットの実シルエット外周（正規化ポリゴン）
-  dieHolesFront: [], dieHolesBack: [],   // ダイアカットの中抜き穴（折れ防止OFF時に検出される正規化ポリゴンの配列）
+  dieFront:   null, dieBack: null,       // ダイカットの実シルエット外周（正規化ポリゴン）
+  dieHolesFront: [], dieHolesBack: [],   // ダイカットの中抜き穴（折れ防止OFF時に検出される正規化ポリゴンの配列）
   dieReinforce:  false,                  // 折れ防止は廃止：常に false（イラストどおりにすき間・中抜き穴を残す）
   qr:         false, qrSide: null, qrUrl: '',
   qrFront:    { x: 50, y: 50, cm: 2 },
@@ -609,7 +609,7 @@ const S = {
 
   attX:       50, attY: 10, attAngle: 0,
   holeCm:     0.5,     // 穴の直径(cm) ＝ 5mm 固定
-  borderCm:   0.3,     // ダイアカットの縁の厚さ(cm)
+  borderCm:   0.3,     // ダイカットの縁の厚さ(cm)
   attMode:    'inside', // 'inside'(本体に穴) / 'outside'(外付けツメ)
   attachView: 'front',
   // 購入済みオプション（読み込み時に customer-get から取得）。
@@ -626,7 +626,7 @@ document.getElementById('topOrder').textContent = S.orderId;
 // 購入オプションの取得とロック適用
 // ═══════════════════════════════════════════════════════
 // page1 で入力された注文番号をもとに「何が購入されたか」を取得し、
-// 購入されていないオプション（NFC・両面印刷・ダイアカット）をロックする。
+// 購入されていないオプション（NFC・両面印刷・ダイカット）をロックする。
 // ロックされた項目は灰色＋斜線で表示し、押すと「注文されていません」と alert を出す。
 // ※ この関数は WORKER_ORIGIN 定義後に呼び出す（下部の initColors の後で実行）。
 async function initPurchasedOptions() {
@@ -659,7 +659,7 @@ function applyOptionLocks() {
   setSectionLock('sec3', S.purchased.nfc, 'NFCタグ');
   // 両面印刷（セクション35）
   setSectionLock('sec35', S.purchased.double, '両面印刷');
-  // ダイアカット（形状ボタン）
+  // ダイカット（形状ボタン）
   setShapeLock(S.purchased.diecut);
 }
 
@@ -680,7 +680,7 @@ function setSectionLock(secId, purchased, optName) {
   sec.setAttribute('data-opt-name', optName);
 }
 
-// ダイアカットの形状ボタンをロック/解除する。
+// ダイカットの形状ボタンをロック/解除する。
 function setShapeLock(purchased) {
   const btn = document.getElementById('sh-diecut');
   if (!btn) return;
@@ -805,16 +805,16 @@ initPurchasedOptions();
 // SHAPE
 // ═══════════════════════════════════════════════════════
 function pickShape(sh) {
-  // ダイアカットが未購入のときは選択させず、赤いトーストで通知
+  // ダイカットが未購入のときは選択させず、赤いトーストで通知
   if (sh === 'diecut' && !S.purchased.diecut) {
-    toast('ダイアカットは注文されていません', 'alert');
+    toast('ダイカットは注文されていません', 'alert');
     return;
   }
   ['circle','square','rect','diecut'].forEach(s => {
     document.getElementById('sh-' + s).classList.toggle('sel', s === sh);
   });
   S.shape = sh;
-  const names = { circle:'丸型', square:'四角形', rect:'自由四角', diecut:'ダイアカット' };
+  const names = { circle:'丸型', square:'四角形', rect:'自由四角', diecut:'ダイカット' };
   document.getElementById('ss2').textContent = names[sh];
   document.getElementById('pd-shape').textContent = { circle:'丸', square:'四角', rect:'長方形', diecut:'ダイカ' }[sh];
   document.getElementById('diecut-note').style.display = sh === 'diecut' ? 'block' : 'none';
@@ -1005,10 +1005,10 @@ function openCropModal() {
     document.getElementById('dicutBar').style.display   = sh === 'diecut' ? 'block' : 'none';
     document.getElementById('dicutBar').textContent = backDie
       ? '📐 裏面は表面の形に合わせて切り抜きます。位置・大きさだけ調整してください。'
-      : '📐 ダイアカット：画像の輪郭に沿って切り抜きます。背景透過PNGを推奨。';
+      : '📐 ダイカット：画像の輪郭に沿って切り抜きます。背景透過PNGを推奨。';
     document.getElementById('rotRow').style.display = (sh === 'circle' || sh === 'square' || sh === 'rect') ? 'flex' : 'none';
     document.getElementById('cropTitle').textContent = sh === 'diecut'
-      ? (backDie ? '裏面の位置を調整（形は表面に同じ）' : 'ダイアカット輪郭を確定') : '画像の位置・サイズを調整';
+      ? (backDie ? '裏面の位置を調整（形は表面に同じ）' : 'ダイカット輪郭を確定') : '画像の位置・サイズを調整';
     document.getElementById('cropModal').classList.add('open');
   });
 }
@@ -1114,10 +1114,10 @@ function rrect(ctx, x, y, w, h, r) {
 }
 
 // ═══════════════════════════════════════════════════════
-// ダイアカット輪郭トレース
+// ダイカット輪郭トレース
 // alpha → closing → 縁取り(dilate) → 境界追跡(Moore) → 平滑化(Chaikin)
 // ═══════════════════════════════════════════════════════
-// ダイアカット：シルエット（キャラ輪郭）がフレームの何割を占めるか。
+// ダイカット：シルエット（キャラ輪郭）がフレームの何割を占めるか。
 // 切り取り時にこの割合へ自動フィットさせ、同じ sizeCm なら切り取り方に関係なく同じ大きさにする。
 // 残り(約9%×2)は縁取りのはみ出し用マージン。
 const DIE_FIT = 0.82;
@@ -1273,7 +1273,7 @@ function recomputeDie(face, cb) {
   im.onerror = () => { if (cb) cb(); };
   im.src = src;
 }
-// 中抜き穴を描画（ダイアカット共通）。
+// 中抜き穴を描画（ダイカット共通）。
 //  mode='cut' : 透明にくり抜く（明るい背景のプレビュー用）
 //  mode='fill': 指定色で塗る（暗い背景の穴エディタ用）
 function diePunchHoles(ctx, holes, ox, oy, w, h, mode, bg) {
@@ -1294,7 +1294,7 @@ function diePathScreen(ctx, poly, ox, oy, size) {
   for (let i = 1; i < poly.length; i++) ctx.lineTo(ox + poly[i].x * size, oy + poly[i].y * size);
   ctx.closePath();
 }
-// ダイアカット「折れ防止OFF」用：画像のアルファ（透明部分）に沿って本体を描く。
+// ダイカット「折れ防止OFF」用：画像のアルファ（透明部分）に沿って本体を描く。
 // 画像を s×s で (x,y) に敷き、その不透明部分を borderPx ぶん外側へ膨張させた縁取りを付ける。
 // 穴・手足のすき間など透明な部分はそのまま抜ける（ポリゴンでは出せない完璧な抜き）。
 // withImage=false なら画像を重ねずアクリル色のシルエットのみ（裏面・印刷なし用）。
@@ -1404,7 +1404,7 @@ function dieSubjectBBoxNorm(imgEl, drawX, drawY, frameSrc, rot, probeN) {
   if (maxX < 0) return null;
   return { x0: minX/probeN, y0: minY/probeN, x1: (maxX+1)/probeN, y1: (maxY+1)/probeN };
 }
-// ダイアカット：元画像から被写体を「元解像度を保ったまま」切り出し、DIE_FITで中央に収めた outN×outN を返す。
+// ダイカット：元画像から被写体を「元解像度を保ったまま」切り出し、DIE_FITで中央に収めた outN×outN を返す。
 // 被写体を小さく配置しても、固定サイズへ縮小→拡大せず、必要な高解像度で一旦描いてからフィットするので粗くならない。
 function dieFitFromSource(imgEl, drawX, drawY, frameSrc, rot, outN) {
   const bb = dieSubjectBBoxNorm(imgEl, drawX, drawY, frameSrc, rot, 360);
@@ -1445,7 +1445,7 @@ function applyCrop() {
   if (sh==='circle') { ctx.arc(outW/2,outH/2,outW/2,0,Math.PI*2); ctx.clip(); }
   else if (sh==='square') { rrect(ctx,0,0,outW,outH,outW*.06); ctx.clip(); }
   else if (sh==='rect') { rrect(ctx,0,0,outW,outH,Math.min(outW,outH)*.06); ctx.clip(); }
-  // ダイアカットはクリップしない（実シルエットはポリゴンで保持）
+  // ダイカットはクリップしない（実シルエットはポリゴンで保持）
   const imgEl = document.getElementById('cropImg');
   ctx.save();
   ctx.translate(outW/2, outH/2);
@@ -1455,10 +1455,10 @@ function applyCrop() {
   const frameSrcW = fw / C.scale, frameSrcH = fh / C.scale;
   ctx.drawImage(imgEl, -drawX - frameSrcW/2, -drawY - frameSrcH/2, frameSrcW, frameSrcH, -outW/2, -outH/2, outW, outH);
   ctx.restore();
-  // ダイアカットはシルエットをフレームへ自動フィット（小さく切り取っても同じsizeCmなら同じ大きさに）
+  // ダイカットはシルエットをフレームへ自動フィット（小さく切り取っても同じsizeCmなら同じ大きさに）
   // さらに元画像の解像度を保つため、固定サイズへ縮小済みのcvではなく元画像から高解像度でフィットする
   const dieOut = 600;                                          // 出力解像度（被写体を鮮明に保つため高め）
-  const frameSrc = baseFrame / C.scale;                        // ダイアカット用（正方形フレーム）
+  const frameSrc = baseFrame / C.scale;                        // ダイカット用（正方形フレーム）
   let url, dieOuter = null, dieHoles = [];
   if (sh === 'diecut') {
     const fit = dieFitFromSource(imgEl, drawX, drawY, frameSrc, C.rot, dieOut) || dieFitCanvas(cv, outW) || cv;
@@ -1486,7 +1486,7 @@ function applyCrop() {
   }
   if (S.qr) { ['front','back'].forEach(s => { const c = document.getElementById('qrBg-'+s); if (c && c.width) drawQRBg(s, c, c.width, c.height); }); }
   document.getElementById('ss4').textContent = '設定済み';
-  // ダイアカットはシルエットの縦横比が確定したので、長辺の上限・短辺表示を更新
+  // ダイカットはシルエットの縦横比が確定したので、長辺の上限・短辺表示を更新
   if (S.shape === 'diecut') updateSizeUI();
   done(4); updateProg(); if (window._redrawAttach) window._redrawAttach(); closeCrop();
 }
@@ -1505,7 +1505,7 @@ function drawPreview(target) {
   img.onload = () => {
     ctx.setTransform(dpr,0,0,dpr,0,0); ctx.clearRect(0,0,200,200);
     if (S.shape === 'diecut') {
-      // ダイアカット：画像のアルファに沿って縁取り＋穴抜き（イラストどおりにすき間・穴を残す）
+      // ダイカット：画像のアルファに沿って縁取り＋穴抜き（イラストどおりにすき間・穴を残す）
       drawDieBodyAlpha(ctx, img, 0, 0, 200, S.colorHex || '#d9d4c7', dieBorderPx(200), true);
     } else if (S.shape === 'rect') {
       // 自由四角：縦横比に合わせた長方形でプレビュー（画像はcoverで充填）
@@ -1594,7 +1594,7 @@ function drawQRBg(side, cv, aw, ah) {
     const img = new Image();
     img.onload = () => {
       if (S.shape === 'diecut') {
-        // ダイアカット：アルファに沿って縁取り＋穴抜き（kw=kh の正方形領域に等倍）
+        // ダイカット：アルファに沿って縁取り＋穴抜き（kw=kh の正方形領域に等倍）
         drawDieBodyAlpha(ctx, img, ox, oy, kw, acryl, (S.sizeCm ? (S.borderCm||0)/S.sizeCm : 0) * kw * DIE_FIT, true);
         drawScaleBar(ctx, ox, oy, kw, kh, pxPerCm);
         return;
@@ -1705,7 +1705,7 @@ function resyncQR(side) {
 function bWcm() { return S.shape === 'rect' ? S.widthCm  : S.sizeCm; }
 function bHcm() { return S.shape === 'rect' ? S.heightCm : S.sizeCm; }
 
-// ダイアカット：シルエット外周の「短辺÷長辺」(0〜1)。画像未確定なら1(=正方形扱い)。
+// ダイカット：シルエット外周の「短辺÷長辺」(0〜1)。画像未確定なら1(=正方形扱い)。
 function dieAspect() {
   const p = S.dieFront || S.dieBack;
   if (!p || p.length < 3) return 1;
@@ -1717,7 +1717,7 @@ function dieAspect() {
 
 // 長辺スライダー（丸・四角・ダイア）の上限。すべて9cm。
 function maxSizeFor(shape) {
-  return 9; // 丸・四角・ダイアカット すべて長辺9cm（ダイアは短辺も自動で9cm以内）
+  return 9; // 丸・四角・ダイカット すべて長辺9cm（ダイアは短辺も自動で9cm以内）
 }
 function clampSz(v) { return Math.min(maxSizeFor(S.shape), Math.max(3, Math.round(v*10)/10)); }
 function clampTh(v) { return Math.min(5, Math.max(2.5, Math.round(v*10)/10)); }
@@ -1791,7 +1791,7 @@ function reopenSilent() { /* 縦横入れ替え時は既存画像をそのまま
 
 // サイズのステータス文言（自由四角は横×縦、ダイアは長辺×短辺を表示）
 function applySizeStatus() {
-  const t = S.thickCm.toFixed(1) + 'mm';
+  const t = S.thickCm.toFixed(1) + 'cm';
   let s;
   if (S.shape === 'rect')        s = S.widthCm.toFixed(1) + '×' + S.heightCm.toFixed(1) + 'cm';
   else if (S.shape === 'diecut') s = S.sizeCm.toFixed(1) + '×' + (S.sizeCm * dieAspect()).toFixed(1) + 'cm';
@@ -1812,7 +1812,7 @@ function setTh(v) {
   document.getElementById('thSlider').value = v;
   document.getElementById('thN').value      = v;
   S.thickCm = v;
-  document.getElementById('pd-thick').textContent = v.toFixed(1) + 'mm';
+  document.getElementById('pd-thick').textContent = v.toFixed(1) + 'cm';
   applySizeStatus();
   done(6); updateProg();
 }
@@ -1823,7 +1823,7 @@ function onThSlider() { setTh(+document.getElementById('thSlider').value); }
 function onThInput()  { setTh(+document.getElementById('thN').value); }
 function stepTh(d)    { setTh(S.thickCm + d); }
 
-// 縁の厚さ（ダイアカットのみ）
+// 縁の厚さ（ダイカットのみ）
 function clampBd(v) { return Math.min(1, Math.max(0, Math.round(v*10)/10)); }
 function setBorderCm(v) {
   v = clampBd(v);
@@ -1872,7 +1872,7 @@ function setAttachView(side) {
     const margin = 22;
     const maxBody = Math.min(aw - margin*2, ah - margin*2);
     const ppc  = maxBody / 15;          // 1cmあたりpx（15cm=枠いっぱい）
-    // ダイアカットはフレームを 1/DIE_FIT 倍にし、中のシルエット(=DIE_FIT)が ppc*sizeCm（丸/四角と同じ見た目の大きさ）になるようにする
+    // ダイカットはフレームを 1/DIE_FIT 倍にし、中のシルエット(=DIE_FIT)が ppc*sizeCm（丸/四角と同じ見た目の大きさ）になるようにする
     let w, h;
     if (S.shape === 'diecut')    { w = h = ppc * (S.sizeCm || 7) / DIE_FIT; }
     else if (S.shape === 'rect') { w = ppc * (S.widthCm || 7); h = ppc * (S.heightCm || 7); }
@@ -1880,7 +1880,7 @@ function setAttachView(side) {
     return { cx:aw/2, cy:ah/2, w:w, h:h, size:Math.max(w,h), r:Math.min(w,h)/2, x:aw/2-w/2, y:ah/2-h/2, rad:Math.min(w,h)*0.06, ppc:ppc };
   }
 
-  // 本体の縦横の実寸(cm)を寸法線で表示。ダイアカットはシルエット外周の外接box、自由四角は本体そのもの。
+  // 本体の縦横の実寸(cm)を寸法線で表示。ダイカットはシルエット外周の外接box、自由四角は本体そのもの。
   function drawDims(g){
     let bx0, by0, bx1, by1, wCm, hCm;
     if (S.shape === 'diecut'){
@@ -1911,7 +1911,7 @@ function setAttachView(side) {
     ctx.restore();
   }
 
-  // ダイアカット ポリゴンユーティリティ
+  // ダイカット ポリゴンユーティリティ
   function diePoly(){ return S.shape === 'diecut' ? (S.dieFront || S.dieBack || null) : null; }
   function dieHolesArr(){ if (S.shape !== 'diecut') return []; return (S.dieHolesFront && S.dieHolesFront.length ? S.dieHolesFront : S.dieHolesBack) || []; }
   function diePtsBox(g){ const p = diePoly(); if (!p || p.length < 3) return null; return p.map(q => ({ x:g.x+q.x*g.size, y:g.y+q.y*g.size })); }
@@ -1935,7 +1935,7 @@ function setAttachView(side) {
     return px>=g.x+lugR && px<=g.x+g.w-lugR && py>=g.y+lugR && py<=g.y+g.h-lugR;
   }
   // 穴の付け根（本体の縁）と、首の向き ang を返す。
-  // ダイアカット／四角：穴から一番近い縁の点。向きは「最近点→穴」（＝辺に直角に接続）
+  // ダイカット／四角：穴から一番近い縁の点。向きは「最近点→穴」（＝辺に直角に接続）
   // 丸：中心から穴への方向（＝最近点と一致）
   function edgeAnchor(hx, hy, g){
     if (S.shape === 'diecut'){ const pts=diePtsBox(g); if(pts){ const a=nearestOnPoly(hx,hy,pts); return {x:a.x, y:a.y, ang:Math.atan2(hy-a.y, hx-a.x)}; } }
@@ -1957,12 +1957,12 @@ function setAttachView(side) {
     const backNoPrint = (S.attachView === 'back' && !S.imgBack);   // 裏面・印刷なし
     const imgEl = backNoPrint ? null : (S.attachView === 'back' ? (imgBackEl || imgFrontEl) : imgFrontEl);
     const acryl = S.colorHex || '#d9d4c7';
-    // ダイアカット：画像のアルファに沿って描画（穴・すき間はそのまま透過）。表画像が必要
+    // ダイカット：画像のアルファに沿って描画（穴・すき間はそのまま透過）。表画像が必要
     if (S.shape === 'diecut' && imgFrontEl) {
       drawDieBodyAlpha(ctx, imgEl || imgFrontEl, g.x, g.y, g.size, acryl, dieBorderPx(g.size), !!imgEl);
       return;
     }
-    // それ以外（丸・四角／ダイアカットで表画像未読込）：形状でクリップして塗り＋画像
+    // それ以外（丸・四角／ダイカットで表画像未読込）：形状でクリップして塗り＋画像
     ctx.save(); bodyPath(g); ctx.clip();
     if (S.shape === 'diecut') { ctx.fillStyle = acryl; ctx.fill(); }
     if (imgEl) {
@@ -1980,7 +1980,7 @@ function setAttachView(side) {
   function buildTab(aw, ah, g, hx, hy, holeR, acryl, lugR, withNeck){
     const a    = edgeAnchor(hx, hy, g);
     const ang  = a.ang;                       // 最近点→穴の向き（辺に直角に接続）
-    const neckW = lugR * 2;
+    const neckW = lugR * 2;   // 首の太さ＝ディスク直径（縮小後lugR×2＝従来の首と同じ太さ）
     const rootX = a.x - Math.cos(ang) * lugR, rootY = a.y - Math.sin(ang) * lugR;
     const BORDER = 'rgba(255,255,255,.30)';
     if (!_tabCv) _tabCv = document.createElement('canvas');
@@ -1992,7 +1992,7 @@ function setAttachView(side) {
     tctx.fillStyle = BORDER; tctx.beginPath(); tctx.arc(hx, hy, lugR+1.5, 0, Math.PI*2); tctx.fill();
     if (withNeck) { tctx.strokeStyle = acryl; tctx.lineWidth = neckW; tctx.beginPath(); tctx.moveTo(rootX, rootY); tctx.lineTo(hx, hy); tctx.stroke(); }
     tctx.fillStyle = acryl; tctx.beginPath(); tctx.arc(hx, hy, lugR, 0, Math.PI*2); tctx.fill();
-    // 丸・四角のみ本体形状をくり抜く（ダイアカットはアルファ本体を上に重ねるため、くり抜くと輪郭ズレで透明帯ができる）
+    // 丸・四角のみ本体形状をくり抜く（ダイカットはアルファ本体を上に重ねるため、くり抜くと輪郭ズレで透明帯ができる）
     if (S.shape !== 'diecut') {
       tctx.globalCompositeOperation = 'destination-out'; tctx.fillStyle = '#000';
       tctx.beginPath();
@@ -2022,7 +2022,7 @@ function setAttachView(side) {
     const g     = bodyGeom(aw, ah);
     const hx    = g.x + g.w * S.attX/100, hy = g.y + g.h * S.attY/100;
     const holeR = Math.max(2, (S.holeCm/2) * g.ppc);
-    const lugR  = holeR + Math.max(8, holeR * 0.9);
+    const lugR  = (holeR + Math.max(8, holeR * 0.9)) * 2/3;   // ディスク半径＝旧サイズの2/3（首と同じ幅に）
     const inside = isInsideBody(hx, hy, g);
     S.attMode = inside ? 'inside' : 'outside';
     const acryl = S.colorHex || '#d9d4c7';
@@ -2056,7 +2056,7 @@ function setAttachView(side) {
 
     ctx.restore();
 
-    // ダイアカット／自由四角：本体の寸法線（縦・横の実寸cm）をプレビュー上に表示
+    // ダイカット／自由四角：本体の寸法線（縦・横の実寸cm）をプレビュー上に表示
     drawDims(g);
 
     // 面ラベル
