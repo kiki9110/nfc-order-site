@@ -433,6 +433,13 @@ if (O.qr && O.qrSide) {
   card.style.display = '';
   const body = document.getElementById('qrPosBody');
 
+  // 土台色に応じてQRの視認色（黒/白）を返す
+  function qrInk(hex){
+    var h=(hex||'#d9d4c7').replace('#','');
+    if(h.length===3) h=h.charAt(0)+h.charAt(0)+h.charAt(1)+h.charAt(1)+h.charAt(2)+h.charAt(2);
+    var r=parseInt(h.substr(0,2),16),g=parseInt(h.substr(2,2),16),b=parseInt(h.substr(4,2),16);
+    return (0.299*r+0.587*g+0.114*b)>150 ? '#111111' : '#ffffff';
+  }
   function makeQRMiniMap(label, qrData, imgSrc) {
     const wrap = document.createElement('div');
     wrap.style.cssText = 'margin-bottom:14px;';
@@ -487,7 +494,7 @@ if (O.qr && O.qrSide) {
         else{dw=kw;dh=dw/ir;dy=oy-(dh-kh)/2;dx=ox;}
         ctx.drawImage(imgEl,dx,dy,dw,dh);
       } else {
-        ctx.fillStyle='#e8e5dc'; ctx.fill();
+        ctx.fillStyle = O.colorHex || '#e8e5dc'; ctx.fill();   // 実際の土台色で塗る
       }
       ctx.restore();
       // 外枠
@@ -496,18 +503,17 @@ if (O.qr && O.qrSide) {
       if (O.shape==='circle') ctx.arc(ox+kw/2,oy+kh/2,Math.min(kw,kh)/2,0,Math.PI*2);
       else ctx.rect(ox,oy,kw,kh);
       ctx.stroke();
-      // QR枠
+      // QR枠（実寸の点線＋土台色に追従した視認色）
       const pxPerCm = (O.shape==='rect' && O.widthCm) ? kw / O.widthCm : kw / (O.sizeCm || 7);
       const qpx = Math.max(8, qrData.cm * pxPerCm);
       const qx  = ox + kw * qrData.x/100 - qpx/2;
       const qy  = oy + kh * qrData.y/100 - qpx/2;
-      ctx.fillStyle   = 'rgba(255,255,255,.85)';
-      ctx.strokeStyle = '#d4522a'; ctx.lineWidth=1.5;
-      ctx.fillRect(qx,qy,qpx,qpx);
-      ctx.strokeRect(qx,qy,qpx,qpx);
-      ctx.fillStyle='#d4522a'; ctx.font='bold 7px sans-serif';
-      ctx.textAlign='center'; ctx.textBaseline='middle';
-      ctx.fillText('QR',qx+qpx/2,qy+qpx/2);
+      const ink = qrInk(O.colorHex), halo = (ink==='#ffffff') ? 'rgba(0,0,0,.5)' : 'rgba(255,255,255,.8)';
+      ctx.setLineDash([]); ctx.lineWidth=2.2; ctx.strokeStyle=halo; ctx.strokeRect(qx,qy,qpx,qpx);            // ハロー
+      ctx.lineWidth=1.1; ctx.strokeStyle=ink; ctx.setLineDash([4,3]); ctx.strokeRect(qx,qy,qpx,qpx); ctx.setLineDash([]); // 実寸の点線枠
+      ctx.font='bold 7px sans-serif'; ctx.textAlign='center'; ctx.textBaseline='middle'; ctx.lineJoin='round';
+      ctx.lineWidth=2.4; ctx.strokeStyle=halo; ctx.strokeText('QR',qx+qpx/2,qy+qpx/2);
+      ctx.fillStyle=ink; ctx.fillText('QR',qx+qpx/2,qy+qpx/2);
     }
 
     if (imgSrc) {
