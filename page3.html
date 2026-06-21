@@ -331,7 +331,7 @@ if (O.colorHex) {
 }
 
 // 形状
-const shapeNames = { circle:'丸型', square:'四角形', rect:'自由四角', diecut:'ダイアカット' };
+const shapeNames = { circle:'丸型', square:'四角形', rect:'自由四角', diecut:'ダイカット' };
 document.getElementById('diShape').textContent  = shapeNames[O.shape] || O.shape || '—';
 // サイズ表示：自由四角は横×縦、ダイアは長辺×短辺、その他は長辺
 (function(){
@@ -351,7 +351,7 @@ document.getElementById('diShape').textContent  = shapeNames[O.shape] || O.shape
   }
   document.getElementById('diSize').textContent = txt;
 })();
-document.getElementById('diThick').textContent  = (O.thickCm || '—') + ' mm';
+document.getElementById('diThick').textContent  = (O.thickCm || '—') + ' cm';
 
 // ─── オプション ───
 const nfcEl = document.getElementById('diNfc');
@@ -556,7 +556,7 @@ document.getElementById('diAttMode').textContent = (O.attMode === 'outside') ? '
   const pxPerCm = ppc;   // 穴は5mm固定 → 一定サイズ
 
   function rrect(c,x,y,w,h,r){ c.beginPath(); c.moveTo(x+r,y); c.arcTo(x+w,y,x+w,y+h,r); c.arcTo(x+w,y+h,x,y+h,r); c.arcTo(x,y+h,x,y,r); c.arcTo(x,y,x+w,y,r); c.closePath(); }
-  // ダイアカットの実シルエット（正規化ポリゴン）→ ボックス座標
+  // ダイカットの実シルエット（正規化ポリゴン）→ ボックス座標
   const diePolyN = (shape==='diecut') ? (O.dieFront || O.dieBack || null) : null;
   const diePts = (diePolyN && diePolyN.length>=3) ? diePolyN.map(function(q){return {x:g.x+q.x*g.size, y:g.y+q.y*g.size};}) : null;
   function pointInPoly(x,y,pts){ var c=false; for(var i=0,j=pts.length-1;i<pts.length;j=i++){ var xi=pts[i].x,yi=pts[i].y,xj=pts[j].x,yj=pts[j].y; if(((yi>y)!==(yj>y))&&(x<(xj-xi)*(y-yi)/(yj-yi)+xi)) c=!c; } return c; }
@@ -572,12 +572,12 @@ document.getElementById('diAttMode').textContent = (O.attMode === 'outside') ? '
 
   const hx = g.x + g.w*attX/100, hy = g.y + g.h*attY/100;
   const holeR = Math.max(2, (holeCm/2)*pxPerCm);
-  const lugR  = holeR + Math.max(8, holeR*0.9);
+  const lugR  = (holeR + Math.max(8, holeR*0.9)) * 2/3;   // ディスク半径＝旧サイズの2/3（首と同じ幅に）
 
   // 補強のツメ（穴を囲むふち＋同じ太さの首、接合部は直角）
   function buildTab(){
     const a = edgeAnchor(hx,hy), an = Math.atan2(hy-g.cy,hx-g.cx);
-    const neckW = lugR*2, rootX = a.x-Math.cos(an)*lugR, rootY = a.y-Math.sin(an)*lugR;
+    const neckW = lugR*2, rootX = a.x-Math.cos(an)*lugR, rootY = a.y-Math.sin(an)*lugR;   // 首＝ディスク直径（従来の首と同じ太さ）
     const BORDER = 'rgba(255,255,255,.30)';
     const tc = document.createElement('canvas'); tc.width=aw; tc.height=ah;
     const t = tc.getContext('2d'); t.lineCap='round'; t.lineJoin='round';
@@ -596,7 +596,7 @@ document.getElementById('diAttMode').textContent = (O.attMode === 'outside') ? '
     if(!lugFullyInside(hx,hy,lugR)) ctx.drawImage(buildTab(),0,0,aw,ah);  // 補強リング/ツメ（本体の下）
     // 本体（画像 or 単色）
     ctx.save(); bodyPath(ctx); ctx.clip();
-    if(shape==='diecut'&&diePts){ ctx.fillStyle=acryl; ctx.fill(); }   // ダイアカットは土台色（縁取り）
+    if(shape==='diecut'&&diePts){ ctx.fillStyle=acryl; ctx.fill(); }   // ダイカットは土台色（縁取り）
     if(imgEl){ const ir=imgEl.naturalWidth/imgEl.naturalHeight, br=g.w/g.h; let dw,dh,dx,dy; if(ir>br){dh=g.h;dw=dh*ir;dx=g.x-(dw-g.w)/2;dy=g.y;} else {dw=g.w;dh=dw/ir;dy=g.y-(dh-g.h)/2;dx=g.x;} ctx.drawImage(imgEl,dx,dy,dw,dh); }
     else if(shape!=='diecut'){ ctx.fillStyle=acryl; ctx.fill(); }
     ctx.restore();
