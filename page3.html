@@ -5,52 +5,55 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>NFC ORDER — 注文確認</title>
 <style>
-@import url('https://fonts.googleapis.com/css2?family=Noto+Sans+JP:wght@400;500;700&family=Syne:wght@700;800&display=swap');
+@import url('https://fonts.googleapis.com/css2?family=Mochiy+Pop+One&family=Noto+Sans+JP:wght@400;500;700;900&family=Syne:wght@700;800&display=swap');
 :root{
-  --ink:#0f0f0d;--paper:#f5f2ec;--cream:#ece8df;
-  --accent:#d4522a;--muted:#6b6860;--border:#ccc8be;--radius:14px;
-  --green:#22863a;--green-bg:#eaf7ee;
+  --ink:#2c2740;--paper:#fffdf7;--cream:#fff4ea;
+  --accent:#ff7a59;--accent-press:#e85f3f;--muted:#8a8398;--border:#f0e3d6;--radius:18px;
+  --green:#1f9d57;--green-bg:#e7f7ee;--pop:'Mochiy Pop One',sans-serif;
 }
 *,*::before,*::after{box-sizing:border-box;margin:0;padding:0;}
 body{font-family:'Noto Sans JP',sans-serif;background:var(--paper);color:var(--ink);padding-bottom:60px;}
 
 /* TOPBAR */
-.topbar{background:var(--ink);display:flex;align-items:center;justify-content:space-between;padding:13px 20px;}
-.topbar-logo{font-family:'Syne',sans-serif;font-weight:800;font-size:16px;color:var(--paper);letter-spacing:.06em;}
-.topbar-step{font-size:11px;color:var(--accent);font-weight:500;}
+.topbar{background:linear-gradient(90deg,#ff7a59,#ff9d6b);display:flex;align-items:center;justify-content:space-between;padding:13px 20px;}
+.topbar-logo{font-family:var(--pop);font-weight:400;font-size:16px;color:#fff;letter-spacing:.04em;text-shadow:0 1px 0 rgba(0,0,0,.12);}
+.topbar-step{font-size:11px;color:#fff;font-weight:700;}
 
 /* CONTENT */
 .wrap{max-width:600px;margin:0 auto;padding:24px 16px;}
 
 /* SUCCESS BANNER */
 .success-banner{
-  background:var(--ink);
+  background:linear-gradient(135deg,#ff7a59,#ff9d6b);
   border-radius:var(--radius);
   padding:28px 24px;
   text-align:center;
   margin-bottom:20px;
+  box-shadow:0 8px 0 rgba(124,107,219,.12);
 }
 .success-icon{
-  width:56px;height:56px;
-  background:var(--accent);
+  width:60px;height:60px;
+  background:#fff;
   border-radius:50%;
   display:flex;align-items:center;justify-content:center;
-  font-size:26px;
+  font-size:28px;
   margin:0 auto 14px;
+  box-shadow:0 4px 0 rgba(0,0,0,.10);
 }
 .success-title{
-  font-family:'Syne',sans-serif;
-  font-size:22px;font-weight:800;
-  color:var(--paper);
+  font-family:var(--pop);
+  font-size:22px;font-weight:400;
+  color:#fff;
   margin-bottom:6px;
+  text-shadow:0 1px 0 rgba(0,0,0,.12);
 }
-.success-sub{font-size:13px;color:rgba(255,255,255,.5);line-height:1.7;}
+.success-sub{font-size:13px;color:rgba(255,255,255,.92);line-height:1.7;}
 .order-id-badge{
   display:inline-block;
   margin-top:14px;
   padding:6px 16px;
-  background:rgba(255,255,255,.08);
-  border:1px solid rgba(255,255,255,.15);
+  background:rgba(255,255,255,.22);
+  border:1px solid rgba(255,255,255,.4);
   border-radius:30px;
   font-family:monospace;
   font-size:14px;
@@ -58,7 +61,7 @@ body{font-family:'Noto Sans JP',sans-serif;background:var(--paper);color:var(--i
   letter-spacing:.08em;
 }
 .submitted-at{
-  font-size:11px;color:rgba(255,255,255,.3);
+  font-size:11px;color:rgba(255,255,255,.8);
   margin-top:8px;
 }
 
@@ -66,9 +69,10 @@ body{font-family:'Noto Sans JP',sans-serif;background:var(--paper);color:var(--i
 .card{
   background:#fff;
   border-radius:var(--radius);
-  border:1.5px solid var(--border);
+  border:1.5px solid #f3e6d8;
   margin-bottom:14px;
   overflow:hidden;
+  box-shadow:0 5px 0 rgba(124,107,219,.08);
 }
 .card-head{
   padding:12px 16px;
@@ -168,8 +172,9 @@ body{font-family:'Noto Sans JP',sans-serif;background:var(--paper);color:var(--i
   cursor:pointer;text-align:center;
   text-decoration:none;
 }
-.btn-primary{background:var(--ink);color:#fff;}
-.btn-primary:hover{background:#333;}
+.btn-primary{background:var(--accent);color:#fff;font-family:var(--pop);font-weight:400;box-shadow:0 5px 0 var(--accent-press);transition:transform .1s,box-shadow .1s,filter .15s;}
+.btn-primary:hover{filter:brightness(1.04);}
+.btn-primary:active{transform:translateY(4px);box-shadow:0 1px 0 var(--accent-press);}
 .btn-secondary{
   background:transparent;
   border:1.5px solid var(--border);
@@ -304,7 +309,7 @@ try {
 } catch(e) {}
 
 if (!O) {
-  document.body.innerHTML = '<div style="padding:40px;text-align:center;"><p>注文データが見つかりません。</p><a href="page1.html" style="color:#d4522a;">最初からやり直す</a></div>';
+  document.body.innerHTML = '<div style="padding:40px;text-align:center;"><p>注文データが見つかりません。</p><a href="page1.html" style="color:#ff7a59;">最初からやり直す</a></div>';
   throw new Error('no order data');
 }
 
