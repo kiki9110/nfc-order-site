@@ -5,174 +5,50 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>NFC キーホルダー注文 — 注文番号入力</title>
 <style>
-@import url('https://fonts.googleapis.com/css2?family=Noto+Sans+JP:wght@300;400;500;700&family=Syne:wght@400;700;800&display=swap');
-
-:root {
-  --ink: #0f0f0d;
-  --paper: #f5f2ec;
-  --cream: #ece8df;
-  --accent: #d4522a;
-  --accent2: #e8a020;
-  --muted: #6b6860;
-  --border: #ccc8be;
+@import url('https://fonts.googleapis.com/css2?family=Mochiy+Pop+One&family=Noto+Sans+JP:wght@300;400;500;700&display=swap');
+:root{
+  --ink:#2c2740; --paper:#fffdf7; --cream:#fff4ea;
+  --accent:#ff7a59; --accent-press:#e85f3f; --accent2:#f2b134;
+  --muted:#8a8398; --border:#f0e3d6;
+  --pop:'Mochiy Pop One',sans-serif;
 }
 *,*::before,*::after{box-sizing:border-box;margin:0;padding:0;}
 html,body{height:100%;}
-body{
-  font-family:'Noto Sans JP',sans-serif;
-  background:var(--ink);
-  color:var(--paper);
-  display:flex;flex-direction:column;
-  min-height:100vh;
-  overflow-x:hidden;
-}
-
-/* BG pattern */
-body::before{
-  content:'';position:fixed;inset:0;
-  background-image:
-    repeating-linear-gradient(0deg,transparent,transparent 39px,rgba(255,255,255,.03) 39px,rgba(255,255,255,.03) 40px),
-    repeating-linear-gradient(90deg,transparent,transparent 39px,rgba(255,255,255,.03) 39px,rgba(255,255,255,.03) 40px);
-  pointer-events:none;z-index:0;
-}
-
-.wrap{
-  position:relative;z-index:1;
-  display:flex;flex-direction:column;
-  align-items:center;justify-content:center;
-  flex:1;
-  padding:40px 24px;
-}
-
-/* Logo */
-.logo-block{text-align:center;margin-bottom:56px;}
-.logo-mark{
-  display:inline-flex;align-items:center;justify-content:center;
-  width:56px;height:56px;
-  border:2px solid var(--accent);
-  border-radius:12px;
-  margin-bottom:14px;
-}
+body{font-family:'Noto Sans JP',sans-serif;background:var(--paper);color:var(--ink);display:flex;flex-direction:column;min-height:100vh;overflow-x:hidden;}
+/* 背景：淡いコーラルの水玉 */
+body::before{content:'';position:fixed;inset:0;background-image:radial-gradient(rgba(255,122,89,.10) 2px,transparent 2px);background-size:28px 28px;pointer-events:none;z-index:0;}
+.wrap{position:relative;z-index:1;display:flex;flex-direction:column;align-items:center;justify-content:center;flex:1;padding:40px 24px;}
+/* ロゴ */
+.logo-block{text-align:center;margin-bottom:48px;}
+.logo-mark{display:inline-flex;align-items:center;justify-content:center;width:60px;height:60px;border:2.5px solid var(--accent);border-radius:16px;margin-bottom:14px;background:#fff;box-shadow:0 4px 0 rgba(255,122,89,.18);}
 .logo-mark svg{width:28px;height:28px;}
-.logo-name{
-  font-family:'Syne',sans-serif;
-  font-size:22px;font-weight:800;
-  letter-spacing:.08em;
-  color:var(--paper);
-}
-.logo-sub{
-  font-size:10px;letter-spacing:.18em;
-  color:var(--muted);
-  text-transform:uppercase;
-  margin-top:4px;
-}
-
-/* Card */
-.card{
-  width:100%;max-width:420px;
-  background:rgba(255,255,255,.04);
-  border:1px solid rgba(255,255,255,.1);
-  border-radius:20px;
-  padding:36px 32px;
-  backdrop-filter:blur(12px);
-}
-.card-title{
-  font-family:'Syne',sans-serif;
-  font-size:20px;font-weight:700;
-  margin-bottom:6px;
-}
-.card-desc{
-  font-size:12px;color:var(--muted);
-  line-height:1.7;margin-bottom:28px;
-}
-
-label{
-  display:block;
-  font-size:11px;font-weight:500;
-  letter-spacing:.1em;text-transform:uppercase;
-  color:var(--muted);margin-bottom:8px;
-}
+.logo-name{font-family:var(--pop);font-size:22px;font-weight:400;letter-spacing:.04em;color:var(--ink);}
+.logo-sub{font-size:10px;letter-spacing:.18em;color:var(--muted);text-transform:uppercase;margin-top:6px;}
+/* カード */
+.card{width:100%;max-width:420px;background:#fff;border:1.5px solid #f3e6d8;border-radius:24px;padding:36px 32px;box-shadow:0 8px 0 rgba(124,107,219,.10);}
+.card-title{font-family:var(--pop);font-size:20px;font-weight:400;margin-bottom:8px;color:var(--ink);}
+.card-desc{font-size:12px;color:var(--muted);line-height:1.7;margin-bottom:28px;}
+label{display:block;font-size:11px;font-weight:700;letter-spacing:.1em;text-transform:uppercase;color:var(--muted);margin-bottom:8px;}
 .input-wrap{position:relative;}
-input[type="text"]{
-  width:100%;
-  padding:15px 48px 15px 16px;
-  background:rgba(255,255,255,.06);
-  border:1.5px solid rgba(255,255,255,.12);
-  border-radius:12px;
-  font-family:'Noto Sans JP',sans-serif;
-  font-size:16px;letter-spacing:.08em;
-  color:var(--paper);
-  outline:none;
-  transition:border-color .2s,background .2s;
-}
-input[type="text"]::placeholder{color:rgba(255,255,255,.2);}
-input[type="text"]:focus{
-  border-color:var(--accent);
-  background:rgba(255,255,255,.09);
-}
-.input-icon{
-  position:absolute;right:14px;top:50%;transform:translateY(-50%);
-  color:var(--muted);font-size:18px;pointer-events:none;
-}
-.input-hint{
-  font-size:11px;color:var(--muted);
-  margin-top:8px;line-height:1.6;
-}
-
-.btn-next{
-  display:flex;align-items:center;justify-content:center;gap:8px;
-  width:100%;margin-top:28px;
-  padding:16px;
-  background:var(--accent);
-  border:none;border-radius:12px;
-  font-family:'Noto Sans JP',sans-serif;
-  font-size:14px;font-weight:500;
-  color:#fff;cursor:pointer;
-  transition:background .2s,transform .15s;
-  letter-spacing:.04em;
-}
-.btn-next:hover{background:#c04420;transform:translateY(-1px);}
+input[type="text"]{width:100%;padding:15px 48px 15px 16px;background:#fffdf7;border:2px solid var(--border);border-radius:14px;font-family:'Noto Sans JP',sans-serif;font-size:16px;letter-spacing:.06em;color:var(--ink);outline:none;transition:border-color .2s,box-shadow .2s;}
+input[type="text"]::placeholder{color:#c9c2bd;}
+input[type="text"]:focus{border-color:var(--accent);box-shadow:0 0 0 4px rgba(255,122,89,.18);}
+.input-icon{position:absolute;right:14px;top:50%;transform:translateY(-50%);color:var(--muted);font-size:18px;pointer-events:none;}
+.input-hint{font-size:11px;color:var(--muted);margin-top:8px;line-height:1.6;}
+.btn-next{display:flex;align-items:center;justify-content:center;gap:8px;width:100%;margin-top:28px;padding:16px;background:var(--accent);border:none;border-radius:14px;font-family:var(--pop);font-size:14px;font-weight:400;color:#fff;cursor:pointer;transition:transform .1s,box-shadow .1s,filter .15s;letter-spacing:.02em;box-shadow:0 5px 0 var(--accent-press);}
+.btn-next:hover{filter:brightness(1.04);}
+.btn-next:active{transform:translateY(4px);box-shadow:0 1px 0 var(--accent-press);}
 .btn-next svg{width:16px;height:16px;flex-shrink:0;}
-
-/* Steps hint */
-.steps-hint{
-  display:flex;align-items:center;gap:6px;
-  margin-top:32px;
-}
-.dot{
-  width:8px;height:8px;border-radius:50%;
-  background:var(--accent);
-}
-.dot-off{background:rgba(255,255,255,.15);}
-.steps-hint-label{
-  font-size:11px;color:var(--muted);
-  margin-left:4px;
-}
-
-/* Notice */
-.notice{
-  margin-top:20px;
-  padding:12px 16px;
-  background:rgba(228,160,32,.08);
-  border:1px solid rgba(228,160,32,.2);
-  border-radius:10px;
-  font-size:12px;color:var(--accent2);
-  line-height:1.6;
-}
-
-/* Error */
-.error-msg{
-  font-size:12px;color:#e05050;
-  margin-top:8px;display:none;
-  line-height:1.6;
-}
-
-.footer{
-  position:relative;z-index:1;
-  text-align:center;padding:20px;
-  font-size:11px;color:var(--muted);
-  letter-spacing:.04em;
-}
+/* ステップ */
+.steps-hint{display:flex;align-items:center;gap:6px;margin-top:32px;}
+.dot{width:9px;height:9px;border-radius:50%;background:var(--accent);}
+.dot-off{background:rgba(44,39,64,.15);}
+.steps-hint-label{font-size:11px;color:var(--muted);margin-left:4px;}
+/* 注意書き */
+.notice{margin-top:20px;padding:12px 16px;background:rgba(242,177,52,.14);border:1.5px solid rgba(242,177,52,.4);border-radius:14px;font-size:12px;color:#9a6b08;line-height:1.6;}
+/* エラー */
+.error-msg{font-size:12px;color:#e0392b;margin-top:8px;display:none;line-height:1.6;}
+.footer{position:relative;z-index:1;text-align:center;padding:20px;font-size:11px;color:var(--muted);letter-spacing:.04em;}
 </style>
 </head>
 <body>
@@ -180,10 +56,10 @@ input[type="text"]:focus{
   <div class="logo-block">
     <div class="logo-mark">
       <svg viewBox="0 0 28 28" fill="none" xmlns="http://www.w3.org/2000/svg">
-        <rect x="2" y="2" width="10" height="10" rx="2" fill="#d4522a"/>
-        <rect x="16" y="2" width="10" height="10" rx="2" fill="rgba(255,255,255,.3)"/>
-        <rect x="2" y="16" width="10" height="10" rx="2" fill="rgba(255,255,255,.3)"/>
-        <rect x="16" y="16" width="10" height="10" rx="2" fill="rgba(255,255,255,.15)"/>
+        <rect x="2" y="2" width="10" height="10" rx="2" fill="#ff7a59"/>
+        <rect x="16" y="2" width="10" height="10" rx="2" fill="rgba(44,39,64,.22)"/>
+        <rect x="2" y="16" width="10" height="10" rx="2" fill="rgba(44,39,64,.22)"/>
+        <rect x="16" y="16" width="10" height="10" rx="2" fill="rgba(44,39,64,.12)"/>
       </svg>
     </div>
     <div class="logo-name">NFC ORDER</div>
