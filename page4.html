@@ -5,134 +5,56 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>オプション追加 — 注文番号の紐付け</title>
 <style>
-@import url('https://fonts.googleapis.com/css2?family=Noto+Sans+JP:wght@300;400;500;700&family=Syne:wght@400;700;800&display=swap');
-
-:root {
-  --ink: #0f0f0d;
-  --paper: #f5f2ec;
-  --cream: #ece8df;
-  --accent: #d4522a;
-  --accent2: #e8a020;
-  --muted: #6b6860;
-  --border: #ccc8be;
-  --ok: #2e9e5b;
-  --err: #e0392b;
+@import url('https://fonts.googleapis.com/css2?family=Mochiy+Pop+One&family=Noto+Sans+JP:wght@300;400;500;700&display=swap');
+:root{
+  --ink:#2c2740; --paper:#fffdf7; --cream:#fff4ea;
+  --accent:#ff7a59; --accent-press:#e85f3f; --accent2:#f2b134;
+  --muted:#8a8398; --border:#f0e3d6;
+  --ok:#2e9e5b; --err:#e0392b;
+  --pop:'Mochiy Pop One',sans-serif;
 }
 *,*::before,*::after{box-sizing:border-box;margin:0;padding:0;}
 html,body{height:100%;}
-body{
-  font-family:'Noto Sans JP',sans-serif;
-  background:var(--ink);
-  color:var(--paper);
-  display:flex;flex-direction:column;
-  min-height:100vh;
-  overflow-x:hidden;
-}
-/* 背景パターン（page1 と統一） */
-body::before{
-  content:'';position:fixed;inset:0;
-  background-image:
-    repeating-linear-gradient(0deg,transparent,transparent 39px,rgba(255,255,255,.03) 39px,rgba(255,255,255,.03) 40px),
-    repeating-linear-gradient(90deg,transparent,transparent 39px,rgba(255,255,255,.03) 39px,rgba(255,255,255,.03) 40px);
-  pointer-events:none;z-index:0;
-}
-
-.wrap{
-  position:relative;z-index:1;
-  display:flex;flex-direction:column;
-  align-items:center;justify-content:center;
-  flex:1;
-  padding:40px 24px;
-}
-
-/* ロゴ */
-.logo-block{text-align:center;margin-bottom:40px;}
-.logo-mark{
-  display:inline-flex;align-items:center;justify-content:center;
-  width:56px;height:56px;
-  border:2px solid var(--accent);
-  border-radius:12px;
-  margin-bottom:14px;
-}
+body{font-family:'Noto Sans JP',sans-serif;background:var(--paper);color:var(--ink);display:flex;flex-direction:column;min-height:100vh;overflow-x:hidden;}
+body::before{content:'';position:fixed;inset:0;background-image:radial-gradient(rgba(255,122,89,.10) 2px,transparent 2px);background-size:28px 28px;pointer-events:none;z-index:0;}
+.wrap{position:relative;z-index:1;display:flex;flex-direction:column;align-items:center;justify-content:center;flex:1;padding:40px 24px;}
+.logo-block{text-align:center;margin-bottom:36px;}
+.logo-mark{display:inline-flex;align-items:center;justify-content:center;width:60px;height:60px;border:2.5px solid var(--accent);border-radius:16px;margin-bottom:14px;background:#fff;box-shadow:0 4px 0 rgba(255,122,89,.18);}
 .logo-mark svg{width:28px;height:28px;}
-.logo-name{
-  font-family:'Syne',sans-serif;
-  font-size:22px;font-weight:800;
-  letter-spacing:.08em;
-}
+.logo-name{font-family:var(--pop);font-size:22px;font-weight:400;letter-spacing:.04em;}
 .logo-sub{font-size:12px;color:var(--muted);margin-top:6px;letter-spacing:.05em;}
-
-/* カード */
-.card{
-  width:100%;max-width:440px;
-  background:rgba(245,242,236,.04);
-  border:1.5px solid rgba(255,255,255,.1);
-  border-radius:18px;
-  padding:28px 24px;
-}
-.card-title{font-size:17px;font-weight:700;margin-bottom:8px;}
+.card{width:100%;max-width:440px;background:#fff;border:1.5px solid #f3e6d8;border-radius:22px;padding:28px 24px;box-shadow:0 8px 0 rgba(124,107,219,.10);}
+.card-title{font-family:var(--pop);font-size:17px;font-weight:400;margin-bottom:8px;}
 .card-desc{font-size:13px;color:var(--muted);line-height:1.7;margin-bottom:22px;}
-
 .field{margin-bottom:18px;}
-.field-label{display:block;font-size:13px;font-weight:500;margin-bottom:8px;}
-.field-label .num{
-  display:inline-flex;align-items:center;justify-content:center;
-  width:20px;height:20px;border-radius:50%;
-  background:var(--accent);color:#fff;font-size:12px;font-weight:700;
-  margin-right:8px;
-}
-.field input{
-  width:100%;padding:13px 14px;
-  border:1.5px solid rgba(255,255,255,.18);
-  border-radius:10px;
-  background:rgba(0,0,0,.25);
-  color:var(--paper);
-  font-size:15px;font-family:inherit;
-}
-.field input::placeholder{color:rgba(255,255,255,.3);}
-.field input:focus{outline:none;border-color:var(--accent);}
+.field-label{display:block;font-size:13px;font-weight:700;margin-bottom:8px;}
+.field-label .num{display:inline-flex;align-items:center;justify-content:center;width:22px;height:22px;border-radius:50%;background:var(--accent);color:#fff;font-size:12px;font-weight:700;margin-right:8px;}
+.field input{width:100%;padding:13px 14px;border:2px solid var(--border);border-radius:12px;background:#fffdf7;color:var(--ink);font-size:15px;font-family:inherit;transition:border-color .2s,box-shadow .2s;}
+.field input::placeholder{color:#c9c2bd;}
+.field input:focus{outline:none;border-color:var(--accent);box-shadow:0 0 0 4px rgba(255,122,89,.18);}
 .field-hint{font-size:11px;color:var(--muted);margin-top:6px;line-height:1.6;}
-
-.btn{
-  width:100%;padding:14px;
-  background:var(--accent);
-  border:none;border-radius:10px;
-  color:#fff;font-size:15px;font-weight:700;font-family:inherit;
-  cursor:pointer;transition:all .15s;margin-top:6px;
-}
-.btn:hover{background:#bd4624;}
-.btn:disabled{opacity:.5;cursor:not-allowed;}
-
+.btn{width:100%;padding:14px;background:var(--accent);border:none;border-radius:12px;color:#fff;font-size:15px;font-weight:400;font-family:var(--pop);cursor:pointer;transition:transform .1s,box-shadow .1s,filter .15s;margin-top:6px;box-shadow:0 5px 0 var(--accent-press);}
+.btn:hover{filter:brightness(1.04);}
+.btn:active{transform:translateY(4px);box-shadow:0 1px 0 var(--accent-press);}
+.btn:disabled{opacity:.5;cursor:not-allowed;box-shadow:0 5px 0 var(--accent-press);}
 /* 結果メッセージ */
-.result{
-  margin-top:20px;padding:16px;border-radius:12px;
-  font-size:13px;line-height:1.7;display:none;
-}
+.result{margin-top:20px;padding:16px;border-radius:14px;font-size:13px;line-height:1.7;display:none;}
 .result.show{display:block;}
-.result.ok{background:rgba(46,158,91,.15);border:1.5px solid var(--ok);}
-.result.err{background:rgba(224,57,43,.15);border:1.5px solid var(--err);}
+.result.ok{background:#eaf7ee;border:1.5px solid var(--ok);}
+.result.err{background:#fdeceb;border:1.5px solid var(--err);}
 .result-title{font-weight:700;margin-bottom:6px;}
 .result-list{margin-top:8px;}
-.result-list span{
-  display:inline-block;background:rgba(255,255,255,.12);
-  padding:3px 10px;border-radius:20px;font-size:12px;
-  margin:3px 4px 3px 0;
-}
-
-.footer{
-  position:relative;z-index:1;
-  text-align:center;padding:20px;
-  font-size:11px;color:var(--muted);letter-spacing:.04em;
-}
+.result-list span{display:inline-block;background:var(--cream);padding:3px 10px;border-radius:20px;font-size:12px;margin:3px 4px 3px 0;}
+.footer{position:relative;z-index:1;text-align:center;padding:20px;font-size:11px;color:var(--muted);letter-spacing:.04em;}
 .back-link{color:var(--muted);font-size:12px;text-decoration:none;margin-top:18px;display:inline-block;}
-.back-link:hover{color:var(--paper);}
+.back-link:hover{color:var(--accent);}
 </style>
 </head>
 <body>
 <div class="wrap">
   <div class="logo-block">
     <div class="logo-mark">
-      <svg viewBox="0 0 24 24" fill="none" stroke="#d4522a" stroke-width="2">
+      <svg viewBox="0 0 24 24" fill="none" stroke="#ff7a59" stroke-width="2">
         <circle cx="12" cy="12" r="9"/><path d="M12 7v10M7 12h10"/>
       </svg>
     </div>
@@ -176,7 +98,7 @@ body::before{
 const WORKER_ORIGIN = sessionStorage.getItem('workerOrigin') || 'https://buki-booth.com';
 
 // オプション識別子 → 表示名
-const OPT_NAMES = { nfc: 'NFCタグ', double: '両面印刷', diecut: 'ダイアカット' };
+const OPT_NAMES = { nfc: 'NFCタグ', double: '両面印刷', diecut: 'ダイカット' };
 
 function showResult(type, html) {
   const r = document.getElementById('result');
