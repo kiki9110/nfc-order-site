@@ -1,0 +1,101 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>お問い合わせ — BUKI BOOTH</title>
+<style>
+@import url('https://fonts.googleapis.com/css2?family=Mochiy+Pop+One&family=Noto+Sans+JP:wght@400;500;700;900&display=swap');
+*,*::before,*::after{box-sizing:border-box;margin:0;padding:0;}html{-webkit-text-size-adjust:100%;}
+:root{--ink:#2c2740;--paper:#fffdf7;--cream:#fff4ea;--accent:#ff7a59;--accent-press:#e85f3f;--accent2:#f2b134;--muted:#8a8398;--border:#f0e3d6;--radius:18px;--pop:'Mochiy Pop One',sans-serif;--surface:#fff;--sel:#fff8f5;--card-sh:0 5px 0 rgba(124,107,219,.08);--cta-sh:0 4px 0 var(--accent-press);--cta-shA:0 1px 0 var(--accent-press);}
+:root[data-theme="night"]{--ink:#ece9f3;--paper:#13111a;--cream:rgba(255,255,255,.06);--accent:#ff8358;--accent-press:#c75a3a;--accent2:#ffcf7a;--muted:#9b93ac;--border:rgba(255,255,255,.12);--surface:rgba(255,255,255,.05);--sel:rgba(255,131,88,.12);--card-sh:0 16px 40px -22px rgba(0,0,0,.7);--cta-sh:0 0 26px -6px rgba(255,131,88,.55);--cta-shA:0 0 12px -4px rgba(255,131,88,.55);}
+body{font-family:'Noto Sans JP',sans-serif;background:var(--paper);color:var(--ink);min-height:100vh;transition:background .4s;}
+:root[data-theme="night"] body{background:radial-gradient(140% 100% at 85% -8%,rgba(232,64,156,.42),transparent 62%),radial-gradient(140% 100% at -12% 108%,rgba(124,86,240,.40),transparent 62%),linear-gradient(160deg,#1c1228,#110d19 58%,#160f20);background-attachment:fixed;}
+.topbar{position:sticky;top:0;z-index:9;display:flex;align-items:center;justify-content:space-between;padding:13px 18px;background:linear-gradient(90deg,#ff7a59,#ff9d6b);}
+:root[data-theme="night"] .topbar{background:rgba(20,18,27,.55);-webkit-backdrop-filter:blur(16px);backdrop-filter:blur(16px);border-bottom:1px solid rgba(255,255,255,.08);}
+.topbar-logo{font-family:var(--pop);font-size:15px;color:#fff;letter-spacing:.04em;text-shadow:0 1px 0 rgba(0,0,0,.14);}
+.topbar-right{display:flex;align-items:center;gap:12px;}
+.theme-toggle,.nav-toggle{display:inline-flex;align-items:center;justify-content:center;width:36px;height:36px;border-radius:50%;border:1.5px solid rgba(255,255,255,.55);background:rgba(255,255,255,.2);color:#fff;cursor:pointer;padding:0;-webkit-backdrop-filter:blur(6px);backdrop-filter:blur(6px);transition:transform .12s,background .2s;flex-shrink:0;}
+.theme-toggle:hover,.nav-toggle:hover{transform:scale(1.08);}.theme-toggle:active,.nav-toggle:active{transform:scale(.93);}
+.theme-toggle svg{width:18px;height:18px;display:block;}.nav-toggle svg{width:20px;height:20px;display:block;}
+.theme-toggle .ic-sun{display:none;}:root[data-theme="night"] .theme-toggle .ic-sun{display:block;}:root[data-theme="night"] .theme-toggle .ic-moon{display:none;}
+:root[data-theme="night"] .theme-toggle,:root[data-theme="night"] .nav-toggle{border-color:rgba(255,255,255,.18);background:rgba(255,255,255,.08);color:#ffce9e;}
+.nav-overlay{position:fixed;inset:0;background:rgba(10,8,16,.45);opacity:0;pointer-events:none;transition:opacity .25s;z-index:1999;-webkit-backdrop-filter:blur(2px);backdrop-filter:blur(2px);}
+.nav-overlay.open{opacity:1;pointer-events:auto;}
+.nav-drawer{position:fixed;top:0;right:0;height:100%;width:min(84vw,330px);background:#fff;color:var(--ink);box-shadow:-12px 0 40px -12px rgba(0,0,0,.4);transform:translateX(102%);transition:transform .28s cubic-bezier(.4,0,.2,1);z-index:2000;display:flex;flex-direction:column;overflow-y:auto;}
+.nav-drawer.open{transform:translateX(0);}
+:root[data-theme="night"] .nav-drawer{background:#1b1726;box-shadow:-12px 0 50px -10px rgba(0,0,0,.7);}
+.nav-dhead{display:flex;align-items:center;justify-content:space-between;padding:18px 18px 14px;border-bottom:1px solid var(--border);}
+.nav-dtitle{font-family:var(--pop);font-size:16px;color:var(--ink);}
+.nav-close{width:34px;height:34px;border:none;background:transparent;color:var(--muted);cursor:pointer;display:flex;align-items:center;justify-content:center;border-radius:50%;}
+.nav-close:hover{background:var(--cream);}.nav-close svg{width:18px;height:18px;}
+.nav-link{display:flex;align-items:center;gap:12px;padding:15px 20px;color:var(--ink);text-decoration:none;font-size:15px;font-weight:700;border-bottom:1px solid var(--border);transition:background .15s;}
+.nav-link:hover{background:var(--cream);}.nav-link:active{background:var(--sel);}
+.nav-link.cur{color:var(--accent);background:var(--sel);}
+.nav-ic{font-size:18px;width:24px;text-align:center;}
+.wrap{max-width:520px;margin:0 auto;padding:30px 18px 80px;}
+.card{background:var(--surface);border:1.5px solid var(--border);border-radius:var(--radius);box-shadow:var(--card-sh);padding:24px;}
+:root[data-theme="night"] .card{-webkit-backdrop-filter:blur(14px);backdrop-filter:blur(14px);}
+.card-title{font-family:var(--pop);font-size:20px;color:var(--ink);}
+.card-desc{font-size:13px;color:var(--muted);margin:8px 0 16px;line-height:1.7;}
+.fl{display:block;font-size:11px;font-weight:700;color:var(--muted);text-transform:uppercase;letter-spacing:.04em;margin:16px 0 6px;}
+.req{color:var(--accent);margin-left:4px;font-size:10px;}
+.fld{width:100%;padding:12px 14px;border:1.5px solid var(--border);border-radius:12px;font-size:14px;font-family:inherit;background:var(--surface);color:var(--ink);outline:none;}
+textarea.fld{resize:vertical;min-height:120px;}
+:root[data-theme="night"] .fld{background:rgba(0,0,0,.26);}
+.fld:focus{border-color:var(--accent);box-shadow:0 0 0 3px color-mix(in srgb,var(--accent) 22%,transparent);}
+.btn{width:100%;margin-top:22px;padding:15px;border:none;border-radius:14px;background:var(--accent);color:#fff;font-family:var(--pop);font-size:15px;cursor:pointer;box-shadow:var(--cta-sh);transition:transform .1s;}
+.btn:active{transform:translateY(2px);box-shadow:var(--cta-shA);}
+.btn:disabled{opacity:.6;cursor:default;}
+.result{margin-top:16px;padding:13px 15px;border-radius:12px;font-size:13px;font-weight:700;}
+.result.ok{background:rgba(70,193,120,.14);color:#2f9e5e;border:1px solid rgba(70,193,120,.4);}
+:root[data-theme="night"] .result.ok{color:#7fe0a6;}
+.result.err{background:rgba(255,107,94,.14);color:#d2483a;border:1px solid rgba(255,107,94,.4);}
+:root[data-theme="night"] .result.err{color:#ff9d8e;}
+</style>
+<script>
+(function(){var K='bukiTheme',mq=window.matchMedia('(prefers-color-scheme: dark)');
+function eff(){var s=null;try{s=localStorage.getItem(K)}catch(e){}return(s==='light'||s==='night')?s:(mq.matches?'night':'light');}
+function set(t){document.documentElement.setAttribute('data-theme',t);}
+set(eff());
+function om(){var s=null;try{s=localStorage.getItem(K)}catch(e){}if(s!=='light'&&s!=='night')set(mq.matches?'night':'light');}
+if(mq.addEventListener)mq.addEventListener('change',om);else if(mq.addListener)mq.addListener(om);
+function w(){var b=document.getElementById('themeToggle');if(b)b.addEventListener('click',function(){var c=document.documentElement.getAttribute('data-theme')||eff();var n=(c==='night')?'light':'night';try{localStorage.setItem(K,n)}catch(e){}set(n);});}
+if(document.readyState!=='loading')w();else document.addEventListener('DOMContentLoaded',w);})();
+</script>
+</head>
+<body>
+<div class="topbar"><div class="topbar-logo">BUKI BOOTH</div><div class="topbar-right"><button id="themeToggle" class="theme-toggle" type="button" aria-label="ライト/ダーク表示を切り替え"><svg class="ic-moon" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M21 12.8A9 9 0 1 1 11.2 3a7 7 0 0 0 9.8 9.8Z"/></svg><svg class="ic-sun" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><circle cx="12" cy="12" r="4"/><path d="M12 3v1.5M12 19.5V21M3 12h1.5M19.5 12H21M5.6 5.6l1 1M17.4 17.4l1 1M18.4 5.6l-1 1M6.6 17.4l-1 1"/></svg></button><button id="navToggle" class="nav-toggle" type="button" aria-label="メニューを開く"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><path d="M3 6h18M3 12h18M3 18h18"/></svg></button></div></div>
+<div class="nav-overlay" id="navOverlay"></div><nav class="nav-drawer" id="navDrawer" aria-hidden="true"><div class="nav-dhead"><span class="nav-dtitle">メニュー</span><button class="nav-close" id="navClose" type="button" aria-label="閉じる"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><path d="M6 6l12 12M18 6L6 18"/></svg></button></div><a class="nav-link" href="home.html"><span class="nav-ic">🏠</span>ホーム</a><a class="nav-link" href="page1.html"><span class="nav-ic">📝</span>注文ページ</a><a class="nav-link" href="https://buki-booth.com/portal"><span class="nav-ic">🔗</span>URL変更（マイページ）</a><a class="nav-link" href="page4.html"><span class="nav-ic">⚙️</span>オプション割り当て</a><a class="nav-link cur" href="message.html"><span class="nav-ic">✉️</span>お問い合わせ</a></nav>
+<main class="wrap">
+<div class="card">
+<h1 class="card-title">お問い合わせ</h1>
+<p class="card-desc">ご質問・ご要望・不具合のご連絡などお気軽にどうぞ。注文に関する場合は注文番号を入れていただくとスムーズです。</p>
+<label class="fl">注文番号（任意）</label><input id="mOrder" class="fld" type="text" inputmode="numeric" placeholder="例：12345678">
+<label class="fl">お返事用の連絡先（任意）</label><input id="mContact" class="fld" type="text" placeholder="メールアドレス や X のID など">
+<label class="fl">メッセージ<span class="req">必須</span></label><textarea id="mText" class="fld" rows="6" placeholder="内容をご記入ください"></textarea>
+<button id="mSend" class="btn" type="button">送信する</button>
+<div id="mResult" class="result" style="display:none"></div>
+</div>
+</main>
+<script>
+document.getElementById('mSend').addEventListener('click',function(){
+ var text=document.getElementById('mText').value.trim();
+ var order=document.getElementById('mOrder').value.trim();
+ var contact=document.getElementById('mContact').value.trim();
+ var res=document.getElementById('mResult'),btn=this;
+ function show(cls,msg){res.style.display='block';res.className='result '+cls;res.textContent=msg;}
+ if(!text){show('err','メッセージを入力してください。');return;}
+ btn.disabled=true;btn.textContent='送信中…';
+ fetch('https://buki-booth.com/api/message',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({order:order,contact:contact,text:text})})
+  .then(function(r){return r.json().then(function(d){return {ok:r.ok,d:d};});})
+  .then(function(x){ if(x.ok&&x.d&&x.d.ok){ show('ok','送信しました。ありがとうございます！'); document.getElementById('mText').value=''; document.getElementById('mOrder').value=''; document.getElementById('mContact').value=''; } else { show('err','送信に失敗しました。時間をおいて再度お試しください。'); } })
+  .catch(function(){ show('err','送信に失敗しました。通信環境をご確認ください。'); })
+  .then(function(){ btn.disabled=false; btn.textContent='送信する'; });
+});
+</script>
+<script>
+(function(){var t=document.getElementById('navToggle'),d=document.getElementById('navDrawer'),o=document.getElementById('navOverlay'),c=document.getElementById('navClose');if(!t||!d)return;function op(){d.classList.add('open');if(o)o.classList.add('open');d.setAttribute('aria-hidden','false');}function cl(){d.classList.remove('open');if(o)o.classList.remove('open');d.setAttribute('aria-hidden','true');}t.addEventListener('click',op);if(c)c.addEventListener('click',cl);if(o)o.addEventListener('click',cl);document.addEventListener('keydown',function(e){if(e.key==='Escape')cl();});})();
+</script>
+</body>
+</html>
