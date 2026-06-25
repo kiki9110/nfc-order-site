@@ -1374,6 +1374,7 @@ function recomputeDie(face, cb) {
     const res = dieMorphTrace(dieGridFromImage(im, 140), 140, S.sizeCm, S.borderCm != null ? S.borderCm : 0.3);
     if (face === 'back') { S.dieBack  = res ? res.outer : null; S.dieHolesBack  = res ? res.holes : []; }
     else                 { S.dieFront = res ? res.outer : null; S.dieHolesFront = res ? res.holes : []; }
+    updateSizeUI();   // シルエット確定後、短辺6cm制約に合わせて長辺の上限を再適用
     if (cb) cb();
   };
   im.onerror = () => { if (cb) cb(); };
@@ -1823,7 +1824,9 @@ function dieAspect() {
 
 // 長辺スライダー（丸・四角・ダイア）の上限。すべて9cm。
 function maxSizeFor(shape) {
-  return 9; // 丸・四角・ダイカット すべて長辺9cm（ダイアは短辺も自動で9cm以内）
+  if (shape === 'circle' || shape === 'square') return 6;        // 丸・四角は最大6cm
+  if (shape === 'diecut') return Math.min(9, 6 / dieAspect());   // 長辺は9cmまで、かつ短辺が6cmを超えないよう上限を抑える
+  return 9;                                                      // 自由四角の長辺など
 }
 function clampSz(v) { return Math.min(maxSizeFor(S.shape), Math.max(3, Math.round(v*10)/10)); }
 function clampTh(v) { return Math.min(5, Math.max(2.5, Math.round(v*10)/10)); }
@@ -1831,7 +1834,10 @@ function clampTh(v) { return Math.min(5, Math.max(2.5, Math.round(v*10)/10)); }
 // 自由四角の縦横ルール：各辺3〜9cm。
 function clamp1(v) { return Math.min(9, Math.max(3, Math.round(v*10)/10)); }
 function applyRectRule(w, h, changed) {
-  return { w: clamp1(w), h: clamp1(h) };   // 各辺3〜9cm（上限9cm）
+  w = clamp1(w); h = clamp1(h);            // 各辺3〜9cm
+  // 短い方は最大6cm（＝両辺とも6cm超は不可）。今動かした辺を生かし、もう一方を6cmに抑える。
+  if (w > 6 && h > 6) { if (changed === 'h') w = 6; else h = 6; }
+  return { w: w, h: h };
 }
 
 // 長辺スライダーの上限/最小・ダイア短辺表示をまとめて更新
@@ -1847,7 +1853,7 @@ function updateSizeUI() {
   const ds = document.getElementById('dieShort');
   if (S.shape === 'diecut') {
     ds.style.display = 'block';
-    ds.textContent = '短辺：約 ' + (S.sizeCm * dieAspect()).toFixed(1) + 'cm（枠 最大9×9cm）';
+    ds.textContent = '短辺：約 ' + (S.sizeCm * dieAspect()).toFixed(1) + 'cm（長辺 最大9cm／短辺 最大6cm）';
   } else { ds.style.display = 'none'; }
 }
 
@@ -1859,7 +1865,7 @@ function setSz(v) {
   if (S.shape === 'diecut') {
     const ds = document.getElementById('dieShort');
     ds.style.display = 'block';
-    ds.textContent = '短辺：約 ' + (v * dieAspect()).toFixed(1) + 'cm（枠 最大9×9cm）';
+    ds.textContent = '短辺：約 ' + (v * dieAspect()).toFixed(1) + 'cm（長辺 最大9cm／短辺 最大6cm）';
   }
   applySizeStatus();
   done(6); updateProg();
