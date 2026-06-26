@@ -3,210 +3,194 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>NFC ORDER — カスタマイズ</title>
+<title>NFC ORDER — 注文確認</title>
 <style>
 @import url('https://fonts.googleapis.com/css2?family=Mochiy+Pop+One&family=Noto+Sans+JP:wght@400;500;700;900&family=Syne:wght@700;800&display=swap');
 :root{
   --ink:#2c2740;--paper:#fffdf7;--cream:#fff4ea;
   --accent:#ff7a59;--accent-press:#e85f3f;--muted:#8a8398;--border:#f0e3d6;--radius:18px;
-  --pop:'Mochiy Pop One',sans-serif;--surface:#fff;--sel:#fff8f5;--card-sh:0 5px 0 rgba(124,107,219,.08);--btn-pop:0 3px 0 rgba(0,0,0,.05);--cta-sh:0 4px 0 var(--accent-press);--cta-shA:0 1px 0 var(--accent-press);--topbar:linear-gradient(90deg,#ff7a59,#ff9d6b);
+  --green:#1f9d57;--green-bg:#e7f7ee;--pop:'Mochiy Pop One',sans-serif;--surface:#fff;--sel:#fff8f5;--card-sh:0 5px 0 rgba(124,107,219,.08);--btn-pop:0 3px 0 rgba(0,0,0,.05);--cta-sh:0 4px 0 var(--accent-press);--cta-shA:0 1px 0 var(--accent-press);--topbar:linear-gradient(90deg,#ff7a59,#ff9d6b);
 }
 *,*::before,*::after{box-sizing:border-box;margin:0;padding:0;}
-body{font-family:'Noto Sans JP',sans-serif;background:var(--paper);color:var(--ink);padding-bottom:100px;}
+body{font-family:'Noto Sans JP',sans-serif;background:var(--paper);color:var(--ink);padding-bottom:60px;}
 
 /* TOPBAR */
-.topbar{position:sticky;top:0;z-index:50;background:var(--topbar);display:flex;align-items:center;justify-content:space-between;padding:13px 20px;}
+.topbar{background:var(--topbar);display:flex;align-items:center;justify-content:space-between;padding:13px 20px;}
 .topbar-logo{font-family:var(--pop);font-weight:400;font-size:16px;color:#fff;letter-spacing:.04em;text-shadow:0 1px 0 rgba(0,0,0,.12);}
-.topbar-order{font-size:12px;color:rgba(255,255,255,.85);font-family:monospace;}
 .topbar-step{font-size:11px;color:#fff;font-weight:700;}
-.prog{height:3px;background:var(--cream);position:sticky;top:47px;z-index:49;}
-.prog-fill{height:100%;background:var(--accent);width:0%;transition:width .4s;}
 
-/* LAYOUT */
-.layout{display:flex;flex-direction:column;max-width:960px;margin:0 auto;padding:16px 16px 0;}
-@media(min-width:700px){.layout{flex-direction:row;gap:24px;padding:24px 20px 0;}}
-.form-col{flex:1;min-width:0;}
-.preview-col{width:100%;}
-@media(min-width:700px){.preview-col{width:300px;flex-shrink:0;position:sticky;top:68px;align-self:flex-start;}}
+/* CONTENT */
+.wrap{max-width:600px;margin:0 auto;padding:24px 16px;}
 
-/* SECTION */
-.sec{background:var(--surface);border-radius:var(--radius);border:1.5px solid var(--border);margin-bottom:12px;overflow:hidden;box-shadow:var(--card-sh);}
-.sec-head{display:flex;align-items:center;gap:10px;padding:13px 16px;cursor:pointer;user-select:none;}
-.sec-head:hover{background:#fafaf8;}
-.sec-num{width:24px;height:24px;border-radius:50%;background:var(--ink);color:#fff;display:flex;align-items:center;justify-content:center;font-size:11px;font-weight:700;flex-shrink:0;}
-.sec-num.done{background:var(--accent);}
-.sec-title{font-family:var(--pop);font-weight:400;font-size:14px;flex:1;}
-.sec-status{font-size:11px;color:var(--muted);}
-.sec-body{padding:16px;border-top:1px solid var(--cream);}
-.sec-body.hidden{display:none;}
-.sec.locked .sec-body{display:none !important;}
-.sec.locked{opacity:.5;}
-.lock-bar{display:none;font-size:11px;color:var(--accent);padding:7px 16px;background:var(--sel);border-top:1px solid #f5d0c0;cursor:pointer;}
-.sec.locked .lock-bar{display:block;}
+/* SUCCESS BANNER */
+.success-banner{
+  background:linear-gradient(135deg,#ff7a59,#ff9d6b);
+  border-radius:var(--radius);
+  padding:28px 24px;
+  text-align:center;
+  margin-bottom:20px;
+  box-shadow:0 8px 0 rgba(124,107,219,.12);
+}
+.success-icon{
+  width:60px;height:60px;
+  background:var(--surface);
+  border-radius:50%;
+  display:flex;align-items:center;justify-content:center;
+  font-size:28px;
+  margin:0 auto 14px;
+  box-shadow:0 4px 0 rgba(0,0,0,.10);
+}
+.success-title{
+  font-family:var(--pop);
+  font-size:22px;font-weight:400;
+  color:#fff;
+  margin-bottom:6px;
+  text-shadow:0 1px 0 rgba(0,0,0,.12);
+}
+.success-sub{font-size:13px;color:rgba(255,255,255,.92);line-height:1.7;}
+.order-id-badge{
+  display:inline-block;
+  margin-top:14px;
+  padding:6px 16px;
+  background:rgba(255,255,255,.22);
+  border:1px solid rgba(255,255,255,.4);
+  border-radius:30px;
+  font-family:monospace;
+  font-size:14px;
+  color:var(--paper);
+  letter-spacing:.08em;
+}
+.submitted-at{
+  font-size:11px;color:rgba(255,255,255,.8);
+  margin-top:8px;
+}
 
-/* OPTION LOCK（未購入オプションのロック表示：灰色＋斜線） */
-/* セクション見出し（NFC・両面印刷）と形状ボタン（ダイカット）に適用 */
-.opt-locked{
+/* SECTION CARD */
+.card{
+  background:var(--surface);
+  border-radius:var(--radius);
+  border:1.5px solid var(--border);
+  margin-bottom:14px;
+  overflow:hidden;
+  box-shadow:var(--card-sh);
+}
+.card-head{
+  padding:12px 16px;
+  background:var(--cream);
+  border-bottom:1px solid var(--border);
+  font-size:12px;font-weight:700;
+  letter-spacing:.06em;text-transform:uppercase;
+  color:var(--muted);
+  display:flex;align-items:center;gap:8px;
+}
+.card-body{padding:16px;}
+
+/* ROWS */
+.row{
+  display:flex;align-items:flex-start;justify-content:space-between;
+  padding:10px 0;border-bottom:1px solid var(--cream);gap:16px;
+}
+.row:last-child{border-bottom:none;padding-bottom:0;}
+.row-label{font-size:12px;color:var(--muted);flex-shrink:0;padding-top:1px;}
+.row-val{font-size:13px;font-weight:500;text-align:right;word-break:break-all;}
+.badge{
+  display:inline-block;font-size:11px;padding:2px 8px;
+  border-radius:20px;font-weight:500;
+}
+.badge-yes{background:#fde8e0;color:var(--accent);}
+.badge-no{background:var(--cream);color:var(--muted);}
+.badge-green{background:var(--green-bg);color:var(--green);}
+
+/* COLOR SWATCH inline */
+.color-dot{
+  display:inline-block;
+  width:14px;height:14px;
+  border-radius:50%;
+  border:1.5px solid rgba(0,0,0,.12);
+  vertical-align:middle;
+  margin-right:5px;
+}
+
+/* IMAGE PREVIEWS */
+.img-row{
+  display:flex;gap:16px;flex-wrap:wrap;
+  padding:4px 0;
+}
+.img-block{text-align:center;flex:1;min-width:120px;}
+.img-block label{
+  display:block;font-size:11px;color:var(--muted);
+  margin-bottom:6px;letter-spacing:.04em;
+}
+.img-block canvas{
+  display:block;
+  width:100%;max-width:140px;
+  margin:0 auto;
+  border-radius:10px;
+  border:1.5px solid var(--border);
+}
+
+/* QR POSITION MINI MAP */
+.qr-mini{
   position:relative;
-  cursor:not-allowed !important;
-  /* 灰色の斜線（ストライプ）を重ねて「使えない」ことを明確にする */
-  background-image:repeating-linear-gradient(
-    45deg,
-    rgba(150,150,150,.18),
-    rgba(150,150,150,.18) 6px,
-    rgba(150,150,150,.07) 6px,
-    rgba(150,150,150,.07) 12px
-  ) !important;
+  width:80px;height:80px;
+  background:var(--cream);
+  border:1.5px solid var(--border);
+  border-radius:8px;
+  flex-shrink:0;
 }
-/* 見出しの場合：文字を灰色に */
-.sec.opt-locked .sec-head{color:#9a9a9a;}
-.sec.opt-locked .sec-status::after{content:' 🔒';}
-/* 形状ボタンの場合：中身を少し薄く＋鍵マーク */
-.shape-btn.opt-locked{border-color:#d5d5d5 !important;background-color:#f3f3f3 !important;}
-.shape-btn.opt-locked .shape-name::after{content:' 🔒';font-size:10px;}
-
-/* COLOR SWATCHES */
-.color-row{display:flex;flex-wrap:wrap;gap:8px;}
-.csw{width:42px;height:42px;border-radius:13px;border:2px solid transparent;cursor:pointer;transition:transform .12s,border-color .12s;box-shadow:0 2px 6px rgba(0,0,0,.13);}
-.csw:hover{transform:scale(1.1);}
-.csw.sel{border-color:var(--accent);}
-.csw.sel::after{content:'✓';display:flex;align-items:center;justify-content:center;width:100%;height:100%;font-size:16px;color:#fff;text-shadow:0 1px 2px rgba(0,0,0,.5);}
-.color-name{font-size:11px;color:var(--muted);margin-top:8px;}
-
-/* SHAPE BUTTONS */
-.shape-row{display:flex;flex-wrap:wrap;gap:8px;}
-/* 4つの形状ボタンが入るので、狭い画面では2×2に折り返す */
-.shape-btn{flex:1 1 calc(50% - 4px);min-width:calc(50% - 4px);padding:12px 6px;border:2px solid var(--border);border-radius:14px;background:var(--surface);cursor:pointer;text-align:center;transition:all .15s;box-shadow:var(--btn-pop);}
-.shape-btn:hover{border-color:var(--ink);transform:translateY(-2px);}
-.shape-btn.sel{border-color:var(--accent);background:var(--sel);}
-.sh-icon{margin:0 auto 8px;display:flex;align-items:center;justify-content:center;width:44px;height:44px;}
-.sh-circle{width:40px;height:40px;border-radius:50%;border:2.5px solid var(--ink);background:var(--cream);}
-.sh-square{width:40px;height:40px;border-radius:4px;border:2.5px solid var(--ink);background:var(--cream);}
-/* 自由四角（長方形）アイコン：横長の枠 */
-.sh-rect{width:42px;height:26px;border-radius:4px;border:2.5px solid var(--ink);background:var(--cream);}
-.shape-btn.sel .sh-circle,.shape-btn.sel .sh-square,.shape-btn.sel .sh-rect{border-color:var(--accent);background:#fde8e0;}
-.shape-name{font-size:12px;font-weight:500;color:var(--ink);}
-.shape-sub{font-size:10px;color:var(--muted);margin-top:2px;}
-
-/* YN BUTTONS */
-.yn-row{display:flex;gap:10px;}
-.yn-btn{flex:1;padding:16px 10px;border:2px solid var(--border);border-radius:14px;background:var(--surface);cursor:pointer;font-family:'Noto Sans JP',sans-serif;font-size:15px;font-weight:700;color:var(--muted);transition:all .15s;text-align:center;box-shadow:var(--btn-pop);}
-.yn-btn:hover{border-color:var(--ink);color:var(--ink);}
-.yn-btn.sel{border-color:var(--accent);background:var(--accent);color:#fff;}
-.yn-sub{font-size:10px;margin-top:3px;opacity:.8;}
-
-/* URL INPUT */
-.url-box{margin-top:14px;padding:14px;background:var(--cream);border-radius:10px;display:none;}
-.url-box.show{display:block;}
-.url-box label{font-size:11px;font-weight:500;color:var(--muted);letter-spacing:.06em;text-transform:uppercase;display:block;margin-bottom:6px;}
-.url-box input{width:100%;padding:10px 12px;border:1.5px solid var(--border);border-radius:8px;font-size:13px;font-family:'Noto Sans JP',sans-serif;background:var(--surface);color:var(--ink);outline:none;}
-.url-box input:focus{border-color:var(--accent);}
-.url-hint{font-size:11px;color:var(--muted);margin-top:5px;line-height:1.6;}
-
-/* UPLOAD */
-.upload-zone{border:2px dashed var(--border);border-radius:10px;padding:26px 16px;text-align:center;cursor:pointer;position:relative;background:var(--surface);transition:all .15s;}
-.upload-zone:hover,.upload-zone.over{border-color:var(--accent);background:var(--sel);}
-.upload-zone input{position:absolute;inset:0;opacity:0;cursor:pointer;width:100%;height:100%;}
-.uz-icon{font-size:26px;margin-bottom:6px;}
-.uz-text{font-size:13px;color:var(--muted);}
-.uz-text strong{color:var(--ink);}
-.preview-wrap{display:none;margin-top:12px;text-align:center;}
-.preview-wrap.show{display:block;}
-.preview-wrap canvas{display:block;max-width:200px;margin:0 auto;border-radius:8px;border:2px solid var(--border);}
-.retake-btn{margin-top:6px;font-size:12px;color:var(--accent);background:none;border:none;cursor:pointer;text-decoration:underline;}
-.up-badge{display:inline-block;background:var(--accent);color:#fff;font-size:10px;font-weight:700;padding:2px 8px;border-radius:4px;margin-bottom:6px;}
-.section-label{font-size:11px;font-weight:500;color:var(--muted);text-transform:uppercase;letter-spacing:.06em;margin-bottom:8px;}
-.divider{height:1px;background:var(--cream);margin:14px 0;}
-.extra-tag{display:inline-block;font-size:10px;padding:1px 7px;background:#fde8e0;color:var(--accent);border-radius:20px;font-weight:500;margin-left:6px;}
-
-/* QR EDITOR */
-.qr-canvas-wrap{position:relative;width:100%;height:220px;border-radius:10px;overflow:hidden;border:1.5px solid var(--border);background:var(--cream);margin-bottom:10px;}
-.qr-canvas-wrap canvas{position:absolute;inset:0;width:100%;height:100%;pointer-events:none;}
-.qr-box{position:absolute;border:2.5px solid #fff;box-shadow:0 0 0 1.5px rgba(0,0,0,.25),0 2px 8px rgba(0,0,0,.3);cursor:grab;border-radius:3px;display:flex;align-items:center;justify-content:center;}
-.qr-box:active{cursor:grabbing;}
-.qr-box span{font-size:9px;font-weight:700;color:#fff;letter-spacing:.05em;text-shadow:0 1px 2px rgba(0,0,0,.6);pointer-events:none;}
-.qr-size-row{display:flex;align-items:center;gap:8px;}
-.qr-size-row label{font-size:11px;color:var(--muted);width:40px;flex-shrink:0;}
-.qr-size-row input[type=range]{flex:1;accent-color:var(--accent);}
-.nfc-box{position:absolute;border:2.5px solid #fff;box-shadow:0 0 0 1.5px rgba(0,0,0,.28),0 2px 8px rgba(0,0,0,.3);cursor:grab;border-radius:3px;display:flex;align-items:center;justify-content:center;background:rgba(96,116,255,.22);}
-.nfc-box:active{cursor:grabbing;}
-.nfc-box span{font-size:9px;font-weight:700;color:#fff;letter-spacing:.05em;text-shadow:0 1px 2px rgba(0,0,0,.65);pointer-events:none;}
-.nfc-mode-row{display:flex;gap:8px;margin:8px 0 10px;}
-.nfc-mode-btn{flex:1;padding:9px 6px;border:1.5px solid var(--border);border-radius:9px;background:var(--surface);color:var(--muted);font-size:12px;font-weight:700;cursor:pointer;font-family:inherit;line-height:1.4;text-align:center;}
-.nfc-mode-btn.sel{border-color:var(--accent);background:var(--sel);color:var(--accent);}
-.num-step{display:flex;align-items:center;border:1.5px solid var(--border);border-radius:8px;overflow:hidden;background:var(--surface);flex-shrink:0;}
-.num-step button{width:28px;height:30px;border:none;background:transparent;font-size:16px;cursor:pointer;color:var(--ink);display:flex;align-items:center;justify-content:center;}
-.num-step button:hover{background:var(--cream);}
-.num-step input{width:48px;height:30px;border:none;border-left:1px solid var(--border);border-right:1px solid var(--border);text-align:center;font-size:13px;font-family:'Syne',sans-serif;font-weight:700;background:transparent;color:var(--ink);outline:none;-moz-appearance:textfield;}
-.num-step input::-webkit-outer-spin-button,.num-step input::-webkit-inner-spin-button{-webkit-appearance:none;}
-.num-step .unit{font-size:11px;color:var(--muted);padding:0 6px 0 2px;}
-
-/* SIZE SLIDERS */
-.slider-group{margin-bottom:14px;}
-.slider-group label{font-size:11px;font-weight:500;color:var(--muted);text-transform:uppercase;letter-spacing:.05em;display:block;margin-bottom:7px;}
-.slider-row{display:flex;align-items:center;gap:10px;}
-.slider-row input[type=range]{flex:1;accent-color:var(--accent);}
-
-/* 穴エディタ（キャンバスをドラッグ／タップして穴を配置） */
-.attach-wrap{position:relative;width:100%;height:min(86vw,440px);background:#16161a;border-radius:12px;overflow:hidden;margin:10px 0 8px;cursor:crosshair;touch-action:none;}
-.attach-wrap canvas{position:absolute;inset:0;width:100%;height:100%;touch-action:none;}
-.attach-info{font-size:11px;color:var(--muted);margin-top:8px;display:flex;align-items:center;gap:8px;flex-wrap:wrap;}
-.att-mode{display:inline-block;font-size:10px;font-weight:700;padding:2px 9px;border-radius:20px;letter-spacing:.03em;}
-.att-mode.inside{background:#1d3a2a;color:#7fe0a8;}
-.att-mode.outside{background:#3a2a1d;color:#e0b27f;}
-
-/* 注文サマリーカード */
-.prev-card{background:var(--surface);border:1.5px solid var(--border);border-radius:var(--radius);overflow:hidden;margin-bottom:12px;margin-top:14px;box-shadow:var(--card-sh);}
-@media(min-width:700px){.prev-card{margin-top:0;}}
-.prev-head{padding:11px 15px;display:flex;align-items:center;justify-content:space-between;border-bottom:1px solid var(--cream);}
-.prev-title{font-size:11px;font-weight:700;color:var(--muted);letter-spacing:.08em;text-transform:uppercase;}
-.prev-hint{font-size:10px;color:var(--muted);opacity:.7;}
-.dicut-btn-area{display:none;padding:9px 14px;border-top:1px solid rgba(255,255,255,.08);}
-.dicut-btn{width:100%;padding:10px;background:var(--accent);border:none;border-radius:9px;color:#fff;font-family:'Noto Sans JP',sans-serif;font-size:13px;font-weight:500;cursor:pointer;}
-.size-pills{display:grid;grid-template-columns:1fr 1fr;gap:6px;padding:12px 14px;}
-.pill{text-align:center;background:var(--cream);border-radius:10px;padding:9px 2px;}
-.pill-label{font-size:9px;color:var(--muted);margin-bottom:3px;}
-.pill-val{font-size:13px;font-weight:700;font-family:'Syne',sans-serif;color:var(--ink);}
-
-/* SUBMIT */
-.submit-bar{position:fixed;bottom:0;left:0;right:0;z-index:60;background:var(--surface);padding:12px 18px 18px;display:flex;align-items:center;gap:10px;border-top:1.5px solid var(--border);box-shadow:0 -4px 20px -8px rgba(0,0,0,.12);}
-.submit-info{flex:1;font-size:12px;color:var(--muted);line-height:1.4;}
-.submit-info strong{color:var(--ink);font-size:13px;display:block;margin-bottom:1px;}
-.submit-btn{padding:13px 22px;background:var(--accent);border:none;border-radius:14px;color:#fff;font-family:var(--pop);font-size:14px;font-weight:400;cursor:pointer;white-space:nowrap;box-shadow:var(--cta-sh);transition:transform .1s,box-shadow .1s;}
-.submit-btn:active{transform:translateY(3px);box-shadow:var(--cta-shA);}
-/* ホバーで周囲がふわっと明滅するグロー */
-@keyframes submitGlow{
-  0%,100%{box-shadow:var(--cta-sh),0 0 4px 0 rgba(255,122,89,.30);}
-  50%    {box-shadow:var(--cta-sh),0 0 0 2px rgba(255,122,89,.16),0 0 11px 3px rgba(255,122,89,.78);}
+.qr-mini-dot{
+  position:absolute;
+  width:14px;height:14px;
+  background:var(--accent);
+  border:2px solid #fff;
+  border-radius:3px;
+  transform:translate(-50%,-50%);
+  box-shadow:0 1px 4px rgba(0,0,0,.2);
 }
-.submit-btn:hover{animation:submitGlow 3.3s ease-in-out infinite;}
-@media (prefers-reduced-motion:reduce){.submit-btn:hover{animation:none;box-shadow:var(--cta-sh),0 0 9px 1px rgba(255,122,89,.6);}}
+.qr-info-row{display:flex;align-items:center;gap:12px;flex-wrap:wrap;}
+.qr-info-text{font-size:12px;color:var(--muted);line-height:1.7;}
 
-/* CROP MODAL */
-.modal-bg{display:none;position:fixed;inset:0;background:rgba(0,0,0,.82);z-index:200;align-items:center;justify-content:center;padding:16px;}
-.modal-bg.open{display:flex;}
-.modal{background:var(--paper);border-radius:16px;width:100%;max-width:400px;overflow:hidden;}
-.modal-head{background:var(--ink);color:var(--paper);padding:13px 16px;display:flex;align-items:center;justify-content:space-between;}
-.modal-title{font-size:14px;font-weight:500;}
-.modal-x{background:none;border:none;color:var(--paper);font-size:22px;cursor:pointer;line-height:1;padding:0;}
-.crop-area{position:relative;height:290px;background:#111;overflow:hidden;cursor:grab;user-select:none;}
-.crop-area:active{cursor:grabbing;}
-#cropImg{position:absolute;pointer-events:none;transform-origin:center center;}
-#maskCv{position:absolute;inset:0;pointer-events:none;}
-.dicut-bar{display:none;padding:7px 13px;background:rgba(228,160,32,.1);font-size:11px;color:#c8900a;line-height:1.5;}
-.crop-ctrl{padding:10px 14px;background:var(--cream);border-top:1px solid var(--border);display:flex;flex-direction:column;gap:7px;}
-.cr-row{display:flex;align-items:center;gap:8px;}
-.cr-label{font-size:11px;color:var(--muted);width:34px;flex-shrink:0;}
-.cr-row input[type=range]{flex:1;accent-color:var(--accent);}
-.modal-foot{padding:11px 14px;display:flex;gap:8px;}
-.btn-cancel{flex:1;padding:11px;border:2px solid var(--border);border-radius:9px;background:transparent;cursor:pointer;font-family:'Noto Sans JP',sans-serif;font-size:13px;color:var(--ink);}
-.btn-apply{flex:1;padding:11px;background:var(--accent);border:none;border-radius:9px;color:#fff;font-family:'Noto Sans JP',sans-serif;font-size:13px;font-weight:500;cursor:pointer;}
+/* ATTACH MINI */
+.attach-mini{
+  position:relative;
+  width:200px;height:200px;
+  max-width:100%;
+  background:#18181a;
+  border-radius:10px;
+  overflow:hidden;
+  flex-shrink:0;
+}
+.attach-mini canvas{position:absolute;inset:0;width:100%;height:100%;}
 
-/* TOAST */
-.toast{position:fixed;bottom:82px;left:50%;transform:translateX(-50%) translateY(8px);background:var(--ink);color:var(--paper);padding:9px 18px;border-radius:30px;font-size:13px;opacity:0;pointer-events:none;transition:all .25s;white-space:nowrap;z-index:400;}
-.toast.show{opacity:1;transform:translateX(-50%) translateY(0);}
-/* ロック用：赤系で目立たせる（オプション未購入の通知） */
-.toast.alert{background:#e0392b;color:#fff;font-weight:600;box-shadow:0 4px 16px rgba(224,57,43,.4);}
+/* ACTIONS */
+.actions{display:flex;flex-direction:column;gap:10px;margin-top:20px;}
+.btn{
+  display:block;width:100%;padding:14px;
+  border:none;border-radius:var(--radius);
+  font-family:'Noto Sans JP',sans-serif;
+  font-size:14px;font-weight:500;
+  cursor:pointer;text-align:center;
+  text-decoration:none;
+}
+.btn-primary{background:var(--accent);color:#fff;font-family:var(--pop);font-weight:400;box-shadow:var(--cta-sh);transition:transform .1s,box-shadow .1s,filter .15s;}
+.btn-primary:hover{filter:brightness(1.04);}
+.btn-primary:active{transform:translateY(4px);box-shadow:var(--cta-shA);}
+.btn-secondary{
+  background:transparent;
+  border:1.5px solid var(--border);
+  color:var(--ink);
+}
+.btn-secondary:hover{border-color:var(--ink);}
+
+/* PRINT HINT */
+.print-hint{
+  font-size:11px;color:var(--muted);
+  text-align:center;margin-top:12px;line-height:1.6;
+}
+@media print{
+  .topbar,.actions,.print-hint{display:none;}
+  .success-banner{background:#f0f0f0!important;-webkit-print-color-adjust:exact;}
+}
 
 /* テーマ切替ボタン */
 .topbar{display:flex;align-items:center;justify-content:space-between;}
@@ -231,42 +215,20 @@ body{font-family:'Noto Sans JP',sans-serif;background:var(--paper);color:var(--i
   --cta-sh:0 0 26px -6px rgba(255,131,88,.55);--cta-shA:0 0 12px -4px rgba(255,131,88,.55);
   --topbar:rgba(20,18,27,.55);--accent2:#ffcf7a;--ok:#46c178;--err:#ff6b5e;
 }
-:root[data-theme="night"] body{background:linear-gradient(180deg,#161020,#100c18);color:var(--ink);}
-
-/* ===== スクロール連動の光（上下クロスフェード） ===== */
-.bg-glow{position:fixed;inset:0;z-index:-1;pointer-events:none;overflow:hidden;}
-.bg-glow .g{position:absolute;width:118vw;height:108vh;will-change:opacity,transform;transition:opacity .2s linear,transform .3s ease-out;}
-.g-top{top:0;right:0;transform:translate(50%,-50%) scale(calc(var(--gs-min) + var(--top,1) * (var(--gs-max) - var(--gs-min))));opacity:calc(var(--glow-min) + var(--top,1) * (var(--glow-max) - var(--glow-min)));background:radial-gradient(closest-side,var(--gtopc),transparent 68%);}
-.g-bot{bottom:0;left:0;transform:translate(-50%,50%) scale(calc(var(--gs-min) + var(--bot,0) * (var(--gs-max) - var(--gs-min))));opacity:calc(var(--glow-min) + var(--bot,0) * (var(--glow-max) - var(--glow-min)));background:radial-gradient(closest-side,var(--gbotc),transparent 68%);}
-/* ライト=淡いパステル（ピーチ↔ラベンダー） */
-:root{--glow-min:0;--glow-max:.55;--gs-min:.72;--gs-max:1.12;--gtopc:rgba(255,150,96,.5);--gbotc:rgba(150,140,232,.46);}
-/* ナイト=強め（マゼンタ↔バイオレット） */
-:root[data-theme="night"]{--glow-min:.04;--glow-max:.6;--gs-min:.78;--gs-max:1.1;--gtopc:rgba(236,66,156,.8);--gbotc:rgba(126,88,242,.76);}
-@media(prefers-reduced-motion:reduce){.bg-glow .g{transition:none;}}
+:root[data-theme="night"] body{
+  background:
+    radial-gradient(140% 100% at 85% -8%,rgba(232,64,156,.42),transparent 62%),
+    radial-gradient(140% 100% at -12% 108%,rgba(124,86,240,.40),transparent 62%),
+    linear-gradient(160deg,#1c1228,#110d19 58%,#160f20);
+  background-attachment:fixed;color:var(--ink);
+}
 :root[data-theme="night"] .topbar{-webkit-backdrop-filter:blur(16px);backdrop-filter:blur(16px);border-bottom:1px solid rgba(255,255,255,.08);}
 :root[data-theme="night"] .topbar-step{color:#ff9d75;}
-:root[data-theme="night"] .prog{background:rgba(255,255,255,.10);}
-:root[data-theme="night"] .submit-bar{-webkit-backdrop-filter:blur(12px);backdrop-filter:blur(12px);}
-:root[data-theme="night"] .prev-card{-webkit-backdrop-filter:blur(14px);backdrop-filter:blur(14px);}
-:root[data-theme="night"] .sh-circle,:root[data-theme="night"] .sh-square,:root[data-theme="night"] .sh-rect{border-color:#cfc7da;}
-:root[data-theme="night"] input[type="url"],:root[data-theme="night"] input[type="text"]{background:rgba(0,0,0,.25);}
-:root[data-theme="night"] .num-step{background:rgba(0,0,0,.22);}
-:root[data-theme="night"] .modal{background:#1b1822;}
-:root[data-theme="night"] .modal-head{background:rgba(255,255,255,.06);color:var(--ink);}
-:root[data-theme="night"] .toast{background:#2a2433;color:#fff;}
-:root[data-theme="night"] .pill-val{color:#ff9d75;}
-
-/* ===== ナイト：文字/ボタンの可読性修正 ===== */
-:root[data-theme="night"] .sec-num{background:rgba(255,255,255,.16);color:var(--ink);}
-:root[data-theme="night"] .sec-num.done{background:var(--accent);color:#fff;}
-:root[data-theme="night"] .shape-btn.opt-locked{background-color:rgba(255,255,255,.03)!important;border-color:rgba(255,255,255,.08)!important;}
-:root[data-theme="night"] .shape-btn.sel .sh-circle,:root[data-theme="night"] .shape-btn.sel .sh-square,:root[data-theme="night"] .shape-btn.sel .sh-rect{background:rgba(255,131,88,.22);}
-:root[data-theme="night"] .extra-tag{background:rgba(255,131,88,.2);color:#ffce9e;}
-:root[data-theme="night"] .dicut-bar{color:#e8b85a;}
-:root[data-theme="night"] #diecut-note{background:rgba(255,200,90,.1)!important;border-color:rgba(255,200,90,.32)!important;color:#f0c878!important;}
-
-/* iOSのボタン既定色(青)対策：明示色が無いボタン文字は本文色を継承 */
-button{color:inherit;}
+:root[data-theme="night"] .success-banner{box-shadow:0 0 40px -10px rgba(255,131,88,.5);}
+:root[data-theme="night"] .card{-webkit-backdrop-filter:blur(14px);backdrop-filter:blur(14px);}
+:root[data-theme="night"] .badge-yes{background:rgba(255,131,88,.16);color:#ff9d75;}
+:root[data-theme="night"] .badge-green{background:rgba(70,193,120,.16);color:#7fe0a6;}
+:root[data-theme="night"] .attach-mini{border:1px solid rgba(255,255,255,.1);}
 
 /* メニュー（ハンバーガー） */
 .nav-toggle{display:inline-flex;align-items:center;justify-content:center;width:36px;height:36px;border-radius:50%;border:1.5px solid rgba(255,255,255,.55);background:rgba(255,255,255,.2);color:#fff;cursor:pointer;padding:0;-webkit-backdrop-filter:blur(6px);backdrop-filter:blur(6px);transition:transform .12s,background .2s;flex-shrink:0;}
@@ -303,2202 +265,490 @@ if(document.readyState!=='loading')w();else document.addEventListener('DOMConten
 </head>
 <body>
 <div class="nav-overlay" id="navOverlay"></div><nav class="nav-drawer" id="navDrawer" aria-hidden="true"><div class="nav-dhead"><span class="nav-dtitle">メニュー</span><button class="nav-close" id="navClose" type="button" aria-label="閉じる"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><path d="M6 6l12 12M18 6L6 18"/></svg></button></div><a class="nav-link" href="home.html"><span class="nav-ic">🏠</span>ホーム</a><a class="nav-link" href="page1.html"><span class="nav-ic">📝</span>注文ページ</a><a class="nav-link" href="https://buki-booth.com/portal"><span class="nav-ic">🔗</span>URL変更（マイページ）</a><a class="nav-link" href="page4.html"><span class="nav-ic">⚙️</span>オプション割り当て</a><a class="nav-link" href="message.html"><span class="nav-ic">✉️</span>お問い合わせ</a></nav>
-<div class="bg-glow" aria-hidden="true"><div class="g g-top"></div><div class="g g-bot"></div></div>
 
 <div class="topbar">
   <div class="topbar-logo">NFC ORDER</div>
   <div class="topbar-right">
-    <div class="topbar-order" id="topOrder">—</div>
-    <div class="topbar-step">ステップ 2 / 2</div>
+    <div class="topbar-step">注文確認</div>
     <button id="themeToggle" class="theme-toggle" type="button" aria-label="ライト/ダーク表示を切り替え"><svg class="ic-moon" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M21 12.8A9 9 0 1 1 11.2 3a7 7 0 0 0 9.8 9.8Z"/></svg><svg class="ic-sun" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><circle cx="12" cy="12" r="4"/><path d="M12 3v1.5M12 19.5V21M3 12h1.5M19.5 12H21M5.6 5.6l1 1M17.4 17.4l1 1M18.4 5.6l-1 1M6.6 17.4l-1 1"/></svg></button><button id="navToggle" class="nav-toggle" type="button" aria-label="メニューを開く"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><path d="M3 6h18M3 12h18M3 18h18"/></svg></button>
   </div>
 </div>
-<div class="prog"><div class="prog-fill" id="progFill"></div></div>
 
-<div class="layout">
-<div class="form-col">
+<div class="wrap">
 
-<!-- 1. 土台カラー -->
-<!-- 1. 土台カラー -->
-<div class="sec" id="sec1">
-  <div class="sec-head" onclick="toggle(1)">
-    <div class="sec-num" id="sn1">1</div>
-    <div class="sec-title">土台カラー</div>
-    <div class="sec-status" id="ss1">選択してください</div>
+  <!-- SUCCESS BANNER -->
+  <div class="success-banner">
+    <div class="success-icon">✓</div>
+    <div class="success-title">注文を受け付けました</div>
+    <div class="success-sub">内容をご確認ください。<br>制作完了後、別途ご連絡いたします。</div>
+    <div class="order-id-badge" id="dispOrderId">—</div>
+    <div class="submitted-at" id="dispDate"></div>
   </div>
-  <div class="sec-body hidden" id="sb1">
-    <div class="color-row" id="colorRow"></div>
-    <div class="color-name" id="colorName">—</div>
-  </div>
-</div>
 
-<!-- 2. 形状 -->
-<div class="sec" id="sec2">
-  <div class="sec-head" onclick="toggle(2)">
-    <div class="sec-num" id="sn2">2</div>
-    <div class="sec-title">キーホルダーの形状</div>
-    <div class="sec-status" id="ss2">選択してください</div>
-  </div>
-  <div class="sec-body hidden" id="sb2">
-    <div class="shape-row">
-      <button class="shape-btn" id="sh-circle" onclick="pickShape('circle')">
-        <div class="sh-icon"><div class="sh-circle"></div></div>
-        <div class="shape-name">丸型</div><div class="shape-sub">φ 50mm</div>
-      </button>
-      <button class="shape-btn" id="sh-square" onclick="pickShape('square')">
-        <div class="sh-icon"><div class="sh-square"></div></div>
-        <div class="shape-name">四角形</div><div class="shape-sub">最大90×90mm</div>
-      </button>
-      <button class="shape-btn" id="sh-rect" onclick="pickShape('rect')">
-        <div class="sh-icon"><div class="sh-rect"></div></div>
-        <div class="shape-name">自由四角</div><div class="shape-sub">縦横を自由に</div>
-      </button>
-      <button class="shape-btn" id="sh-diecut" onclick="pickShape('diecut')">
-        <div class="sh-icon">
-          <svg width="40" height="40" viewBox="0 0 40 40" fill="none">
-            <path d="M20 3C12 3 5 9 4 18c-1 8 4 15 9 17 2 1 5 1 7 0 6-2 10-9 9-17C28 9 28 3 20 3z" fill="#fff4ea" stroke="#2c2740" stroke-width="2" stroke-dasharray="3 2"/>
-            <circle cx="20" cy="14" r="4" fill="#ccc8be"/>
-          </svg>
-        </div>
-        <div class="shape-name">ダイカット</div>
-        <div class="shape-sub">輪郭切抜</div>
-      </button>
-    </div>
-    <div id="diecut-note" style="display:none;margin-top:12px;padding:10px;background:#fffbf0;border:1.5px solid #f0d080;border-radius:9px;font-size:12px;color:#7a6020;line-height:1.7;">
-      📐 画像の輪郭に沿って切り抜きます。背景透過のPNGを推奨します。
-    </div>
-  </div>
-</div>
-
-<!-- 3.5 裏面印刷 -->
-<div class="sec" id="sec35">
-  <div class="sec-head" onclick="toggle(35)">
-    <div class="sec-num" id="sn35">▸</div>
-    <div class="sec-title">裏面にも印刷<span class="extra-tag">+¥100</span></div>
-    <div class="sec-status" id="ss35">なし</div>
-  </div>
-  <div class="sec-body hidden" id="sb35">
-    <div class="yn-row">
-      <button class="yn-btn" id="bp-yes" onclick="setBackPrint(true)">あり<div class="yn-sub">+¥100</div></button>
-      <button class="yn-btn sel" id="bp-no" onclick="setBackPrint(false)">なし</button>
-    </div>
-  </div>
-</div>
-
-<!-- 4. キーホルダー画像 -->
-<div class="sec locked" id="sec4">
-  <div class="sec-head" onclick="onImgSecClick()">
-    <div class="sec-num" id="sn4">3</div>
-    <div class="sec-title">キーホルダー画像</div>
-    <div class="sec-status" id="ss4">未設定</div>
-  </div>
-  <div class="sec-body hidden" id="sb4">
-    <!-- おもて -->
-    <div id="frontLbl" style="display:none;" class="section-label">おもて面</div>
-    <div id="upBadge" style="display:none;margin-bottom:6px;"><span class="up-badge">↑ この向きが「上」</span></div>
-    <div class="upload-zone" id="uz-front">
-      <input type="file" id="img-front" accept="image/*" onchange="onFileChange(event,'front')">
-      <div class="uz-icon">🖼️</div>
-      <div class="uz-text"><strong>クリックして選択</strong><br>またはドロップ</div>
-    </div>
-    <div class="preview-wrap" id="pw-front">
-      <canvas id="cv-front" width="200" height="200"></canvas>
-      <button class="retake-btn" onclick="resetImg('front')">選び直す</button>
-      <button class="retake-btn" style="color:var(--ink);" onclick="reopenCrop('front')">✏ 再調整</button>
-    </div>
-    <!-- 裏面 -->
-    <div id="backArea" style="display:none;">
-      <div class="divider"></div>
-      <div class="section-label">うら面</div>
-      <div id="upBadgeBack" style="display:none;margin-bottom:6px;"><span class="up-badge">↑ この向きが「上」（裏から見て）</span></div>
-      <div class="upload-zone" id="uz-back">
-        <input type="file" id="img-back" accept="image/*" onchange="onFileChange(event,'back')">
-        <div class="uz-icon">🖼️</div>
-        <div class="uz-text"><strong>うら面の画像を選択</strong></div>
+  <!-- 基本情報 -->
+  <div class="card">
+    <div class="card-head">📋 基本情報</div>
+    <div class="card-body">
+      <div class="row">
+        <span class="row-label">注文番号</span>
+        <span class="row-val" id="diOid">—</span>
       </div>
-      <div class="preview-wrap" id="pw-back">
-        <canvas id="cv-back" width="200" height="200"></canvas>
-        <button class="retake-btn" onclick="resetImg('back')">選び直す</button>
-        <button class="retake-btn" style="color:var(--ink);" onclick="reopenCrop('back')">✏ 再調整</button>
+      <div class="row">
+        <span class="row-label">土台カラー</span>
+        <span class="row-val" id="diColor">—</span>
+      </div>
+      <div class="row">
+        <span class="row-label">形状</span>
+        <span class="row-val" id="diShape">—</span>
+      </div>
+      <div class="row">
+        <span class="row-label">サイズ</span>
+        <span class="row-val" id="diSize">—</span>
+      </div>
+      <div class="row">
+        <span class="row-label">厚さ</span>
+        <span class="row-val" id="diThick">—</span>
       </div>
     </div>
   </div>
-  <div class="lock-bar" onclick="onLockBarClick()">⚠ <span id="lockMsg">先に「土台カラー」と「形状」を選択してください</span> →</div>
-</div>
 
-<!-- 5. サイズ -->
-<div class="sec" id="sec6">
-  <div class="sec-head" onclick="toggle(6)">
-    <div class="sec-num" id="sn6">4</div>
-    <div class="sec-title">サイズ設定</div>
-    <div class="sec-status" id="ss6">7.0cm / 厚さ2.5mm</div>
-  </div>
-  <div class="sec-body hidden" id="sb6">
-    <!-- 丸・四角・ダイカット：長辺1本のスライダー -->
-    <div class="slider-group" id="szGroup">
-      <label id="szLabel">長辺（最長部分）</label>
-      <div class="slider-row">
-        <input type="range" id="szSlider" min="3" max="9" step="0.5" value="7" oninput="onSzSlider()">
-        <div class="num-step">
-          <button onclick="stepSz(-0.5)">−</button>
-          <input type="number" id="szN" min="3" max="9" step="0.5" value="7" oninput="onSzInput()">
-          <span class="unit">cm</span>
-          <button onclick="stepSz(0.5)">＋</button>
-        </div>
+  <!-- オプション -->
+  <div class="card">
+    <div class="card-head">⚙️ オプション</div>
+    <div class="card-body">
+      <div class="row">
+        <span class="row-label">NFCタグ</span>
+        <span class="row-val" id="diNfc">—</span>
       </div>
-      <!-- ダイカットのみ：短辺の自動計算値を表示 -->
-      <div id="dieShort" style="display:none;margin-top:6px;font-size:12px;color:var(--accent);font-weight:600;"></div>
-    </div>
-
-    <!-- 自由四角：横・縦を独立で調整＋入れ替え -->
-    <div id="rectGroup" style="display:none;">
-      <div class="slider-group">
-        <label>横（幅）</label>
-        <div class="slider-row">
-          <input type="range" id="rwSlider" min="3" max="9" step="0.5" value="9" oninput="onRwSlider()">
-          <div class="num-step">
-            <button onclick="stepRw(-0.5)">−</button>
-            <input type="number" id="rwN" min="3" max="9" step="0.5" value="9" oninput="onRwInput()">
-            <span class="unit">cm</span>
-            <button onclick="stepRw(0.5)">＋</button>
-          </div>
-        </div>
+      <div class="row" id="nfcUrlRow" style="display:none;">
+        <span class="row-label">登録URL</span>
+        <span class="row-val" id="diNfcUrl" style="font-size:12px;word-break:break-all;">—</span>
       </div>
-      <div class="slider-group">
-        <label>縦（高さ）</label>
-        <div class="slider-row">
-          <input type="range" id="rhSlider" min="3" max="9" step="0.5" value="6" oninput="onRhSlider()">
-          <div class="num-step">
-            <button onclick="stepRh(-0.5)">−</button>
-            <input type="number" id="rhN" min="3" max="9" step="0.5" value="6" oninput="onRhInput()">
-            <span class="unit">cm</span>
-            <button onclick="stepRh(0.5)">＋</button>
-          </div>
-        </div>
+      <div class="row">
+        <span class="row-label">裏面印刷</span>
+        <span class="row-val" id="diBack">—</span>
       </div>
-      <button type="button" onclick="swapWH()" style="margin-top:2px;padding:9px 14px;border:1.5px solid var(--border);border-radius:9px;background:#fff;cursor:pointer;font-size:13px;font-weight:600;color:var(--ink);">⇄ 縦横を入れ替え</button>
-    </div>
-
-    <div class="slider-group">
-      <label>厚さ</label>
-      <div class="slider-row">
-        <input type="range" id="thSlider" min="2.5" max="5" step="0.5" value="2.5" oninput="onThSlider()">
-        <div class="num-step">
-          <button onclick="stepTh(-0.5)">−</button>
-          <input type="number" id="thN" min="2.5" max="5" step="0.5" value="2.5" oninput="onThInput()">
-          <span class="unit">mm</span>
-          <button onclick="stepTh(0.5)">＋</button>
-        </div>
+      <div class="row">
+        <span class="row-label">QRコード</span>
+        <span class="row-val" id="diQr">—</span>
       </div>
     </div>
-    <div class="slider-group" id="bdGroup" style="display:none;">
-      <label>縁の厚さ（ダイカットの枠）</label>
-      <div class="slider-row">
-        <input type="range" id="bdSlider" min="0" max="10" step="1" value="3" oninput="onBdSlider()">
-        <div class="num-step">
-          <button onclick="stepBd(-1)">−</button>
-          <input type="number" id="bdN" min="0" max="10" step="1" value="3" oninput="onBdInput()">
-          <span class="unit">mm</span>
-          <button onclick="stepBd(1)">＋</button>
-        </div>
-      </div>
-    </div>
-    <div style="font-size:11px;color:var(--muted);margin-top:4px;line-height:1.6;">※ サイズはすべての形状で最小3cm・最大9cmです。自由四角は縦横それぞれ3〜9cm、ダイカットは9×9cmの枠に収まります。</div>
   </div>
-</div>
 
-<!-- 6. 穴の位置 -->
-<div class="sec" id="sec7">
-  <div class="sec-head" onclick="toggle(7)">
-    <div class="sec-num" id="sn7">5</div>
-    <div class="sec-title">穴の位置</div>
-    <div class="sec-status" id="ss7">未設定</div>
-  </div>
-  <div class="sec-body hidden" id="sb7">
-    <div style="font-size:12px;color:var(--muted);margin-bottom:10px;line-height:1.8;">チェーンを通す穴を、ドラッグまたはタップで配置してください。<br>・本体の<strong style="color:var(--ink);">内側</strong>に置くと、その位置に穴が開きます。<br>・本体の<strong style="color:var(--ink);">外側</strong>に置くと、穴を囲むツメ（持ち手）が本体につながります（縁から最大1cmまで）。</div>
-    <div style="display:flex;gap:6px;margin-bottom:8px;">
-      <button id="attViewFront" onclick="setAttachView('front')" style="flex:1;padding:7px;border:1.5px solid var(--accent);border-radius:8px;background:var(--accent);color:#fff;font-size:12px;cursor:pointer;font-family:'Noto Sans JP',sans-serif;">おもて面</button>
-      <button id="attViewBack" onclick="setAttachView('back')" style="flex:1;padding:7px;border:1.5px solid var(--border);border-radius:8px;background:#fff;color:var(--muted);font-size:12px;cursor:pointer;font-family:'Noto Sans JP',sans-serif;">うら面</button>
-    </div>
-    <div class="attach-wrap" id="attachWrap">
-      <canvas id="attachCv"></canvas>
-    </div>
-    <div style="font-size:11px;color:var(--muted);margin-top:8px;">チェーン穴：直径 <strong style="color:var(--ink);">5mm</strong>（固定）</div>
-    <div class="attach-info">
-      <span class="att-mode inside" id="attModeBadge">本体内</span>
-      <span>X:<span id="attX">50</span>% Y:<span id="attY">10</span>%</span>
+  <!-- 画像 -->
+  <div class="card" id="imgCard">
+    <div class="card-head">🖼️ キーホルダー画像</div>
+    <div class="card-body">
+      <div class="img-row" id="imgRow"></div>
     </div>
   </div>
-</div>
 
-<!-- 7. NFC -->
-<div class="sec" id="sec3">
-  <div class="sec-head" onclick="toggle(3)">
-    <div class="sec-num" id="sn3">6</div>
-    <div class="sec-title">NFC タグ<span class="extra-tag">+¥200</span></div>
-    <div class="sec-status" id="ss3">なし</div>
+  <!-- QR位置 -->
+  <div class="card" id="nfcPosCard" style="display:none;">
+    <div class="card-head">📍 NFCタグの位置</div>
+    <div class="card-body" id="nfcPosBody"></div>
   </div>
-  <div class="sec-body hidden" id="sb3">
-    <div style="font-size:12px;color:var(--muted);margin-bottom:14px;line-height:1.6;">スマホをかざすと登録したURLに飛べます。</div>
-    <div class="yn-row">
-      <button class="yn-btn" id="nfc-yes" onclick="setNFC(true)">あり<div class="yn-sub">+¥200</div></button>
-      <button class="yn-btn sel" id="nfc-no" onclick="setNFC(false)">なし</button>
-    </div>
-    <div class="url-box" id="nfcUrl-box">
-      <label>登録するURL</label>
-      <input type="url" id="nfcUrl" placeholder="https://example.com" oninput="S.nfcUrl=this.value">
-      <div class="url-hint">※ SNSプロフィールURLや作品ページなど</div>
-      <!-- NFC埋め込み位置 -->
-      <div style="margin-top:16px;">
-        <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:6px;">
-          <div class="section-label" style="margin-bottom:0;">NFCタグの位置</div>
-          <button type="button" onclick="resyncNFC()" style="font-size:11px;padding:4px 10px;border:1.5px solid var(--border);border-radius:7px;background:#fff;cursor:pointer;color:var(--ink);white-space:nowrap;">↺ 本体サイズを反映</button>
+
+  <div class="card" id="qrPosCard" style="display:none;">
+    <div class="card-head">📍 QRコードの位置</div>
+    <div class="card-body" id="qrPosBody"></div>
+  </div>
+
+  <!-- 穴位置 -->
+  <div class="card">
+    <div class="card-head">🔩 穴の位置</div>
+    <div class="card-body">
+      <div class="qr-info-row">
+        <div class="attach-mini">
+          <canvas id="attachMiniCv"></canvas>
         </div>
-        <div style="font-size:11px;color:var(--muted);margin-bottom:8px;line-height:1.6;">2.5×1.8cm のタグです。印刷の都合上、縁から 2mm 以上内側に配置されます。</div>
-        <div class="nfc-mode-row">
-          <button type="button" class="nfc-mode-btn sel" id="nfcMode-fix" onclick="setNFCMode('fix')">ボタンでかんたん<br><span style="font-weight:400;font-size:10px;opacity:.85;">縁の内側だけ動く</span></button>
-          <button type="button" class="nfc-mode-btn" id="nfcMode-free" onclick="setNFCMode('free')">自由に配置<br><span style="font-weight:400;font-size:10px;opacity:.85;">長押しでどこでも</span></button>
-        </div>
-        <div class="nfc-mode-row">
-          <button type="button" class="nfc-mode-btn sel" id="nfcRot-h" onclick="setNFCRot(0)">よこ向き<br><span style="font-weight:400;font-size:10px;opacity:.85;">2.4×1.4cm</span></button>
-          <button type="button" class="nfc-mode-btn" id="nfcRot-v" onclick="setNFCRot(1)">たて向き<br><span style="font-weight:400;font-size:10px;opacity:.85;">1.4×2.4cm</span></button>
-        </div>
-        <div class="qr-canvas-wrap" id="nfcWrap">
-          <canvas id="nfcBg"></canvas>
-          <div class="nfc-box" id="nfcBox"><span>NFC</span></div>
+        <div class="qr-info-text">
+          <div>X: <strong id="diAttX">—</strong>%　Y: <strong id="diAttY">—</strong>%</div>
+          <div>状態: <strong id="diAttMode">—</strong>　穴径: <strong>5mm</strong></div>
         </div>
       </div>
     </div>
   </div>
-</div>
 
-<!-- 8. QR -->
-<div class="sec" id="sec5">
-  <div class="sec-head" onclick="toggle(5)">
-    <div class="sec-num" id="sn5">7</div>
-    <div class="sec-title">QR コード</div>
-    <div class="sec-status" id="ss5">なし</div>
+  <!-- ACTIONS -->
+  <div class="actions">
+    <button class="btn btn-primary" onclick="window.print()">🖨 この内容を印刷・保存</button>
+    <a href="page1.html" class="btn btn-secondary">← 最初からやり直す</a>
   </div>
-  <div class="sec-body hidden" id="sb5">
-    <div class="yn-row" style="margin-bottom:14px;">
-      <button class="yn-btn" id="qr-yes" onclick="setQR(true)">あり</button>
-      <button class="yn-btn sel" id="qr-no" onclick="setQR(false)">なし</button>
-    </div>
-    <div id="qrOptions" style="display:none;">
-      <div style="margin-bottom:14px;">
-        <div class="url-box show" style="margin-top:0;">
-          <label>QRコードに登録するURL</label>
-          <input type="url" id="qrUrl" placeholder="https://example.com" oninput="S.qrUrl=this.value">
-          <div class="url-hint">※ SNS・作品ページ・ポートフォリオなど</div>
-        </div>
-      </div>
-      <div class="section-label" style="margin-bottom:8px;">印刷する面</div>
-      <div class="yn-row" style="margin-bottom:14px;">
-        <button class="yn-btn" id="qrs-front" onclick="setQRSide('front')">おもて面</button>
-        <button class="yn-btn" id="qrs-back" onclick="setQRSide('back')">うら面</button>
-      </div>
-      <!-- QR位置エディタ（おもて） -->
-      <div id="qrEd-front" style="display:none;">
-        <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:6px;">
-          <div class="section-label" style="margin-bottom:0;">おもて面 — 位置をドラッグで指定</div>
-          <button onclick="resyncQR('front')" style="font-size:11px;padding:4px 10px;border:1.5px solid var(--border);border-radius:7px;background:#fff;cursor:pointer;color:var(--ink);white-space:nowrap;">↺ 本体サイズを反映</button>
-        </div>
-        <div class="qr-canvas-wrap" id="qrWrap-front">
-          <canvas id="qrBg-front"></canvas>
-          <div class="qr-box" id="qrBox-front"><span>QR</span></div>
-        </div>
-        <div class="qr-size-row">
-          <label>サイズ</label>
-          <input type="range" id="qrSz-front" min="1.2" max="5" step="0.1" value="2" oninput="onQRSzSlider('front')">
-          <div class="num-step">
-            <button onclick="stepQR('front',-0.1)">−</button>
-            <input type="number" id="qrSzN-front" min="1.2" max="5" step="0.1" value="2" oninput="onQRSzInput('front')">
-            <span class="unit">cm</span>
-            <button onclick="stepQR('front',0.1)">＋</button>
-          </div>
-        </div>
-      </div>
-      <!-- QR位置エディタ（うら） -->
-      <div id="qrEd-back" style="display:none;margin-top:12px;">
-        <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:6px;">
-          <div class="section-label" style="margin-bottom:0;">うら面 — 位置をドラッグで指定</div>
-          <button onclick="resyncQR('back')" style="font-size:11px;padding:4px 10px;border:1.5px solid var(--border);border-radius:7px;background:#fff;cursor:pointer;color:var(--ink);white-space:nowrap;">↺ 本体サイズを反映</button>
-        </div>
-        <div class="qr-canvas-wrap" id="qrWrap-back">
-          <canvas id="qrBg-back"></canvas>
-          <div class="qr-box" id="qrBox-back"><span>QR</span></div>
-        </div>
-        <div class="qr-size-row">
-          <label>サイズ</label>
-          <input type="range" id="qrSz-back" min="1.2" max="5" step="0.1" value="2" oninput="onQRSzSlider('back')">
-          <div class="num-step">
-            <button onclick="stepQR('back',-0.1)">−</button>
-            <input type="number" id="qrSzN-back" min="1.2" max="5" step="0.1" value="2" oninput="onQRSzInput('back')">
-            <span class="unit">cm</span>
-            <button onclick="stepQR('back',0.1)">＋</button>
-          </div>
-        </div>
-      </div>
-    </div>
-  </div>
-</div>
+  <div class="print-hint">※ 「印刷」→「PDFとして保存」でファイルに保存できます</div>
 
-</div><!-- /form-col -->
-
-<!-- 注文サマリー -->
-<div class="preview-col">
-  <div class="prev-card">
-    <div class="prev-head">
-      <div class="prev-title">注文サマリー</div>
-      <div class="prev-hint">現在の設定</div>
-    </div>
-    <div class="size-pills">
-      <div class="pill"><div class="pill-label">長辺</div><div class="pill-val" id="pd-size">7.0cm</div></div>
-      <div class="pill"><div class="pill-label">厚さ</div><div class="pill-val" id="pd-thick">2.5mm</div></div>
-      <div class="pill"><div class="pill-label">形状</div><div class="pill-val" id="pd-shape">—</div></div>
-      <div class="pill"><div class="pill-label">カラー</div><div class="pill-val" id="pd-color">—</div></div>
-    </div>
-  </div>
-</div>
-</div><!-- /layout -->
-
-<!-- SUBMIT -->
-<div class="submit-bar">
-  <div class="submit-info">
-    <strong id="submitLabel">注文内容を確認して送信</strong>
-    <span id="submitSub">全項目を設定してください</span>
-  </div>
-  <button class="submit-btn" id="submitBtn" onclick="doSubmit()">注文を送信 →</button>
-</div>
-
-<!-- CROP MODAL -->
-<div class="modal-bg" id="cropModal">
-  <div class="modal">
-    <div class="modal-head">
-      <span class="modal-title" id="cropTitle">画像の位置・サイズを調整</span>
-      <button class="modal-x" onclick="closeCrop()">×</button>
-    </div>
-    <div class="crop-area" id="cropArea"
-         onmousedown="cdragStart(event)" ontouchstart="cdragStartT(event)">
-      <img id="cropImg" src="" alt="">
-      <canvas id="maskCv"></canvas>
-    </div>
-    <div class="dicut-bar" id="dicutBar">📐 ダイカット：画像の輪郭に沿って切り抜きます。背景透過PNGを推奨。</div>
-    <div class="crop-ctrl">
-      <div class="cr-row">
-        <span class="cr-label">サイズ</span>
-        <input type="range" id="cropSz" min="1" max="200" step="1" value="50" oninput="onCropSzSlider()">
-        <div class="num-step" style="background:#fff;">
-          <button onclick="stepCropSz(-1)">−</button>
-          <input type="number" id="cropSzN" min="1" max="200" value="50" oninput="onCropSzInput()">
-          <span class="unit">%</span>
-          <button onclick="stepCropSz(1)">＋</button>
-        </div>
-      </div>
-      <div class="cr-row" id="rotRow" style="display:none;">
-        <span class="cr-label">回転</span>
-        <input type="range" id="cropRot" min="-180" max="180" step="1" value="0" oninput="onCropRotSlider()">
-        <div class="num-step" style="background:#fff;">
-          <button onclick="stepCropRot(-1)">−</button>
-          <input type="number" id="cropRotN" min="-180" max="180" value="0" oninput="onCropRotInput()">
-          <span class="unit">°</span>
-          <button onclick="stepCropRot(1)">＋</button>
-        </div>
-      </div>
-    </div>
-    <div class="modal-foot">
-      <button class="btn-cancel" onclick="closeCrop()">キャンセル</button>
-      <button class="btn-apply" onclick="applyCrop()">切り取る ✓</button>
-    </div>
-  </div>
-</div>
-
-<div class="toast" id="toast"></div>
+</div><!-- /wrap -->
 
 <script>
-'use strict';
+// ─── データ読み込み ───
+let O = null;
+try {
+  const raw = sessionStorage.getItem('orderData');
+  if (raw) O = JSON.parse(raw);
+} catch(e) {}
 
-// ═══════════════════════════════════════════════════════
-// STATE
-// ═══════════════════════════════════════════════════════
-const S = {
-  orderId:    sessionStorage.getItem('orderId') || '—',
-  color:      null, colorHex: null,
-  shape:      null,
-  nfc:        false, nfcUrl: '',
-  backPrint:  false,
-  imgFront:   null, imgBack: null,
-  imgFrontSrc:null, imgBackSrc: null,   // オリジナルソース（再調整用）
-  cropStateFront: null, cropStateBack: null, // 前回のクロップ設定
-  dieFront:   null, dieBack: null,       // ダイカットの実シルエット外周（正規化ポリゴン）
-  dieHolesFront: [], dieHolesBack: [],   // ダイカットの中抜き穴（折れ防止OFF時に検出される正規化ポリゴンの配列）
-  dieReinforce:  false,                  // 折れ防止は廃止：常に false（イラストどおりにすき間・中抜き穴を残す）
-  qr:         false, qrSide: null, qrUrl: '',
-  qrFront:    { x: 50, y: 50, cm: 2 },
-  qrBack:     { x: 50, y: 50, cm: 2 },
-  sizeCm:     7, thickCm: 2.5,        // sizeCm = 長辺（丸/四角=辺, 自由四角=max(縦横), ダイア=長辺）
-  widthCm:    9, heightCm: 6,      // 自由四角(rect)専用：横・縦
-
-  attX:       50, attY: 10, attAngle: 0,
-  holeCm:     0.5,     // 穴の直径(cm) ＝ 5mm 固定
-  borderCm:   0.3,     // ダイカットの縁の厚さ(cm)
-  attMode:    'inside', // 'inside'(本体に穴) / 'outside'(外付けツメ)
-  attachView: 'front',
-  // 購入済みオプション（読み込み時に customer-get から取得）。
-  // ここが false のオプションは page2 上でロックされ、押すと alert を出す。
-  // 取得に失敗した場合のフォールバックは「全て true（=ロックしない）」とし、
-  // 通信不調で注文できなくなる事故を防ぐ。
-  purchased:  { nfc: true, double: true, diecut: true },
-};
-let cropTarget = 'front';
-
-document.getElementById('topOrder').textContent = S.orderId;
-
-// ═══════════════════════════════════════════════════════
-// 購入オプションの取得とロック適用
-// ═══════════════════════════════════════════════════════
-// page1 で入力された注文番号をもとに「何が購入されたか」を取得し、
-// 購入されていないオプション（NFC・両面印刷・ダイカット）をロックする。
-// ロックされた項目は灰色＋斜線で表示し、押すと「注文されていません」と alert を出す。
-// ※ この関数は WORKER_ORIGIN 定義後に呼び出す（下部の initColors の後で実行）。
-async function initPurchasedOptions() {
-  const oid = S.orderId;
-  if (!oid || oid === '—') return; // 注文番号が無い場合は何もしない（全て使用可のまま）
-
-  try {
-    const r = await fetch(WORKER_ORIGIN + '/api/customer-get?orderId=' + encodeURIComponent(oid));
-    if (!r.ok) return;            // 取得失敗 → フォールバック（全て使用可）
-    const d = await r.json();
-    if (!d || !d.exists) return;  // 未登録 → フォールバック（全て使用可）
-
-    // 取得した購入状況を反映（値が無いオプションは false 扱い＝ロック）
-    const opt = d.options || {};
-    S.purchased = {
-      nfc:    !!opt.nfc,
-      double: !!opt.double,
-      diecut: !!opt.diecut,
-    };
-  } catch (e) {
-    return; // 通信エラー → フォールバック（全て使用可）
-  }
-
-  applyOptionLocks();
+if (!O) {
+  document.body.innerHTML = '<div style="padding:40px;text-align:center;"><p>注文データが見つかりません。</p><a href="page1.html" style="color:#ff7a59;">最初からやり直す</a></div>';
+  throw new Error('no order data');
 }
 
-// 購入状況に応じて各オプションUIをロック表示にする
-function applyOptionLocks() {
-  // NFC（セクション3）
-  setSectionLock('sec3', S.purchased.nfc, 'NFCタグ');
-  // 両面印刷（セクション35）
-  setSectionLock('sec35', S.purchased.double, '両面印刷');
-  // ダイカットは標準で選択可能（オプション扱いをやめたためロックしない）
+// 画像が分割保存されていた場合
+if (O.imgFront === '__large__') O.imgFront = sessionStorage.getItem('orderImgFront') || null;
+if (O.imgBack  === '__large__') O.imgBack  = sessionStorage.getItem('orderImgBack')  || null;
+
+// ─── 基本情報 ───
+document.getElementById('dispOrderId').textContent = O.orderId || '—';
+document.getElementById('dispDate').textContent    = O.submittedAt || '';
+document.getElementById('diOid').textContent       = O.orderId || '—';
+
+// カラー
+const colorEl = document.getElementById('diColor');
+if (O.colorHex) {
+  const dot = document.createElement('span');
+  dot.className = 'color-dot';
+  dot.style.background = O.colorHex;
+  if (O.colorHex === '#FFFFFF') dot.style.border = '1.5px solid #ccc';
+  colorEl.appendChild(dot);
+  colorEl.appendChild(document.createTextNode(O.color || '—'));
+} else {
+  colorEl.textContent = O.color || '—';
 }
 
-// セクション（NFC・両面印刷）をロック/解除する。
-// locked=false（未購入）のとき、見出しに opt-locked クラスを付け、開かないようにする。
-function setSectionLock(secId, purchased, optName) {
-  const sec = document.getElementById(secId);
-  if (!sec) return;
-  if (purchased) {
-    sec.classList.remove('opt-locked');
-    return;
-  }
-  // 未購入 → ロック表示にし、本文は閉じておく
-  sec.classList.add('opt-locked');
-  const body = sec.querySelector('.sec-body');
-  if (body) body.classList.add('hidden');
-  // ロック対象の名前を記録（alert メッセージ用）
-  sec.setAttribute('data-opt-name', optName);
-}
-
-// ダイカットの形状ボタンをロック/解除する。
-function setShapeLock(purchased) {
-  const btn = document.getElementById('sh-diecut');
-  if (!btn) return;
-  btn.classList.toggle('opt-locked', !purchased);
-}
-
-// ═══════════════════════════════════════════════════════
-// SECTION TOGGLE
-// ═══════════════════════════════════════════════════════
-function toggle(n) {
-  // ロックされたオプションセクション（未購入）は開かず、赤いトーストで通知
-  const sec = document.getElementById('sec' + n);
-  if (sec && sec.classList.contains('opt-locked')) {
-    const name = sec.getAttribute('data-opt-name') || 'このオプション';
-    toast(name + 'は注文されていません', 'alert');
-    return;
-  }
-  const sb = document.getElementById('sb' + n);
-  if (!sb) return;
-  sb.classList.toggle('hidden');
-}
-
-// ═══════════════════════════════════════════════════════
-// COLORS（在庫管理対応 — Worker から在庫状態を取得）
-// ═══════════════════════════════════════════════════════
-const COLORS = [
-  { name:'ホワイト', hex:'#FFFFFF', border:'#ccc' },
-  { name:'ブラック', hex:'#1a1a18' },
-  { name:'ブルー',   hex:'#2563EB' },
-  { name:'イエロー', hex:'#FACC15' },
-  { name:'オレンジ', hex:'#F97316' },
-  { name:'レッド',   hex:'#EF4444' },
-  { name:'グリーン', hex:'#22C55E' },
-];
-
-// Worker の URL（page1 の sessionStorage から取得、なければ本番 URL）
-const WORKER_ORIGIN = sessionStorage.getItem('workerOrigin') || 'https://buki-booth.com';
-
-(async function initColors() {
-  // 在庫情報を取得（失敗しても全色表示にフォールバック）
-  let colorStates = {};
-  let isMaintenance = false;
-  let maintMsg = 'ただいまメンテナンス中です。しばらくお待ちください。';
-  try {
-    const r = await fetch(WORKER_ORIGIN + '/api/get-inventory');
-    if (r.ok) {
-      const d = await r.json();
-      const inv = d.inventory || {};
-      colorStates   = inv.colors        || {};
-      isMaintenance = !!inv.maintenance;
-      maintMsg      = inv.maintenanceMsg || maintMsg;
+// 形状
+const shapeNames = { circle:'丸型', square:'四角形', rect:'自由四角', diecut:'ダイカット' };
+document.getElementById('diShape').textContent  = shapeNames[O.shape] || O.shape || '—';
+// サイズ表示：自由四角は横×縦、ダイアは長辺×短辺、その他は長辺
+(function(){
+  let txt;
+  if (O.shape === 'rect' && O.widthCm && O.heightCm) {
+    txt = O.widthCm + ' × ' + O.heightCm + ' cm';
+  } else if (O.shape === 'diecut' && O.sizeCm) {
+    var p = O.dieFront || O.dieBack, asp = 1;
+    if (p && p.length >= 3) {
+      var x0=1,y0=1,x1=0,y1=0;
+      for (var i=0;i<p.length;i++){ if(p[i].x<x0)x0=p[i].x; if(p[i].x>x1)x1=p[i].x; if(p[i].y<y0)y0=p[i].y; if(p[i].y>y1)y1=p[i].y; }
+      var lng=Math.max(x1-x0,y1-y0), sht=Math.min(x1-x0,y1-y0); asp = lng>0?sht/lng:1;
     }
-  } catch(e) { /* ネットワークエラー時は無視して通常表示 */ }
-
-  // メンテナンスモード：バナー表示して注文ブロック
-  if (isMaintenance) {
-    const banner = document.createElement('div');
-    banner.id = 'maint-banner';
-    banner.style.cssText = 'position:fixed;inset:0;z-index:999;background:rgba(10,10,20,.85);display:flex;align-items:center;justify-content:center;padding:24px;';
-    banner.innerHTML = '<div style="background:#fff;border-radius:16px;padding:32px 24px;max-width:380px;width:100%;text-align:center;box-shadow:0 8px 40px rgba(0,0,0,.3);">'
-      + '<div style="font-size:40px;margin-bottom:12px;">🔧</div>'
-      + '<div style="font-size:18px;font-weight:700;margin-bottom:10px;">メンテナンス中</div>'
-      + '<div style="font-size:13px;color:#6b6860;line-height:1.7;">' + maintMsg + '</div>'
-      + '</div>';
-    document.body.appendChild(banner);
-    const btn = document.getElementById('submitBtn');
-    if (btn) { btn.disabled = true; btn.style.opacity = '0.4'; }
+    txt = O.sizeCm + ' × ' + (O.sizeCm*asp).toFixed(1) + ' cm';
+  } else {
+    txt = (O.sizeCm || '—') + ' cm';
   }
-
-  // カラースウォッチを生成
-  const row = document.getElementById('colorRow');
-  COLORS.forEach(c => {
-    const st      = colorStates[c.name] || {};
-    const soldOut = !!st.soldOut;
-    const hidden  = !!st.hidden;
-    if (hidden) return; // 非表示設定ならスキップ
-
-    const wrap = document.createElement('div');
-    wrap.style.cssText = 'position:relative;display:inline-block;';
-
-    const el = document.createElement('div');
-    el.className = 'csw';
-    el.title = c.name + (soldOut ? '（在庫切れ）' : '');
-    el.style.background = c.hex;
-    if (c.border) el.style.border = '2px solid ' + c.border;
-
-    if (soldOut) {
-      // 在庫切れ：グレーアウト＋選択不可
-      el.style.opacity  = '0.38';
-      el.style.cursor   = 'not-allowed';
-      el.style.filter   = 'grayscale(0.7)';
-      const badge = document.createElement('div');
-      badge.textContent = '在庫切れ';
-      badge.style.cssText = 'position:absolute;bottom:-18px;left:50%;transform:translateX(-50%);'
-        + 'white-space:nowrap;font-size:9px;font-weight:700;'
-        + 'background:#dc2626;color:#fff;padding:1px 5px;border-radius:4px;pointer-events:none;';
-      wrap.appendChild(badge);
-      el.addEventListener('click', () => toast(c.name + 'は現在在庫切れです'));
-    } else {
-      el.addEventListener('click', () => {
-        document.querySelectorAll('.csw').forEach(e => e.classList.remove('sel'));
-        el.classList.add('sel');
-        S.color = c.name; S.colorHex = c.hex;
-        document.getElementById('colorName').textContent = '選択中：' + c.name;
-        document.getElementById('ss1').textContent = c.name;
-        document.getElementById('pd-color').textContent = c.name;
-        done(1); updateLock(); updateProg();
-        if (window._redrawAttach) window._redrawAttach();
-      });
-    }
-
-    wrap.appendChild(el);
-    row.appendChild(wrap);
-  });
-  row.style.paddingBottom = '20px'; // 在庫切れバッジが被らないよう余白
+  document.getElementById('diSize').textContent = txt;
 })();
+document.getElementById('diThick').textContent  = (O.thickCm || '—') + ' mm';
 
-// 購入オプションを取得してロックを適用（WORKER_ORIGIN 定義後に実行）
-initPurchasedOptions();
-
-// ═══════════════════════════════════════════════════════
-// SHAPE
-// ═══════════════════════════════════════════════════════
-function pickShape(sh) {
-  ['circle','square','rect','diecut'].forEach(s => {
-    document.getElementById('sh-' + s).classList.toggle('sel', s === sh);
-  });
-  S.shape = sh;
-  const names = { circle:'丸型', square:'四角形', rect:'自由四角', diecut:'ダイカット' };
-  document.getElementById('ss2').textContent = names[sh];
-  document.getElementById('pd-shape').textContent = { circle:'丸', square:'四角', rect:'長方形', diecut:'ダイカ' }[sh];
-  document.getElementById('diecut-note').style.display = sh === 'diecut' ? 'block' : 'none';
-  document.getElementById('bdGroup').style.display     = sh === 'diecut' ? 'block' : 'none';
-  // サイズ操作UIの切り替え：自由四角は横/縦の2本、それ以外は長辺1本
-  const isRect = sh === 'rect';
-  document.getElementById('rectGroup').style.display = isRect ? 'block' : 'none';
-  document.getElementById('szGroup').style.display   = isRect ? 'none'  : 'block';
-  // 長辺ラベルを形状に合わせて変更
-  document.getElementById('szLabel').textContent = sh === 'circle' ? '直径' : (sh === 'diecut' ? '長辺（最長部分）' : '1辺');
-  if (isRect) { setW(S.widthCm, true); setH(S.heightCm, true); }   // sizeCm を縦横に同期
-  updateSizeUI();
-  // 丸型「上」マーカー
-  const isCircle = sh === 'circle';
-  document.getElementById('upBadge').style.display     = isCircle ? 'block' : 'none';
-  document.getElementById('upBadgeBack').style.display = isCircle ? 'block' : 'none';
-  done(2);
-  document.getElementById('sb2').classList.add('hidden');
-  updateLock(); updateProg();
-  if (window._redrawAttach) window._redrawAttach();
+// ─── オプション ───
+const nfcEl = document.getElementById('diNfc');
+if (O.nfc) {
+  nfcEl.innerHTML = '<span class="badge badge-yes">あり +¥200</span>';
+  document.getElementById('nfcUrlRow').style.display = '';
+  document.getElementById('diNfcUrl').textContent = O.nfcUrl || '（URL未入力）';
+} else {
+  nfcEl.innerHTML = '<span class="badge badge-no">なし</span>';
 }
 
-// ═══════════════════════════════════════════════════════
-// LOCK (sec4)
-// ═══════════════════════════════════════════════════════
-function updateLock() {
-  const locked = !S.color || !S.shape;
-  document.getElementById('sec4').classList.toggle('locked', locked);
-  if (locked) {
-    document.getElementById('lockMsg').textContent =
-      (!S.color && !S.shape) ? '先に「土台カラー」と「形状」を選択してください'
-      : !S.color              ? '先に「土台カラー」を選択してください'
-      :                         '先に「形状」を選択してください';
+// ─── NFC位置ミニマップ ───
+if (O.nfc && O.nfcPos) makeNFCMiniMap(O.nfcPos, O.imgFront);
+function makeNFCMiniMap(np, imgSrc) {
+  const card = document.getElementById('nfcPosCard'); if (!card) return;
+  card.style.display = '';
+  const body = document.getElementById('nfcPosBody');
+  const wrap = document.createElement('div'); wrap.style.cssText = 'margin-bottom:4px;';
+  const row  = document.createElement('div'); row.className = 'qr-info-row';
+  const mini = document.createElement('canvas'); mini.width = 100; mini.height = 100;
+  mini.style.cssText = 'width:100px;height:100px;border-radius:8px;border:1.5px solid var(--border);flex-shrink:0;';
+  row.appendChild(mini);
+  const W = (np.w || 2.4), H = (np.h || 1.4);
+  const info = document.createElement('div'); info.className = 'qr-info-text';
+  info.innerHTML =
+    '<div>\u30b5\u30a4\u30ba: <strong>' + W + '\u00d7' + H + ' cm</strong></div>' +
+    '<div>\u4f4d\u7f6e X: <strong>' + Math.round(np.x) + '%</strong>\u3000Y: <strong>' + Math.round(np.y) + '%</strong></div>' +
+    '<div style="font-size:11px;margin-top:4px;color:var(--muted);">\uff08\u7e01\u304b\u30892mm\u5185\u5074\u30fb\u30ad\u30fc\u30db\u30eb\u30c0\u30fc\u9818\u57df\u5185\uff09</div>';
+  row.appendChild(info); wrap.appendChild(row); body.appendChild(wrap);
+
+  const ctx = mini.getContext('2d'); const mw = 100, mh = 100, margin = 8;
+  const box = Math.min(mw, mh) - margin*2; let kw = box, kh = box;
+  if (O.shape === 'rect' && O.widthCm && O.heightCm) { const ar = O.widthCm/O.heightCm; if (ar>=1){kw=box;kh=box/ar;} else {kh=box;kw=box*ar;} }
+  const ox = (mw-kw)/2, oy = (mh-kh)/2; const DIE_FIT_ = 0.82;
+  function drawMini(imgEl) {
+    ctx.clearRect(0,0,mw,mh); ctx.save(); ctx.beginPath();
+    if (O.shape === 'circle') ctx.arc(ox+kw/2, oy+kh/2, Math.min(kw,kh)/2, 0, Math.PI*2); else ctx.rect(ox,oy,kw,kh);
+    if (imgEl) {
+      ctx.clip(); const ir = imgEl.naturalWidth/imgEl.naturalHeight, kr = kw/kh; let dw,dh,dx,dy;
+      if (ir>kr){dh=kh;dw=dh*ir;dx=ox-(dw-kw)/2;dy=oy;} else {dw=kw;dh=dw/ir;dy=oy-(dh-kh)/2;dx=ox;}
+      ctx.drawImage(imgEl,dx,dy,dw,dh);
+    } else { ctx.fillStyle = O.colorHex || '#e8e5dc'; ctx.fill(); }
+    ctx.restore();
+    ctx.strokeStyle='rgba(0,0,0,.15)'; ctx.lineWidth=1; ctx.beginPath();
+    if (O.shape==='circle') ctx.arc(ox+kw/2,oy+kh/2,Math.min(kw,kh)/2,0,Math.PI*2); else ctx.rect(ox,oy,kw,kh);
+    ctx.stroke();
+    // NFC枠（長方形・実寸点線）
+    const pxPerCm = (O.shape==='diecut') ? DIE_FIT_*kw/(O.sizeCm||7) : ((O.shape==='rect'&&O.widthCm) ? kw/O.widthCm : kw/(O.sizeCm||7));
+    const bw = Math.max(8, W*pxPerCm), bh = Math.max(6, H*pxPerCm);
+    const nx = ox + kw*np.x/100 - bw/2, ny = oy + kh*np.y/100 - bh/2;
+    ctx.lineWidth=2.2; ctx.strokeStyle='rgba(255,255,255,.9)'; ctx.setLineDash([]); ctx.strokeRect(nx,ny,bw,bh);
+    ctx.lineWidth=1.3; ctx.strokeStyle='#3a4ad0'; ctx.setLineDash([4,3]); ctx.strokeRect(nx,ny,bw,bh); ctx.setLineDash([]);
+    ctx.font='bold 7px sans-serif'; ctx.textAlign='center'; ctx.textBaseline='middle'; ctx.lineJoin='round';
+    ctx.lineWidth=2.4; ctx.strokeStyle='rgba(255,255,255,.9)'; ctx.strokeText('NFC', nx+bw/2, ny+bh/2);
+    ctx.fillStyle='#3a4ad0'; ctx.fillText('NFC', nx+bw/2, ny+bh/2);
   }
-}
-function onImgSecClick() {
-  if (document.getElementById('sec4').classList.contains('locked')) { onLockBarClick(); return; }
-  toggle(4);
-}
-function onLockBarClick() {
-  const noC = !S.color, noS = !S.shape;
-  if (noC && noS) toast('「土台カラー」と「形状」を選択してください');
-  else if (noC)   toast('「土台カラー」を選択してください');
-  else             toast('「形状」を選択してください');
-  if (noC) { document.getElementById('sb1').classList.remove('hidden'); document.getElementById('sec1').scrollIntoView({behavior:'smooth',block:'center'}); }
-  else     { document.getElementById('sb2').classList.remove('hidden'); document.getElementById('sec2').scrollIntoView({behavior:'smooth',block:'center'}); }
+  if (imgSrc) { const img = new Image(); img.src = imgSrc; img.onload = () => drawMini(img); } else drawMini(null);
 }
 
-// ═══════════════════════════════════════════════════════
-// NFC
-// ═══════════════════════════════════════════════════════
-function setNFC(val) {
-  S.nfc = val;
-  document.getElementById('nfc-yes').classList.toggle('sel', val);
-  document.getElementById('nfc-no').classList.toggle('sel', !val);
-  document.getElementById('nfcUrl-box').classList.toggle('show', val);
-  document.getElementById('ss3').textContent = val ? 'あり (+¥200)' : 'なし';
-  done(3); updateProg();
-  if (val) setTimeout(initNFCEditor, 40);   // NFCあり → 位置エディタを初期化
+const backEl = document.getElementById('diBack');
+backEl.innerHTML = O.backPrint
+  ? '<span class="badge badge-yes">あり +¥100</span>'
+  : '<span class="badge badge-no">なし</span>';
+
+const qrEl = document.getElementById('diQr');
+if (O.qr) {
+  const sideText = { front:'おもて面', back:'うら面', both:'両面' }[O.qrSide] || O.qrSide || '';
+  qrEl.innerHTML = `<span class="badge badge-yes">あり</span> <span style="font-size:12px;color:var(--muted);">${sideText}</span>`;
+} else {
+  qrEl.innerHTML = '<span class="badge badge-no">なし</span>';
 }
 
-// ═══════════════════════════════════════════════════════
-// BACK PRINT
-// ═══════════════════════════════════════════════════════
-function setBackPrint(val) {
-  S.backPrint = val;
-  document.getElementById('bp-yes').classList.toggle('sel', val);
-  document.getElementById('bp-no').classList.toggle('sel', !val);
-  document.getElementById('ss35').textContent = val ? 'あり (+¥100)' : 'なし';
-  document.getElementById('backArea').style.display  = val ? 'block' : 'none';
-  document.getElementById('frontLbl').style.display  = val ? 'block' : 'none';
-  updateProg();
-}
-
-// ═══════════════════════════════════════════════════════
-// IMAGE
-// ═══════════════════════════════════════════════════════
-function onFileChange(e, target) {
-  cropTarget = target;
-  const file = e.target.files[0];
-  if (!file) return;
-  const reader = new FileReader();
-  reader.onload = ev => openCrop(ev.target.result);
-  reader.readAsDataURL(file);
-}
-
-['uz-front','uz-back'].forEach((id, i) => {
-  const el  = document.getElementById(id);
-  const tgt = i === 0 ? 'front' : 'back';
-  el.addEventListener('dragover', e => { e.preventDefault(); el.classList.add('over'); });
-  el.addEventListener('dragleave', () => el.classList.remove('over'));
-  el.addEventListener('drop', e => {
-    e.preventDefault(); el.classList.remove('over');
-    const f = e.dataTransfer.files[0];
-    if (f && f.type.startsWith('image/')) {
-      cropTarget = tgt;
-      const r = new FileReader(); r.onload = ev => openCrop(ev.target.result); r.readAsDataURL(f);
-    }
-  });
-});
-
-function resetImg(target) {
-  if (target === 'front') {
-    S.imgFront = null;
-    document.getElementById('pw-front').classList.remove('show');
-    document.getElementById('uz-front').style.display = '';
-    document.getElementById('img-front').value = '';
-  } else {
-    S.imgBack = null;
-    document.getElementById('pw-back').classList.remove('show');
-    document.getElementById('uz-back').style.display = '';
-    document.getElementById('img-back').value = '';
+// ─── 画像プレビュー ───
+function drawImgCanvas(canvasEl, src, shape) {
+  canvasEl.width = 200; canvasEl.height = 200;
+  canvasEl.style.borderRadius = shape === 'circle' ? '50%' : '10px';
+  const ctx = canvasEl.getContext('2d');
+  if (!src) {
+    ctx.fillStyle = '#eee'; ctx.fillRect(0,0,200,200);
+    ctx.fillStyle = '#aaa'; ctx.font = '13px sans-serif';
+    ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+    ctx.fillText('画像なし', 100, 100);
+    return;
   }
-  document.getElementById('ss4').textContent = (S.imgFront || S.imgBack) ? '設定済み' : '未設定';
-  if (window._redrawAttach) window._redrawAttach();
-}
-
-// 再調整（オリジナル画像からクロップモーダルを再度開く）
-function reopenCrop(target) {
-  cropTarget = target;
-  const src       = target === 'back' ? S.imgBackSrc    : S.imgFrontSrc;
-  const prevState = target === 'back' ? S.cropStateBack : S.cropStateFront;
-  if (!src) { toast('先に画像を設定してください'); return; }
-  C.originalSrc = src;
-  const img = document.getElementById('cropImg');
-  const doOpen = () => {
-    const ca = document.getElementById('cropArea');
-    const cw = ca.offsetWidth || 360, ch = ca.offsetHeight || 290;
-    C.imgW = img.naturalWidth; C.imgH = img.naturalHeight;
-    if (prevState && prevState.imgW === C.imgW && prevState.imgH === C.imgH) {
-      C.scale = prevState.scale; C.rot = prevState.rot;
-      C.x = prevState.x; C.y = prevState.y; C.fitScale = prevState.fitScale;
-      setCropSz(Math.round(C.scale / C.fitScale * 100), false);
-      setCropRot(C.rot, false);
-    } else {
-      const ff = cropFitWH(cw, ch), fw = ff.fw, fh = ff.fh;
-      C.fitScale = Math.min(fw / C.imgW, fh / C.imgH);
-      C.scale = .5 * C.fitScale;
-      setCropSz(50, false); setCropRot(0, false);
-      C.x = (cw - C.imgW * C.scale) / 2; C.y = (ch - C.imgH * C.scale) / 2;
-    }
-    posImg(); drawMask();
-    const sh = S.shape || 'circle';
-    document.getElementById('dicutBar').style.display = sh === 'diecut' ? 'block' : 'none';
-    document.getElementById('rotRow').style.display   = (sh === 'circle' || sh === 'square' || sh === 'rect') ? 'flex' : 'none';
-    document.getElementById('cropTitle').textContent  = '画像を再調整（元の画像から）';
-    document.getElementById('cropModal').classList.add('open');
-  };
-  if (img.src === src && img.complete && img.naturalWidth > 0) requestAnimationFrame(doOpen);
-  else { img.onload = () => requestAnimationFrame(doOpen); img.src = src; }
-}
-
-// ═══════════════════════════════════════════════════════
-// CROP
-// ═══════════════════════════════════════════════════════
-const C = { x:0, y:0, scale:1, rot:0, imgW:0, imgH:0, fitScale:1, drag:false, sx:0, sy:0 };
-
-function openDicutCrop() {
-  if (!S.imgFront) { toast('先に画像をアップロードしてください'); return; }
-  cropTarget = 'front';
-  const img = document.getElementById('cropImg');
-  if (img.src && img.complete && img.naturalWidth > 0) openCropModal();
-  else toast('画像を再アップロードしてください');
-}
-
-function openCrop(src) {
-  C.originalSrc = src;
-  if (cropTarget === 'back') S.imgBackSrc  = src;
-  else                       S.imgFrontSrc = src;
-  const img = document.getElementById('cropImg');
-  img.onload = openCropModal;
-  img.src = src;
-}
-
-function openCropModal() {
-  const img = document.getElementById('cropImg');
-  const ca  = document.getElementById('cropArea');
-  requestAnimationFrame(() => {
-    const cw = ca.offsetWidth || 360, ch = ca.offsetHeight || 290;
-    C.imgW = img.naturalWidth; C.imgH = img.naturalHeight; C.rot = 0;
-    const ff = cropFitWH(cw, ch), fw = ff.fw, fh = ff.fh;
-    C.fitScale = Math.min(fw / C.imgW, fh / C.imgH);
-    C.scale = .5 * C.fitScale;
-    setCropSz(50, false); setCropRot(0, false);
-    C.x = (cw - C.imgW * C.scale) / 2; C.y = (ch - C.imgH * C.scale) / 2;
-    posImg(); drawMask();
-    const sh = S.shape || 'circle';
-    const backDie = (sh === 'diecut' && cropTarget === 'back' && S.dieFront);
-    document.getElementById('dicutBar').style.display   = sh === 'diecut' ? 'block' : 'none';
-    document.getElementById('dicutBar').textContent = backDie
-      ? '📐 裏面は表面の形に合わせて切り抜きます。位置・大きさだけ調整してください。'
-      : '📐 ダイカット：画像の輪郭に沿って切り抜きます。背景透過PNGを推奨。';
-    document.getElementById('rotRow').style.display = (sh === 'circle' || sh === 'square' || sh === 'rect') ? 'flex' : 'none';
-    document.getElementById('cropTitle').textContent = sh === 'diecut'
-      ? (backDie ? '裏面の位置を調整（形は表面に同じ）' : 'ダイカット輪郭を確定') : '画像の位置・サイズを調整';
-    document.getElementById('cropModal').classList.add('open');
-  });
-}
-function closeCrop() { document.getElementById('cropModal').classList.remove('open'); }
-
-function setCropSz(pct, doUpdate = true) {
-  pct = Math.min(200, Math.max(1, Math.round(pct)));
-  document.getElementById('cropSz').value  = pct;
-  document.getElementById('cropSzN').value = pct;
-  if (!doUpdate) return;
-  const ca = document.getElementById('cropArea');
-  const cw = ca.offsetWidth || 360, ch = ca.offsetHeight || 290;
-  const ff = cropFitWH(cw, ch);
-  C.fitScale = Math.min(ff.fw / C.imgW, ff.fh / C.imgH);
-  const prev = C.scale || .001;
-  C.scale = pct / 100 * C.fitScale;
-  const cx = cw / 2, cy = ch / 2;
-  C.x = cx - (cx - C.x) * C.scale / prev;
-  C.y = cy - (cy - C.y) * C.scale / prev;
-  posImg(); drawMask();
-}
-function onCropSzSlider() { setCropSz(+document.getElementById('cropSz').value); }
-function onCropSzInput()  { setCropSz(+document.getElementById('cropSzN').value); }
-function stepCropSz(d)    { setCropSz((+document.getElementById('cropSzN').value || 75) + d); }
-
-function setCropRot(deg, doUpdate = true) {
-  deg = Math.min(180, Math.max(-180, Math.round(deg)));
-  document.getElementById('cropRot').value  = deg;
-  document.getElementById('cropRotN').value = deg;
-  C.rot = deg;
-  if (doUpdate) { posImg(); drawMask(); }
-}
-function onCropRotSlider() { setCropRot(+document.getElementById('cropRot').value); }
-function onCropRotInput()  { setCropRot(+document.getElementById('cropRotN').value); }
-function stepCropRot(d)    { setCropRot((+document.getElementById('cropRotN').value || 0) + d); }
-
-function posImg() {
-  const img = document.getElementById('cropImg');
-  const ca  = document.getElementById('cropArea');
-  const cw = ca.offsetWidth || 360, ch = ca.offsetHeight || 290;
-  const cx = cw / 2, cy = ch / 2;
-  img.style.left            = C.x + 'px';
-  img.style.top             = C.y + 'px';
-  img.style.width           = (C.imgW * C.scale) + 'px';
-  img.style.height          = (C.imgH * C.scale) + 'px';
-  img.style.transformOrigin = (cx - C.x) + 'px ' + (cy - C.y) + 'px';
-  img.style.transform       = 'rotate(' + C.rot + 'deg)';
-}
-
-// ズーム100%の基準となる枠サイズ。自由四角は長方形枠、その他は従来どおり.78エリア。
-function cropFitWH(cw, ch){
-  if (S.shape === 'rect'){ const base = Math.min(cw,ch)*.78, ar=(S.widthCm||7)/(S.heightCm||7); return ar>=1 ? {fw:base, fh:base/ar} : {fw:base*ar, fh:base}; }
-  return { fw: cw*.78, fh: ch*.78 };
-}
-
-function drawMask() {
-  const ca = document.getElementById('cropArea');
-  const cw = ca.offsetWidth || 360, ch = ca.offsetHeight || 290;
-  const cv = document.getElementById('maskCv');
-  cv.width = cw; cv.height = ch;
-  const ctx = cv.getContext('2d');
-  const size = Math.min(cw, ch) * .78, cx = cw / 2, cy = ch / 2;
-  // 自由四角は枠を縦横比に合わせた長方形にする
-  let fw = size, fh = size;
-  if (S.shape === 'rect') { const ar = (S.widthCm||7)/(S.heightCm||7); if (ar >= 1) { fw = size; fh = size/ar; } else { fh = size; fw = size*ar; } }
-  const ox = cx - fw / 2, oy = cy - fh / 2;
-  ctx.clearRect(0, 0, cw, ch);
-  ctx.fillStyle = 'rgba(0,0,0,.62)'; ctx.fillRect(0, 0, cw, ch);
-  const sh = S.shape || 'circle';
-  let poly = null, holes = [];
-  if (sh === 'diecut') {
-    if (cropTarget === 'back' && S.dieFront) { poly = S.dieFront; holes = S.dieHolesFront || []; }
-    else {
-      const dp = computeDiePoly();
-      if (dp) { C.diePoly = dp; poly = dp.outer; holes = dp.holes || []; }
-      else if (C.diePoly) { poly = C.diePoly.outer; holes = C.diePoly.holes || []; }
-    }
-  }
-  function pathShape() {
-    ctx.beginPath();
-    if (sh === 'circle')                       ctx.arc(cx, cy, size / 2, 0, Math.PI * 2);
-    else if (sh === 'diecut' && poly)        { diePathScreen(ctx, poly, ox, oy, size); for (const hl of holes) if (hl && hl.length >= 3) diePathScreen(ctx, hl, ox, oy, size); }
-    else                                       rrect(ctx, ox, oy, fw, fh, Math.min(fw,fh) * (sh === 'diecut' ? .08 : .06));
-  }
-  // 中抜き穴も切り抜き対象外にするため evenodd で塗る（穴部分はマスクが残る＝対象外）
-  ctx.globalCompositeOperation = 'destination-out'; pathShape(); ctx.fill('evenodd');
-  ctx.globalCompositeOperation = 'source-over';
-  ctx.strokeStyle = 'rgba(255,255,255,.65)'; ctx.lineWidth = 2; ctx.setLineDash([5, 4]);
-  pathShape(); ctx.stroke(); ctx.setLineDash([]);
-  if (sh === 'circle') {
-    ctx.fillStyle = 'rgba(212,82,42,.9)';
-    ctx.beginPath(); ctx.moveTo(cx, cy - size/2 - 14); ctx.lineTo(cx - 8, cy - size/2 - 1); ctx.lineTo(cx + 8, cy - size/2 - 1); ctx.closePath(); ctx.fill();
-    ctx.fillStyle = '#fff'; ctx.font = 'bold 10px sans-serif'; ctx.textAlign = 'center'; ctx.textBaseline = 'bottom';
-    ctx.fillText('上', cx, cy - size / 2 - 15);
-  }
-}
-
-function rrect(ctx, x, y, w, h, r) {
-  ctx.moveTo(x+r,y); ctx.lineTo(x+w-r,y); ctx.arcTo(x+w,y,x+w,y+r,r);
-  ctx.lineTo(x+w,y+h-r); ctx.arcTo(x+w,y+h,x+w-r,y+h,r);
-  ctx.lineTo(x+r,y+h); ctx.arcTo(x,y+h,x,y+h-r,r);
-  ctx.lineTo(x,y+r); ctx.arcTo(x,y,x+r,y,r); ctx.closePath();
-}
-
-// ═══════════════════════════════════════════════════════
-// ダイカット輪郭トレース
-// alpha → closing → 縁取り(dilate) → 境界追跡(Moore) → 平滑化(Chaikin)
-// ═══════════════════════════════════════════════════════
-// ダイカット：シルエット（キャラ輪郭）がフレームの何割を占めるか。
-// 切り取り時にこの割合へ自動フィットさせ、同じ sizeCm なら切り取り方に関係なく同じ大きさにする。
-// 残り(約9%×2)は縁取りのはみ出し用マージン。
-const DIE_FIT = 0.82;
-function dieAlphaGrid(N) {
-  const ca = document.getElementById('cropArea');
-  const cw = ca.offsetWidth || 360, ch = ca.offsetHeight || 290;
-  const size = Math.min(cw, ch) * .78, cx = cw / 2, cy = ch / 2;
-  const imgEl = document.getElementById('cropImg');
-  const tmp = document.createElement('canvas'); tmp.width = N; tmp.height = N;
-  const t = tmp.getContext('2d');
-  t.save(); t.translate(N / 2, N / 2); t.rotate(C.rot * Math.PI / 180);
-  const drawX = (C.x - cx) / C.scale, drawY = (C.y - cy) / C.scale, frameSrc = size / C.scale;
-  t.drawImage(imgEl, -drawX - frameSrc / 2, -drawY - frameSrc / 2, frameSrc, frameSrc, -N / 2, -N / 2, N, N);
-  t.restore();
-  const px = t.getImageData(0, 0, N, N).data;
-  const g  = new Uint8Array(N * N);
-  for (let i = 0; i < N * N; i++) g[i] = px[i * 4 + 3] > 40 ? 1 : 0;
-  return g;
-}
-function dieMorph(src, N, r, erode) {
-  if (r <= 0) return src;
-  let m = src;
-  if (erode) { m = new Uint8Array(N * N); for (let i = 0; i < N * N; i++) m[i] = 1 - src[i]; }
-  const tmp = new Uint8Array(N * N), out = new Uint8Array(N * N);
-  for (let y = 0; y < N; y++) for (let x = 0; x < N; x++) { let v = 0; for (let d = -r; d <= r; d++) { const xx = x + d; if (xx >= 0 && xx < N && m[y * N + xx]) { v = 1; break; } } tmp[y * N + x] = v; }
-  for (let y = 0; y < N; y++) for (let x = 0; x < N; x++) { let v = 0; for (let d = -r; d <= r; d++) { const yy = y + d; if (yy >= 0 && yy < N && tmp[yy * N + x]) { v = 1; break; } } out[y * N + x] = v; }
-  if (erode) { for (let i = 0; i < N * N; i++) out[i] = 1 - out[i]; }
-  return out;
-}
-function dieTrace(m, N) {
-  let sx = -1, sy = -1;
-  for (let y = 0; y < N && sy < 0; y++) for (let x = 0; x < N; x++) { if (m[y * N + x]) { sx = x; sy = y; break; } }
-  if (sx < 0) return [];
-  const nbr = [[1,0],[1,1],[0,1],[-1,1],[-1,0],[-1,-1],[0,-1],[1,-1]];
-  const get = (x, y) => x >= 0 && x < N && y >= 0 && y < N && m[y * N + x];
-  const c = [[sx, sy]]; let cur = [sx, sy], prev = [sx - 1, sy], s = 0;
-  while (s++ < 30000) {
-    const dx = prev[0] - cur[0], dy = prev[1] - cur[1];
-    let sd = 0; for (let k = 0; k < 8; k++) { if (nbr[k][0] === dx && nbr[k][1] === dy) { sd = k; break; } }
-    let found = false;
-    for (let k = 1; k <= 8; k++) { const di = (sd + k) % 8, nx = cur[0] + nbr[di][0], ny = cur[1] + nbr[di][1]; if (get(nx, ny)) { prev = cur; cur = [nx, ny]; c.push(cur); found = true; break; } }
-    if (!found) break;
-    if (cur[0] === sx && cur[1] === sy && c.length > 2) break;
-  }
-  return c;
-}
-function dieChaikin(pts, iters) {
-  for (let it = 0; it < iters; it++) {
-    const out = [], n = pts.length;
-    for (let i = 0; i < n; i++) { const p = pts[i], q = pts[(i + 1) % n]; out.push([p[0]*.75+q[0]*.25, p[1]*.75+q[1]*.25]); out.push([p[0]*.25+q[0]*.75, p[1]*.25+q[1]*.75]); }
-    pts = out;
-  }
-  return pts;
-}
-// 背景のうち「外側（縁から繋がっている部分）」を塗りつぶしで判定（4近傍）。
-// 戻り値: 1=外側の背景 / 0=前景 or 中抜き穴
-function dieFloodOutside(g, N) {
-  const out = new Uint8Array(N * N), st = [];
-  for (let x = 0; x < N; x++) { if (!g[x]) st.push(x); const b = (N - 1) * N + x; if (!g[b]) st.push(b); }
-  for (let y = 0; y < N; y++) { const l = y * N; if (!g[l]) st.push(l); const r = y * N + N - 1; if (!g[r]) st.push(r); }
-  while (st.length) {
-    const idx = st.pop(); if (out[idx]) continue; out[idx] = 1;
-    const x = idx % N, y = (idx / N) | 0;
-    if (x > 0     && !g[idx - 1] && !out[idx - 1]) st.push(idx - 1);
-    if (x < N - 1 && !g[idx + 1] && !out[idx + 1]) st.push(idx + 1);
-    if (y > 0     && !g[idx - N] && !out[idx - N]) st.push(idx - N);
-    if (y < N - 1 && !g[idx + N] && !out[idx + N]) st.push(idx + N);
-  }
-  return out;
-}
-// 中抜き穴（外側に繋がっていない背景の塊）を検出して輪郭ポリゴンの配列で返す（標準動作：穴はそのまま残す）
-function dieDetectHoles(g, N, minArea) {
-  const outside = dieFloodOutside(g, N);
-  const hole = new Uint8Array(N * N);
-  for (let i = 0; i < N * N; i++) hole[i] = (!g[i] && !outside[i]) ? 1 : 0;
-  const seen = new Uint8Array(N * N), polys = [];
-  for (let s = 0; s < N * N; s++) {
-    if (!hole[s] || seen[s]) continue;
-    const comp = [], st = [s];
-    while (st.length) {
-      const idx = st.pop(); if (seen[idx]) continue; seen[idx] = 1; comp.push(idx);
-      const x = idx % N, y = (idx / N) | 0;
-      if (x > 0     && hole[idx - 1] && !seen[idx - 1]) st.push(idx - 1);
-      if (x < N - 1 && hole[idx + 1] && !seen[idx + 1]) st.push(idx + 1);
-      if (y > 0     && hole[idx - N] && !seen[idx - N]) st.push(idx - N);
-      if (y < N - 1 && hole[idx + N] && !seen[idx + N]) st.push(idx + N);
-    }
-    if (comp.length < minArea) continue;               // 小さすぎる穴（=微小なノイズ）は埋めたまま
-    const m = new Uint8Array(N * N); for (const idx of comp) m[idx] = 1;
-    let c = dieTrace(m, N);
-    if (c.length < 6) continue;
-    c = c.filter((_, i) => i % Math.max(1, Math.floor(c.length / 40)) === 0);
-    c = dieChaikin(c, 1);
-    polys.push(c.map(p => ({ x: +(p[0] / N).toFixed(4), y: +(p[1] / N).toFixed(4) })));
-  }
-  return polys;
-}
-// alpha グリッド → シルエット外周＋中抜き穴。戻り値 { outer:[{x,y}...], holes:[[{x,y}...], ...] }
-// 標準動作：イラストどおりにすき間・中抜き穴を残す（軽いクロージングでノイズ除去のみ）
-function dieMorphTrace(g, N, sizeCm, borderCm) {
-  let any = false; for (let i = 0; i < g.length; i++) if (g[i]) { any = true; break; }
-  if (!any) return null;
-  // 細い隙間は埋めず、微小なノイズだけ除去する軽いクロージング
-  const closeR  = Math.max(1, Math.round(N * .012));
-  const borderR = Math.max(0, Math.round((borderCm / (sizeCm || 7)) * N * DIE_FIT));
-  g = dieMorph(g, N, closeR, false); g = dieMorph(g, N, closeR, true); // クロージング
-  if (borderR > 0) g = dieMorph(g, N, borderR, false);                  // 縁取り（外周を太らせ、穴は内側へ縮む）
-  let c = dieTrace(g, N);
-  if (c.length < 6) return null;
-  c = c.filter((_, i) => i % Math.max(1, Math.floor(c.length / 70)) === 0);
-  c = dieChaikin(c, 1);
-  const outer = c.map(p => ({ x: +(p[0] / N).toFixed(4), y: +(p[1] / N).toFixed(4) }));
-  const holes = dieDetectHoles(g, N, Math.max(18, Math.round(N * N * 0.0015)));
-  return { outer, holes };
-}
-function computeDiePoly() {
-  const imgEl = document.getElementById('cropImg');
-  if (!imgEl || !imgEl.complete || !imgEl.naturalWidth) return null;
-  return dieMorphTrace(dieAlphaGrid(140), 140, S.sizeCm, S.borderCm != null ? S.borderCm : 0.3);
-}
-function dieGridFrom(imgEl, cs, N) {
-  const tmp = document.createElement('canvas'); tmp.width = N; tmp.height = N;
-  const t = tmp.getContext('2d');
-  t.save(); t.translate(N / 2, N / 2); t.rotate((cs.rot || 0) * Math.PI / 180);
-  t.drawImage(imgEl, -cs.drawX - cs.frameSrc / 2, -cs.drawY - cs.frameSrc / 2, cs.frameSrc, cs.frameSrc, -N / 2, -N / 2, N, N);
-  t.restore();
-  const px = t.getImageData(0, 0, N, N).data;
-  const g  = new Uint8Array(N * N);
-  for (let i = 0; i < N * N; i++) g[i] = px[i * 4 + 3] > 40 ? 1 : 0;
-  return g;
-}
-// フィット済みの保存画像（400x400）から直接アルファグリッドを作る（等倍・無変換）
-function dieGridFromImage(imgEl, N) {
-  const tmp = document.createElement('canvas'); tmp.width = N; tmp.height = N;
-  const t = tmp.getContext('2d');
-  t.drawImage(imgEl, 0, 0, N, N);
-  const px = t.getImageData(0, 0, N, N).data;
-  const g  = new Uint8Array(N * N);
-  for (let i = 0; i < N * N; i++) g[i] = px[i * 4 + 3] > 40 ? 1 : 0;
-  return g;
-}
-function recomputeDie(face, cb) {
-  // 保存画像（applyCropでシルエットをフレームへフィット済み）から再トレース。サイズ/縁/折れ防止の変更時に呼ぶ
-  const src = face === 'back' ? S.imgBack : S.imgFront;
-  if (S.shape !== 'diecut' || !src) { if (cb) cb(); return; }
-  const im = new Image();
-  im.onload  = () => {
-    const res = dieMorphTrace(dieGridFromImage(im, 140), 140, S.sizeCm, S.borderCm != null ? S.borderCm : 0.3);
-    if (face === 'back') { S.dieBack  = res ? res.outer : null; S.dieHolesBack  = res ? res.holes : []; }
-    else                 { S.dieFront = res ? res.outer : null; S.dieHolesFront = res ? res.holes : []; }
-    updateSizeUI();   // シルエット確定後、短辺6cm制約に合わせて長辺の上限を再適用
-    if (S.nfc) { const wn=document.getElementById('nfcWrap'); if (wn && wn.offsetWidth>0) resyncNFC(); }
-    if (cb) cb();
-  };
-  im.onerror = () => { if (cb) cb(); };
-  im.src = src;
-}
-// 中抜き穴を描画（ダイカット共通）。
-//  mode='cut' : 透明にくり抜く（明るい背景のプレビュー用）
-//  mode='fill': 指定色で塗る（暗い背景の穴エディタ用）
-function diePunchHoles(ctx, holes, ox, oy, w, h, mode, bg) {
-  if (!holes || !holes.length) return;
-  const path = (hole) => { ctx.beginPath(); ctx.moveTo(ox + hole[0].x * w, oy + hole[0].y * h); for (let i = 1; i < hole.length; i++) ctx.lineTo(ox + hole[i].x * w, oy + hole[i].y * h); ctx.closePath(); };
-  ctx.save();
-  if (mode === 'cut') ctx.globalCompositeOperation = 'destination-out';
-  for (const hole of holes) { if (!hole || hole.length < 3) continue; path(hole); ctx.fillStyle = (mode === 'cut') ? '#000' : (bg || '#16161a'); ctx.fill(); }
-  ctx.restore();
-  ctx.save();
-  ctx.lineWidth = 1; ctx.strokeStyle = (mode === 'cut') ? 'rgba(0,0,0,.2)' : 'rgba(255,255,255,.22)';
-  for (const hole of holes) { if (!hole || hole.length < 3) continue; path(hole); ctx.stroke(); }
-  ctx.restore();
-}
-function diePathScreen(ctx, poly, ox, oy, size) {
-  if (!poly || poly.length < 3) return;
-  ctx.moveTo(ox + poly[0].x * size, oy + poly[0].y * size);
-  for (let i = 1; i < poly.length; i++) ctx.lineTo(ox + poly[i].x * size, oy + poly[i].y * size);
-  ctx.closePath();
-}
-// ダイカット「折れ防止OFF」用：画像のアルファ（透明部分）に沿って本体を描く。
-// 画像を s×s で (x,y) に敷き、その不透明部分を borderPx ぶん外側へ膨張させた縁取りを付ける。
-// 穴・手足のすき間など透明な部分はそのまま抜ける（ポリゴンでは出せない完璧な抜き）。
-// withImage=false なら画像を重ねずアクリル色のシルエットのみ（裏面・印刷なし用）。
-// 縁取りは「シルエットを距離変換で borderPx ぶん外側へ膨張」させて生成する。
-// 以前は円周上に20枚スタンプしていたが、縁を太くするとスタンプ同士の隙間が広がり
-// 半透明エッジが補強されず縁がぼやけた（スカラップ状になった）。距離変換なら太さに
-// 関係なく均一な不透明の縁になり、輪郭もなめらかに保てる。
-let _dieSilCache = new Map();    // key: src|s|border|色 → 膨張済みシルエットcanvas（ドラッグ時の再計算を回避）
-const _cssRgbCache = new Map();
-// CSS色文字列 → [r,g,b]（hex以外でも1pxキャンバス経由で確実に解釈）
-function _cssToRgb(c) {
-  if (_cssRgbCache.has(c)) return _cssRgbCache.get(c);
-  const cv = document.createElement('canvas'); cv.width = cv.height = 1;
-  const x = cv.getContext('2d'); x.fillStyle = '#000'; x.fillStyle = c; x.fillRect(0, 0, 1, 1);
-  const d = x.getImageData(0, 0, 1, 1).data, rgb = [d[0], d[1], d[2]];
-  _cssRgbCache.set(c, rgb); return rgb;
-}
-// 1次元ユークリッド距離変換（Felzenszwalb法・二乗距離を d に書き込む。v,z は作業用バッファ）
-function _edt1d(f, n, d, v, z) {
-  let k = 0; v[0] = 0; z[0] = -1e20; z[1] = 1e20;
-  for (let q = 1; q < n; q++) {
-    let s = ((f[q] + q * q) - (f[v[k]] + v[k] * v[k])) / (2 * q - 2 * v[k]);
-    while (s <= z[k]) { k--; s = ((f[q] + q * q) - (f[v[k]] + v[k] * v[k])) / (2 * q - 2 * v[k]); }
-    k++; v[k] = q; z[k] = s; z[k + 1] = 1e20;
-  }
-  k = 0;
-  for (let q = 0; q < n; q++) { while (z[k + 1] < q) k++; d[q] = (q - v[k]) * (q - v[k]) + f[v[k]]; }
-}
-// 画像の不透明部分を borderPx ぶん膨張させ、acryl色で塗ったシルエットcanvasを返す
-// （画像の左上が canvas の (pad, pad) に来る）。外周の境界1pxはアンチエイリアスする。
-function dieDilatedSilhouette(img, s, borderPx, acryl) {
-  const br = Math.max(0, borderPx);
-  const key = (img.src || '') + '|' + s + '|' + br.toFixed(2) + '|' + acryl;
-  const hit = _dieSilCache.get(key);
-  if (hit) return hit;
-  const pad = Math.ceil(br) + 2, tw = s + pad * 2;
-  const cv = document.createElement('canvas'); cv.width = tw; cv.height = tw;
-  const cx = cv.getContext('2d');
-  cx.drawImage(img, pad, pad, s, s);
-  const sd = cx.getImageData(0, 0, tw, tw).data;
-  // 内側=0／外側=∞ の格子を作り、行→列の順に2次元距離変換
-  const INF = 1e20, n = tw * tw, grid = new Float64Array(n);
-  for (let i = 0; i < n; i++) grid[i] = sd[i * 4 + 3] > 40 ? 0 : INF;
-  const col = new Float64Array(tw), dout = new Float64Array(tw);
-  const v = new Int32Array(tw), z = new Float64Array(tw + 1);
-  for (let y = 0; y < tw; y++) { const o = y * tw; _edt1d(grid.subarray(o, o + tw), tw, dout, v, z); for (let x = 0; x < tw; x++) grid[o + x] = dout[x]; }
-  for (let x = 0; x < tw; x++) { for (let y = 0; y < tw; y++) col[y] = grid[y * tw + x]; _edt1d(col, tw, dout, v, z); for (let y = 0; y < tw; y++) grid[y * tw + x] = dout[y]; }
-  // 距離(px) → 塗り：内側は完全不透明、borderPx まで塗り、境界±0.5pxだけ半透明（なめらかな縁）
-  const rgb = _cssToRgb(acryl), R = rgb[0], G = rgb[1], B = rgb[2];
-  const out = cx.createImageData(tw, tw), od = out.data;
-  for (let i = 0; i < n; i++) {
-    const dist = Math.sqrt(grid[i]);
-    let cov = dist <= 0 ? 1 : (br - dist + 0.5);
-    if (cov <= 0) continue;
-    if (cov > 1) cov = 1;
-    const j = i * 4; od[j] = R; od[j + 1] = G; od[j + 2] = B; od[j + 3] = (cov * 255) | 0;
-  }
-  cx.putImageData(out, 0, 0);
-  if (_dieSilCache.size > 8) _dieSilCache.delete(_dieSilCache.keys().next().value);
-  _dieSilCache.set(key, cv);
-  return cv;
-}
-function drawDieBodyAlpha(ctx, img, x, y, s, acryl, borderPx, withImage) {
-  s = Math.round(s);
-  const blank = (withImage === false);
-  const br = Math.max(0, borderPx);
-  if (br >= 0.5 || blank) {
-    const sil = dieDilatedSilhouette(img, s, br, acryl);   // 縁(+裏面はこれが本体)
-    const pad = (sil.width - s) / 2;
-    ctx.drawImage(sil, x - pad, y - pad);
-  }
-  if (!blank) ctx.drawImage(img, x, y, s, s);              // 表面はイラストを上に重ねる
-}
-// borderPx 計算：シルエット長辺が s*DIE_FIT(px)=sizeCm に相当するので borderCm を px へ換算
-function dieBorderPx(s) { return (S.sizeCm ? (S.borderCm || 0) / S.sizeCm : 0) * s * DIE_FIT; }
-
-function cdragStart(e)  { C.drag=true; C.sx=e.clientX-C.x; C.sy=e.clientY-C.y; window.addEventListener('mousemove',cdragMove); window.addEventListener('mouseup',cdragEnd); }
-function cdragStartT(e) { const t=e.touches[0]; C.drag=true; C.sx=t.clientX-C.x; C.sy=t.clientY-C.y; window.addEventListener('touchmove',cdragMoveT,{passive:false}); window.addEventListener('touchend',cdragEnd); }
-function cdragMove(e)  { if(!C.drag)return; C.x=e.clientX-C.sx; C.y=e.clientY-C.sy; posImg(); if((S.shape||'')==='diecut') drawMask(); }
-function cdragMoveT(e) { e.preventDefault(); if(!C.drag)return; const t=e.touches[0]; C.x=t.clientX-C.sx; C.y=t.clientY-C.sy; posImg(); if((S.shape||'')==='diecut') drawMask(); }
-function cdragEnd()    { C.drag=false; window.removeEventListener('mousemove',cdragMove); window.removeEventListener('mouseup',cdragEnd); window.removeEventListener('touchmove',cdragMoveT); window.removeEventListener('touchend',cdragEnd); }
-
-// 不透明部分(シルエット)を検出し、その長辺がフレームの DIE_FIT を占めるよう中央寄せで再切り取りした out×out キャンバスを返す
-function dieFitCanvas(srcCv, out) {
-  const sc = srcCv.getContext('2d');
-  const d = sc.getImageData(0, 0, out, out).data;
-  let minX = out, minY = out, maxX = -1, maxY = -1;
-  for (let y = 0; y < out; y++) for (let x = 0; x < out; x++) { if (d[(y*out+x)*4+3] > 40) { if (x<minX)minX=x; if (x>maxX)maxX=x; if (y<minY)minY=y; if (y>maxY)maxY=y; } }
-  if (maxX < 0) return null;                                  // 不透明部分なし
-  const bw = maxX-minX+1, bh = maxY-minY+1;
-  const bcx = (minX+maxX)/2, bcy = (minY+maxY)/2;
-  const cropSide = Math.max(bw, bh) / DIE_FIT;                // この正方形をout全体へ拡大→シルエット長辺=DIE_FIT*out
-  const fit = document.createElement('canvas'); fit.width = out; fit.height = out;
-  fit.getContext('2d').drawImage(srcCv, bcx - cropSide/2, bcy - cropSide/2, cropSide, cropSide, 0, 0, out, out);
-  return fit;
-}
-// フレーム領域に映る被写体（不透明部分）の範囲を、フレーム比[0..1]で返す（低解像度プローブで高速判定）
-function dieSubjectBBoxNorm(imgEl, drawX, drawY, frameSrc, rot, probeN) {
-  const p = document.createElement('canvas'); p.width = probeN; p.height = probeN;
-  const pc = p.getContext('2d');
-  pc.translate(probeN/2, probeN/2); pc.rotate(rot * Math.PI/180);
-  pc.drawImage(imgEl, -drawX - frameSrc/2, -drawY - frameSrc/2, frameSrc, frameSrc, -probeN/2, -probeN/2, probeN, probeN);
-  pc.setTransform(1, 0, 0, 1, 0, 0);
-  const d = pc.getImageData(0, 0, probeN, probeN).data;
-  let minX = probeN, minY = probeN, maxX = -1, maxY = -1;
-  for (let y = 0; y < probeN; y++) for (let x = 0; x < probeN; x++) { if (d[(y*probeN+x)*4+3] > 40) { if (x<minX)minX=x; if (x>maxX)maxX=x; if (y<minY)minY=y; if (y>maxY)maxY=y; } }
-  if (maxX < 0) return null;
-  return { x0: minX/probeN, y0: minY/probeN, x1: (maxX+1)/probeN, y1: (maxY+1)/probeN };
-}
-// ダイカット：元画像から被写体を「元解像度を保ったまま」切り出し、DIE_FITで中央に収めた outN×outN を返す。
-// 被写体を小さく配置しても、固定サイズへ縮小→拡大せず、必要な高解像度で一旦描いてからフィットするので粗くならない。
-function dieFitFromSource(imgEl, drawX, drawY, frameSrc, rot, outN) {
-  const bb = dieSubjectBBoxNorm(imgEl, drawX, drawY, frameSrc, rot, 360);
-  if (!bb) return null;
-  const longFrac = Math.max(bb.x1 - bb.x0, bb.y1 - bb.y0);      // 被写体長辺 ÷ フレーム
-  const bcx = (bb.x0 + bb.x1) / 2, bcy = (bb.y0 + bb.y1) / 2;   // 被写体中心（フレーム比）
-  // フィット後の被写体長辺 = outN*DIE_FIT。それを満たす最小の中間解像度HRで一旦描く＝元解像度を無駄なく保つ
-  const targetSubjPx = outN * DIE_FIT;
-  let HR = Math.round(targetSubjPx / Math.max(longFrac, 1e-3));
-  HR = Math.max(outN, Math.min(2400, HR));                      // 上限で巨大キャンバスを防止
-  const hi = document.createElement('canvas'); hi.width = HR; hi.height = HR;
-  const hc = hi.getContext('2d'); hc.imageSmoothingEnabled = true; hc.imageSmoothingQuality = 'high';
-  hc.translate(HR/2, HR/2); hc.rotate(rot * Math.PI/180);
-  hc.drawImage(imgEl, -drawX - frameSrc/2, -drawY - frameSrc/2, frameSrc, frameSrc, -HR/2, -HR/2, HR, HR);
-  hc.setTransform(1, 0, 0, 1, 0, 0);
-  const cxh = bcx*HR, cyh = bcy*HR, cropSide = (longFrac*HR) / DIE_FIT;   // 被写体をDIE_FITで占めるよう切り出し
-  const fit = document.createElement('canvas'); fit.width = outN; fit.height = outN;
-  const fc = fit.getContext('2d'); fc.imageSmoothingEnabled = true; fc.imageSmoothingQuality = 'high';
-  fc.drawImage(hi, cxh - cropSide/2, cyh - cropSide/2, cropSide, cropSide, 0, 0, outN, outN);
-  return fit;
-}
-function applyCrop() {
-  const ca = document.getElementById('cropArea');
-  const cw = ca.offsetWidth||360, ch = ca.offsetHeight||290;
-  const baseFrame = Math.min(cw,ch)*.78, cx = cw/2, cy = ch/2;
-  const sh  = S.shape || 'circle';
-  // 自由四角は枠も出力キャンバスも縦横比に合わせた長方形にする
-  let fw = baseFrame, fh = baseFrame, outW = 400, outH = 400;
-  if (sh === 'rect') {
-    const ar = (S.widthCm||7)/(S.heightCm||7);
-    if (ar >= 1) { fw = baseFrame; fh = baseFrame/ar; outW = 400; outH = Math.round(400/ar); }
-    else         { fh = baseFrame; fw = baseFrame*ar; outH = 400; outW = Math.round(400*ar); }
-  }
-  const cv = document.createElement('canvas'); cv.width=outW; cv.height=outH;
-  const ctx = cv.getContext('2d');
-  ctx.imageSmoothingEnabled = true; ctx.imageSmoothingQuality = 'high';
-  ctx.beginPath();
-  if (sh==='circle') { ctx.arc(outW/2,outH/2,outW/2,0,Math.PI*2); ctx.clip(); }
-  else if (sh==='square') { rrect(ctx,0,0,outW,outH,outW*.06); ctx.clip(); }
-  else if (sh==='rect') { rrect(ctx,0,0,outW,outH,Math.min(outW,outH)*.06); ctx.clip(); }
-  // ダイカットはクリップしない（実シルエットはポリゴンで保持）
-  const imgEl = document.getElementById('cropImg');
-  ctx.save();
-  ctx.translate(outW/2, outH/2);
-  ctx.rotate(C.rot * Math.PI / 180);
-  const drawX   = (C.x - cx) / C.scale;
-  const drawY   = (C.y - cy) / C.scale;
-  const frameSrcW = fw / C.scale, frameSrcH = fh / C.scale;
-  ctx.drawImage(imgEl, -drawX - frameSrcW/2, -drawY - frameSrcH/2, frameSrcW, frameSrcH, -outW/2, -outH/2, outW, outH);
-  ctx.restore();
-  // ダイカットはシルエットをフレームへ自動フィット（小さく切り取っても同じsizeCmなら同じ大きさに）
-  // さらに元画像の解像度を保つため、固定サイズへ縮小済みのcvではなく元画像から高解像度でフィットする
-  const dieOut = 600;                                          // 出力解像度（被写体を鮮明に保つため高め）
-  const frameSrc = baseFrame / C.scale;                        // ダイカット用（正方形フレーム）
-  let url, dieOuter = null, dieHoles = [];
-  if (sh === 'diecut') {
-    const fit = dieFitFromSource(imgEl, drawX, drawY, frameSrc, C.rot, dieOut) || dieFitCanvas(cv, outW) || cv;
-    url = fit.toDataURL('image/png');
-    if (cropTarget === 'back' && S.dieFront) { dieOuter = S.dieFront; dieHoles = S.dieHolesFront || []; }
-    else {
-      const res = dieMorphTrace(dieGridFromImage(fit, 140), 140, S.sizeCm, S.borderCm != null ? S.borderCm : 0.3);
-      if (res) { dieOuter = res.outer; dieHoles = res.holes || []; }
-    }
-  } else {
-    url = cv.toDataURL('image/png');
-  }
-  const savedState = { scale:C.scale, rot:C.rot, x:C.x, y:C.y, fitScale:C.fitScale, imgW:C.imgW, imgH:C.imgH, die:dieOuter, dieHoles:dieHoles, frameSrc:frameSrc, drawX:drawX, drawY:drawY };
-  if (cropTarget === 'back') {
-    S.imgBack = url; S.cropStateBack = savedState; S.dieBack = dieOuter; S.dieHolesBack = dieHoles;
-    drawPreview('back');
-    document.getElementById('uz-back').style.display = 'none';
-    document.getElementById('pw-back').classList.add('show');
-  } else {
-    S.imgFront = url; S.cropStateFront = savedState; S.dieFront = dieOuter; S.dieHolesFront = dieHoles;
-    if (sh === 'diecut' && S.imgBack) { S.dieBack = dieOuter; S.dieHolesBack = dieHoles; drawPreview('back'); }
-    drawPreview('front');
-    document.getElementById('uz-front').style.display = 'none';
-    document.getElementById('pw-front').classList.add('show');
-  }
-  if (S.qr) { ['front','back'].forEach(s => { const c = document.getElementById('qrBg-'+s); if (c && c.width) drawQRBg(s, c, c.width, c.height); }); }
-  document.getElementById('ss4').textContent = '設定済み';
-  // ダイカットはシルエットの縦横比が確定したので、長辺の上限・短辺表示を更新
-  if (S.shape === 'diecut') updateSizeUI();
-  done(4); updateProg(); if (window._redrawAttach) window._redrawAttach(); closeCrop();
-}
-
-function drawPreview(target) {
-  const cvEl = document.getElementById('cv-' + target);
-  const src  = target === 'back' ? S.imgBack  : S.imgFront;
-  cvEl.style.borderRadius = S.shape==='circle' ? '50%' : '8px';
-  cvEl.style.width = '200px'; cvEl.style.height = '200px';     // 表示は200pxに固定（バッキングストアだけ拡大）
-  const dpr = Math.min(devicePixelRatio || 1, 2);              // Retinaでも鮮明に
-  if (cvEl.width !== 200*dpr) { cvEl.width = 200*dpr; cvEl.height = 200*dpr; }
-  const ctx = cvEl.getContext('2d');
-  ctx.imageSmoothingEnabled = true; ctx.imageSmoothingQuality = 'high';
-  ctx.setTransform(dpr,0,0,dpr,0,0); ctx.clearRect(0,0,200,200);
-  const img = new Image();
+  const img = new Image(); img.src = src;
   img.onload = () => {
-    ctx.setTransform(dpr,0,0,dpr,0,0); ctx.clearRect(0,0,200,200);
-    if (S.shape === 'diecut') {
-      // ダイカット：画像のアルファに沿って縁取り＋穴抜き（イラストどおりにすき間・穴を残す）
-      drawDieBodyAlpha(ctx, img, 0, 0, 200, S.colorHex || '#d9d4c7', dieBorderPx(200), true);
-    } else if (S.shape === 'rect') {
-      // 自由四角：縦横比に合わせた長方形でプレビュー（画像はcoverで充填）
-      const ar = (S.widthCm||7)/(S.heightCm||7);
+    if (shape === 'rect' && O.widthCm && O.heightCm) {
+      // 自由四角：縦横比に合わせた長方形でプレビュー
+      const ar = O.widthCm / O.heightCm;
       let w, h; if (ar >= 1) { w = 200; h = 200/ar; } else { h = 200; w = 200*ar; }
       const x = (200-w)/2, y = (200-h)/2;
+      ctx.clearRect(0,0,200,200);
       ctx.save();
-      ctx.beginPath(); rrect(ctx, x, y, w, h, Math.min(w,h)*.06); ctx.clip();
+      ctx.beginPath();
+      ctx.moveTo(x+8,y); ctx.arcTo(x+w,y,x+w,y+h,8); ctx.arcTo(x+w,y+h,x,y+h,8); ctx.arcTo(x,y+h,x,y,8); ctx.arcTo(x,y,x+w,y,8); ctx.closePath();
+      ctx.clip();
       const ir = img.naturalWidth/img.naturalHeight, br = w/h;
-      let dw,dh,dx,dy; if (ir > br) { dh=h; dw=dh*ir; dx=x-(dw-w)/2; dy=y; } else { dw=w; dh=dw/ir; dy=y-(dh-h)/2; dx=x; }
+      let dw,dh,dx,dy; if (ir>br){dh=h;dw=dh*ir;dx=x-(dw-w)/2;dy=y;} else {dw=w;dh=dw/ir;dy=y-(dh-h)/2;dx=x;}
       ctx.drawImage(img, dx, dy, dw, dh);
       ctx.restore();
-    } else { ctx.drawImage(img,0,0,200,200); }
+    } else { ctx.drawImage(img, 0, 0, 200, 200); }
   };
-  img.src = src;
 }
 
-// ═══════════════════════════════════════════════════════
-// QR
-// ═══════════════════════════════════════════════════════
-function setQR(val) {
-  S.qr = val;
-  document.getElementById('qr-yes').classList.toggle('sel', val);
-  document.getElementById('qr-no').classList.toggle('sel', !val);
-  document.getElementById('qrOptions').style.display = val ? 'block' : 'none';
-  document.getElementById('ss5').textContent = val ? 'あり' : 'なし';
-  if (val) done(5);
-  updateProg();
+const imgRow = document.getElementById('imgRow');
+const frontBlock = document.createElement('div');
+frontBlock.className = 'img-block';
+frontBlock.innerHTML = O.backPrint ? '<label>おもて面</label>' : '';
+const cvFront = document.createElement('canvas');
+frontBlock.appendChild(cvFront);
+imgRow.appendChild(frontBlock);
+drawImgCanvas(cvFront, O.imgFront, O.shape);
+
+if (O.backPrint) {
+  const backBlock = document.createElement('div');
+  backBlock.className = 'img-block';
+  backBlock.innerHTML = '<label>うら面</label>';
+  const cvBack = document.createElement('canvas');
+  backBlock.appendChild(cvBack);
+  imgRow.appendChild(backBlock);
+  drawImgCanvas(cvBack, O.imgBack, O.shape);
 }
 
-function setQRSide(side) {
-  S.qrSide = side;
-  document.getElementById('qrs-front').classList.toggle('sel', side==='front');
-  document.getElementById('qrs-back').classList.toggle('sel',  side==='back');
-  document.getElementById('qrEd-front').style.display = side==='front' ? 'block' : 'none';
-  document.getElementById('qrEd-back').style.display  = side==='back'  ? 'block' : 'none';
-  setTimeout(() => initQREditor(side), 30);
-}
+// ─── QR位置ミニマップ ───
+if (O.qr && O.qrSide) {
+  const card = document.getElementById('qrPosCard');
+  card.style.display = '';
+  const body = document.getElementById('qrPosBody');
 
-const QRS = { front:{x:50,y:50,cm:2}, back:{x:50,y:50,cm:2} };
-
-function getKHRect(aw, ah) {
-  const margin = 14;
-  const box  = Math.min(aw - margin*2, ah - margin*2);
-  let kw = box, kh = box;
-  if (S.shape === 'rect') { const ar = (S.widthCm||7)/(S.heightCm||7); if (ar >= 1) { kw = box; kh = box/ar; } else { kh = box; kw = box*ar; } }
-  const ox = (aw - kw) / 2, oy = (ah - kh) / 2;
-  // ダイア:シルエット(=DIE_FIT*kw)が sizeCm / 自由四角:kw=widthCm / 丸・四角:kw=sizeCm
-  let pxPerCm;
-  if (S.shape === 'diecut')    pxPerCm = DIE_FIT * kw / (S.sizeCm || 7);
-  else if (S.shape === 'rect') pxPerCm = kw / (S.widthCm || 7);
-  else                         pxPerCm = kw / (S.sizeCm || 7);
-  return { ox, oy, kw, kh, pxPerCm };
-}
-
-function initQREditor(side) {
-  const wrap = document.getElementById('qrWrap-' + side);
-  const bgCv = document.getElementById('qrBg-' + side);
-  const box  = document.getElementById('qrBox-' + side);
-  const aw = wrap.offsetWidth || 260, ah = wrap.offsetHeight || 200;
-  bgCv.width = aw; bgCv.height = ah;
-  drawQRBg(side, bgCv, aw, ah);
-  posQRBox(side, box, bgCv, aw, ah);
-  setupQRDrag(side, wrap, box, bgCv);
-}
-
-function drawQRBg(side, cv, aw, ah) {
-  const ctx = cv.getContext('2d'); ctx.clearRect(0, 0, aw, ah);
-  const { ox, oy, kw, kh, pxPerCm } = getKHRect(aw, ah);
-  const src    = side === 'back' ? S.imgBack    : S.imgFront;
-  const acryl  = S.colorHex || '#d9d4c7';
-  const diePoly = (S.dieFront || S.dieBack);
-  const dieHoles = (S.dieHolesFront && S.dieHolesFront.length ? S.dieHolesFront : S.dieHolesBack) || [];
-
-  function khPath() {
-    ctx.beginPath();
-    if (S.shape === 'diecut' && diePoly && diePoly.length >= 3) {
-      ctx.moveTo(ox + diePoly[0].x*kw, oy + diePoly[0].y*kh);
-      for (let i = 1; i < diePoly.length; i++) ctx.lineTo(ox + diePoly[i].x*kw, oy + diePoly[i].y*kh);
-      ctx.closePath();
-    } else if (S.shape === 'circle') ctx.arc(ox+kw/2, oy+kh/2, kw/2, 0, Math.PI*2);
-    else rrect(ctx, ox, oy, kw, kh, 8);
+  // 土台色に応じてQRの視認色（黒/白）を返す
+  function qrInk(hex){
+    var h=(hex||'#d9d4c7').replace('#','');
+    if(h.length===3) h=h.charAt(0)+h.charAt(0)+h.charAt(1)+h.charAt(1)+h.charAt(2)+h.charAt(2);
+    var r=parseInt(h.substr(0,2),16),g=parseInt(h.substr(2,2),16),b=parseInt(h.substr(4,2),16);
+    return (0.299*r+0.587*g+0.114*b)>150 ? '#111111' : '#ffffff';
   }
+  function makeQRMiniMap(label, qrData, imgSrc) {
+    const wrap = document.createElement('div');
+    wrap.style.cssText = 'margin-bottom:14px;';
 
-  if (src) {
-    const img = new Image();
-    img.onload = () => {
-      if (S.shape === 'diecut') {
-        // ダイカット：アルファに沿って縁取り＋穴抜き（kw=kh の正方形領域に等倍）
-        drawDieBodyAlpha(ctx, img, ox, oy, kw, acryl, (S.sizeCm ? (S.borderCm||0)/S.sizeCm : 0) * kw * DIE_FIT, true);
-        drawScaleBar(ctx, ox, oy, kw, kh, pxPerCm);
-        return;
+    const lbl = document.createElement('div');
+    lbl.style.cssText = 'font-size:11px;font-weight:500;color:var(--muted);text-transform:uppercase;letter-spacing:.06em;margin-bottom:8px;';
+    lbl.textContent = label;
+    wrap.appendChild(lbl);
+
+    const row = document.createElement('div');
+    row.className = 'qr-info-row';
+
+    // ミニマップ（画像＋QR枠）
+    const mini = document.createElement('canvas');
+    mini.width = 100; mini.height = 100;
+    mini.style.cssText = 'width:100px;height:100px;border-radius:8px;border:1.5px solid var(--border);flex-shrink:0;';
+    row.appendChild(mini);
+
+    // テキスト情報
+    const info = document.createElement('div');
+    info.className = 'qr-info-text';
+    info.innerHTML = `
+      <div>サイズ: <strong>${qrData.cm.toFixed(1)} cm</strong></div>
+      <div>位置 X: <strong>${Math.round(qrData.x)}%</strong>　Y: <strong>${Math.round(qrData.y)}%</strong></div>
+      <div style="font-size:11px;margin-top:4px;color:var(--muted);">（キーホルダー領域内の座標）</div>
+    `;
+    row.appendChild(info);
+    wrap.appendChild(row);
+
+    // キャンバスに描画
+    const ctx = mini.getContext('2d');
+    const mw = 100, mh = 100;
+    const margin = 8;
+    const box = Math.min(mw, mh) - margin*2;
+    let kw = box, kh = box;
+    if (O.shape === 'rect' && O.widthCm && O.heightCm) { const ar = O.widthCm/O.heightCm; if (ar>=1){kw=box;kh=box/ar;} else {kh=box;kw=box*ar;} }
+    const ox = (mw-kw)/2, oy = (mh-kh)/2;
+
+    function drawMini(imgEl) {
+      ctx.clearRect(0,0,mw,mh);
+      // キーホルダー輪郭
+      ctx.save();
+      ctx.beginPath();
+      if (O.shape === 'circle') ctx.arc(ox+kw/2, oy+kh/2, Math.min(kw,kh)/2, 0, Math.PI*2);
+      else { ctx.rect(ox,oy,kw,kh); }
+      if (imgEl) {
+        ctx.clip();
+        const ir = imgEl.naturalWidth/imgEl.naturalHeight;
+        const kr = kw/kh;
+        let dw,dh,dx,dy;
+        if(ir>kr){dh=kh;dw=dh*ir;dx=ox-(dw-kw)/2;dy=oy;}
+        else{dw=kw;dh=dw/ir;dy=oy-(dh-kh)/2;dx=ox;}
+        ctx.drawImage(imgEl,dx,dy,dw,dh);
+      } else {
+        ctx.fillStyle = O.colorHex || '#e8e5dc'; ctx.fill();   // 実際の土台色で塗る
       }
-      ctx.save(); khPath(); ctx.clip();
-      const ir = img.naturalWidth / img.naturalHeight, kr = kw / kh;
-      let dw, dh, dx, dy;
-      if (ir > kr) { dh=kh; dw=dh*ir; dx=ox-(dw-kw)/2; dy=oy; }
-      else          { dw=kw; dh=dw/ir; dy=oy-(dh-kh)/2; dx=ox; }
-      ctx.drawImage(img, dx, dy, dw, dh); ctx.restore();
-      ctx.strokeStyle='rgba(0,0,0,.2)'; ctx.lineWidth=1; khPath(); ctx.stroke();
-      drawScaleBar(ctx, ox, oy, kw, kh, pxPerCm);
-    };
-    img.src = src;
-  } else {
-    ctx.fillStyle='rgba(200,198,190,.4)'; khPath(); ctx.fill();
-    ctx.strokeStyle='rgba(0,0,0,.12)'; ctx.lineWidth=1; khPath(); ctx.stroke();
-    ctx.fillStyle='rgba(100,98,94,.45)'; ctx.font='11px sans-serif'; ctx.textAlign='center'; ctx.textBaseline='middle';
-    ctx.fillText('画像未設定', aw/2, ah/2);
-    drawScaleBar(ctx, ox, oy, kw, kh, pxPerCm);
+      ctx.restore();
+      // 外枠
+      ctx.strokeStyle='rgba(0,0,0,.15)'; ctx.lineWidth=1;
+      ctx.beginPath();
+      if (O.shape==='circle') ctx.arc(ox+kw/2,oy+kh/2,Math.min(kw,kh)/2,0,Math.PI*2);
+      else ctx.rect(ox,oy,kw,kh);
+      ctx.stroke();
+      // QR枠（実寸の点線＋土台色に追従した視認色）
+      const pxPerCm = (O.shape==='rect' && O.widthCm) ? kw / O.widthCm : kw / (O.sizeCm || 7);
+      const qpx = Math.max(8, qrData.cm * pxPerCm);
+      const qx  = ox + kw * qrData.x/100 - qpx/2;
+      const qy  = oy + kh * qrData.y/100 - qpx/2;
+      const ink = qrInk(O.colorHex), halo = (ink==='#ffffff') ? 'rgba(0,0,0,.5)' : 'rgba(255,255,255,.8)';
+      ctx.setLineDash([]); ctx.lineWidth=2.2; ctx.strokeStyle=halo; ctx.strokeRect(qx,qy,qpx,qpx);            // ハロー
+      ctx.lineWidth=1.1; ctx.strokeStyle=ink; ctx.setLineDash([4,3]); ctx.strokeRect(qx,qy,qpx,qpx); ctx.setLineDash([]); // 実寸の点線枠
+      ctx.font='bold 7px sans-serif'; ctx.textAlign='center'; ctx.textBaseline='middle'; ctx.lineJoin='round';
+      ctx.lineWidth=2.4; ctx.strokeStyle=halo; ctx.strokeText('QR',qx+qpx/2,qy+qpx/2);
+      ctx.fillStyle=ink; ctx.fillText('QR',qx+qpx/2,qy+qpx/2);
+    }
+
+    if (imgSrc) {
+      const img = new Image(); img.src = imgSrc;
+      img.onload = () => drawMini(img);
+    } else { drawMini(null); }
+
+    body.appendChild(wrap);
+  }
+
+  if (O.qrSide === 'front' || O.qrSide === 'both') {
+    makeQRMiniMap('おもて面', O.qrFront, O.imgFront);
+  }
+  if (O.qrSide === 'back' || O.qrSide === 'both') {
+    makeQRMiniMap('うら面', O.qrBack, O.imgBack);
   }
 }
 
-function drawScaleBar(ctx, ox, oy, kw, kh, pxPerCm) {
-  const barCm = 2, barPx = barCm * pxPerCm;
-  const bx = ox + kw - barPx - 4, by = oy + kh - 8;
-  ctx.strokeStyle='rgba(255,255,255,.8)'; ctx.lineWidth=2;
-  ctx.beginPath(); ctx.moveTo(bx, by); ctx.lineTo(bx+barPx, by); ctx.stroke();
-  ctx.fillStyle='rgba(255,255,255,.8)'; ctx.font='bold 9px sans-serif'; ctx.textAlign='center'; ctx.textBaseline='bottom';
-  ctx.fillText(barCm+'cm', bx+barPx/2, by-2);
-}
+// ─── 穴位置 ───
+document.getElementById('diAttX').textContent = Math.round(O.attX != null ? O.attX : 50);
+document.getElementById('diAttY').textContent = Math.round(O.attY != null ? O.attY : 10);
+document.getElementById('diAttMode').textContent = (O.attMode === 'outside') ? '外付けツメ' : '本体内';
 
-function posQRBox(side, box, bgCv, aw, ah) {
-  const { ox, oy, kw, kh, pxPerCm } = getKHRect(aw, ah);
-  const bpx = Math.max(16, QRS[side].cm * pxPerCm);
-  const cx  = ox + kw * QRS[side].x/100 - bpx/2;
-  const cy  = oy + kh * QRS[side].y/100 - bpx/2;
-  box.style.width  = bpx+'px'; box.style.height = bpx+'px';
-  box.style.left   = Math.min(ox+kw-bpx, Math.max(ox, cx))+'px';
-  box.style.top    = Math.min(oy+kh-bpx, Math.max(oy, cy))+'px';
-}
-
-function setupQRDrag(side, wrap, box, bgCv) {
-  const nb = box.cloneNode(true); box.parentNode.replaceChild(nb, box); box = nb;
-  let drag=false, ox2=0, oy2=0;
-  const onDown = e => {
-    drag=true;
-    const r=wrap.getBoundingClientRect();
-    const cl=e.touches?e.touches[0].clientX:e.clientX, ct=e.touches?e.touches[0].clientY:e.clientY;
-    ox2=cl-r.left-box.offsetLeft; oy2=ct-r.top-box.offsetTop; e.preventDefault();
-  };
-  box.addEventListener('mousedown', onDown);
-  box.addEventListener('touchstart', onDown, {passive:false});
-  const onMove = e => {
-    if (!drag) return;
-    const r=wrap.getBoundingClientRect();
-    const cl=e.touches?e.touches[0].clientX:e.clientX, ct=e.touches?e.touches[0].clientY:e.clientY;
-    const aw=bgCv.width, ah=bgCv.height;
-    const { ox, oy, kw, kh, pxPerCm }=getKHRect(aw, ah);
-    const bpx=Math.max(16, QRS[side].cm*pxPerCm);
-    const nx=Math.min(ox+kw-bpx, Math.max(ox, cl-r.left-ox2));
-    const ny=Math.min(oy+kh-bpx, Math.max(oy, ct-r.top-oy2));
-    box.style.left=nx+'px'; box.style.top=ny+'px';
-    QRS[side].x = ((nx+bpx/2)-ox)/kw*100;
-    QRS[side].y = ((ny+bpx/2)-oy)/kh*100;
-    if (e.cancelable) e.preventDefault();
-  };
-  window.addEventListener('mousemove', onMove);
-  window.addEventListener('touchmove', onMove, {passive:false});
-  window.addEventListener('mouseup',  ()=>drag=false);
-  window.addEventListener('touchend', ()=>drag=false);
-}
-
-function bodyShortCm() { return S.shape === 'rect' ? Math.min(S.widthCm, S.heightCm) : (S.sizeCm || 7); }
-function clampQRSz(v) { return Math.min(bodyShortCm(), Math.max(1.2, Math.round(v*10)/10)); }
-function setQRSz(side, v) {
-  QRS[side].cm = clampQRSz(v);
-  document.getElementById('qrSz-'+side).value  = QRS[side].cm;
-  document.getElementById('qrSzN-'+side).value = QRS[side].cm;
-  const wrap=document.getElementById('qrWrap-'+side), bgCv=document.getElementById('qrBg-'+side);
-  const box=wrap.querySelector('.qr-box');
-  const aw=bgCv.width||wrap.offsetWidth||260, ah=bgCv.height||wrap.offsetHeight||200;
-  posQRBox(side, box, bgCv, aw, ah);
-}
-function onQRSzSlider(side) { setQRSz(side, +document.getElementById('qrSz-'+side).value); }
-function onQRSzInput(side)  { setQRSz(side, +document.getElementById('qrSzN-'+side).value); }
-function stepQR(side, d)    { setQRSz(side, QRS[side].cm + d); }
-
-function resyncQR(side) {
-  const wrap = document.getElementById('qrWrap-' + side);
-  const bgCv = document.getElementById('qrBg-' + side);
-  const box  = wrap.querySelector('.qr-box');
-  if (!wrap || !bgCv || !box) return;
-  const aw = wrap.offsetWidth || 260, ah = wrap.offsetHeight || 220;
-  bgCv.width = aw; bgCv.height = ah;
-  QRS[side].cm = Math.min(QRS[side].cm, bodyShortCm());
-  document.getElementById('qrSz-'+side).value  = QRS[side].cm;
-  document.getElementById('qrSzN-'+side).value = QRS[side].cm;
-  drawQRBg(side, bgCv, aw, ah);
-  posQRBox(side, box, bgCv, aw, ah);
-  setupQRDrag(side, wrap, box, bgCv);
-}
-
-// ═══════════════════════════════════════════════════════
-// SIZE
-// ═══════════════════════════════════════════════════════
-// 本体の縦横(cm)。丸/四角=sizeCm、自由四角=横/縦、ダイア=長辺(枠は正方形でシルエットが縦横比を持つ)
-function bWcm() { return S.shape === 'rect' ? S.widthCm  : S.sizeCm; }
-function bHcm() { return S.shape === 'rect' ? S.heightCm : S.sizeCm; }
-
-// ダイカット：シルエット外周の「短辺÷長辺」(0〜1)。画像未確定なら1(=正方形扱い)。
-function dieAspect() {
-  const p = S.dieFront || S.dieBack;
-  if (!p || p.length < 3) return 1;
-  let x0=1, y0=1, x1=0, y1=0;
-  for (const q of p) { if(q.x<x0)x0=q.x; if(q.x>x1)x1=q.x; if(q.y<y0)y0=q.y; if(q.y>y1)y1=q.y; }
-  const lng = Math.max(x1-x0, y1-y0), sht = Math.min(x1-x0, y1-y0);
-  return lng > 0 ? sht/lng : 1;
-}
-
-// 長辺スライダー（丸・四角・ダイア）の上限。すべて9cm。
-function maxSizeFor(shape) {
-  if (shape === 'circle' || shape === 'square') return 6;        // 丸・四角は最大6cm
-  if (shape === 'diecut') return Math.floor(Math.min(9, 6 / dieAspect()) * 2) / 2;   // 長辺9cmまで＆短辺6cm以内、0.5cm刻みに切り下げ
-  return 9;                                                      // 自由四角の長辺など
-}
-function clampSz(v) { const st = (S.shape === 'diecut') ? 2 : 10; return Math.min(maxSizeFor(S.shape), Math.max(3, Math.round(v*st)/st)); }   // ダイカットは0.5cm刻み
-function clampTh(v) { return Math.min(5, Math.max(2.5, Math.round(v*10)/10)); }
-
-// 自由四角の縦横ルール：各辺3〜9cm。
-function clamp1(v) { return Math.min(9, Math.max(3, Math.round(v*10)/10)); }
-function applyRectRule(w, h, changed) {
-  w = clamp1(w); h = clamp1(h);            // 各辺3〜9cm
-  // 短い方は最大6cm（＝両辺とも6cm超は不可）。今動かした辺を生かし、もう一方を6cmに抑える。
-  if (w > 6 && h > 6) { if (changed === 'h') w = 6; else h = 6; }
-  return { w: w, h: h };
-}
-
-// 長辺スライダーの上限/最小・ダイア短辺表示をまとめて更新
-function updateSizeUI() {
-  const mx = maxSizeFor(S.shape);
-  const sl = document.getElementById('szSlider'), sn = document.getElementById('szN');
-  sl.min = 3; sn.min = 3; sl.max = mx; sn.max = mx;
-  if (S.shape !== 'rect') {
-    if (S.sizeCm > mx) { setSz(mx); return; }
-    if (S.sizeCm < 3)  { setSz(3);  return; }
-    setSz(S.sizeCm); // 表示同期
-  }
-  const ds = document.getElementById('dieShort');
-  if (S.shape === 'diecut') {
-    ds.style.display = 'block';
-    ds.textContent = '短辺：約 ' + (S.sizeCm * dieAspect()).toFixed(1) + 'cm（長辺 最大9cm／短辺 最大6cm）';
-  } else { ds.style.display = 'none'; }
-}
-
-function setSz(v) {
-  v = clampSz(v);
-  document.getElementById('szSlider').value = v;
-  document.getElementById('szN').value      = v;
-  S.sizeCm = v;
-  if (S.shape === 'diecut') {
-    const ds = document.getElementById('dieShort');
-    ds.style.display = 'block';
-    ds.textContent = '短辺：約 ' + (v * dieAspect()).toFixed(1) + 'cm（長辺 最大9cm／短辺 最大6cm）';
-  }
-  applySizeStatus();
-  done(6); updateProg();
-  if (window._redrawAttach) window._redrawAttach();
-  if (S.qr || S.nfc) syncQRAll();   // サイズ変更 → QRもNFCも自動反映
-}
-
-// 自由四角：横(width)
-function setW(v, silent) {
-  const r = applyRectRule(v, S.heightCm, 'w');
-  S.widthCm = r.w; S.heightCm = r.h; S.sizeCm = Math.max(r.w, r.h);
-  document.getElementById('rwSlider').value = r.w; document.getElementById('rwN').value = r.w;
-  document.getElementById('rhSlider').value = r.h; document.getElementById('rhN').value = r.h;
-  if (!silent) { applySizeStatus(); done(6); updateProg(); if (window._redrawAttach) window._redrawAttach(); if (S.qr || S.nfc) syncQRAll(); }
-}
-// 自由四角：縦(height)
-function setH(v, silent) {
-  const r = applyRectRule(S.widthCm, v, 'h');
-  S.widthCm = r.w; S.heightCm = r.h; S.sizeCm = Math.max(r.w, r.h);
-  document.getElementById('rwSlider').value = r.w; document.getElementById('rwN').value = r.w;
-  document.getElementById('rhSlider').value = r.h; document.getElementById('rhN').value = r.h;
-  if (!silent) { applySizeStatus(); done(6); updateProg(); if (window._redrawAttach) window._redrawAttach(); if (S.qr || S.nfc) syncQRAll(); }
-}
-function swapWH() {
-  const t = S.widthCm; S.widthCm = S.heightCm; S.heightCm = t; S.sizeCm = Math.max(S.widthCm, S.heightCm);
-  document.getElementById('rwSlider').value = S.widthCm; document.getElementById('rwN').value = S.widthCm;
-  document.getElementById('rhSlider').value = S.heightCm; document.getElementById('rhN').value = S.heightCm;
-  applySizeStatus(); done(6); updateProg();
-  if (window._redrawAttach) window._redrawAttach();
-  if (S.imgFront && S.cropStateFront) { reopenSilent(); } // 画像の縦横比を新しい形へ合わせ直す（必要時）
-  if (S.qr || S.nfc) syncQRAll();
-}
-// ───── NFC 埋め込み位置 ─────
-const NFCS = { x: 50, y: 50, mode: 'fix', rot: 0 };  // mode:'fix'/'free', rot:0=よこ 1=たて
-const NFC_W = 2.4, NFC_H = 1.4, NFC_MARGIN = 0.2;    // cm（長辺2.4 / 短辺1.4 / 縁マージン2mm）
-function nfcEW(){ return NFCS.rot ? NFC_H : NFC_W; } // 実効幅（向き反映）
-function nfcEH(){ return NFCS.rot ? NFC_W : NFC_H; } // 実効高（向き反映）
-let NFC_GRID = null;                                  // ダイカット用 有効枠中心点（px）
-
-// 多角形ヘルパー（NFC用・グローバル）
-function _segD(px,py,ax,ay,bx,by){ const dx=bx-ax,dy=by-ay,l2=dx*dx+dy*dy; let t=l2?((px-ax)*dx+(py-ay)*dy)/l2:0; t=Math.max(0,Math.min(1,t)); return Math.hypot(px-(ax+t*dx),py-(ay+t*dy)); }
-function _pip(x,y,pts){ let c=false; for(let i=0,j=pts.length-1;i<pts.length;j=i++){ const xi=pts[i].x,yi=pts[i].y,xj=pts[j].x,yj=pts[j].y; if(((yi>y)!==(yj>y))&&(x<(xj-xi)*(y-yi)/(yj-yi)+xi)) c=!c; } return c; }
-function _minED(x,y,pts){ let m=Infinity; for(let i=0,j=pts.length-1;i<pts.length;j=i++) m=Math.min(m,_segD(x,y,pts[j].x,pts[j].y,pts[i].x,pts[i].y)); return m; }
-function nfcDiePoly(){ return (S.dieFront || S.dieBack || null); }
-
-// 枠（中心px,py / 半幅hw,hh px）がダイカット形状内＋縁マージンmを満たすか
-function nfcValidPx(px,py,geom,hw,hh,m){
-  const poly=nfcDiePoly(); if(!poly||poly.length<3) return true;
-  const { ox,oy,kw }=geom; const mN=m/kw;            // ダイカットは kw=kh（正方形領域）
-  const cs=[[px-hw,py-hh],[px+hw,py-hh],[px-hw,py+hh],[px+hw,py+hh],[px,py-hh],[px,py+hh],[px-hw,py],[px+hw,py]];
-  for(let k=0;k<cs.length;k++){ const nx=(cs[k][0]-ox)/kw, ny=(cs[k][1]-oy)/kw; if(!_pip(nx,ny,poly)) return false; if(_minED(nx,ny,poly)<mN) return false; }
-  return true;
-}
-// ダイカット：有効な枠中心点をサンプリング（px座標で保持）
-function buildNFCGrid(geom,hw,hh,m){
-  NFC_GRID=null; const poly=nfcDiePoly(); if(S.shape!=='diecut'||!poly||poly.length<3) return;
-  const { ox,oy,kw }=geom; const pts=[]; const N=44;
-  for(let i=0;i<=N;i++) for(let j=0;j<=N;j++){ const px=ox+kw*i/N, py=oy+kw*j/N; if(nfcValidPx(px,py,geom,hw,hh,m)) pts.push({x:px,y:py}); }
-  NFC_GRID=pts.length?pts:null;
-}
-function snapNFCGrid(px,py){ if(!NFC_GRID) return {x:px,y:py}; let b=NFC_GRID[0],bd=Infinity; for(let k=0;k<NFC_GRID.length;k++){ const d=(NFC_GRID[k].x-px)**2+(NFC_GRID[k].y-py)**2; if(d<bd){bd=d;b=NFC_GRID[k];} } return {x:b.x,y:b.y}; }
-
-// 枠中心px(px,py)を有効位置に整える。allowFree=true なら（自由ドラッグ中）そのまま返す
-function clampNFCPx(px,py,geom,allowFree){
-  const { ox,oy,kw,kh,pxPerCm }=geom;
-  const hw=nfcEW()*pxPerCm/2, hh=nfcEH()*pxPerCm/2, m=NFC_MARGIN*pxPerCm;
-  if(S.shape==='diecut'){
-    if(allowFree) return {x:px,y:py};
-    if(nfcValidPx(px,py,geom,hw,hh,m)) return {x:px,y:py};
-    return snapNFCGrid(px,py);
-  }
-  if(S.shape==='circle'){
-    if(allowFree) return {x:px,y:py};
-    const ccx=ox+kw/2, ccy=oy+kh/2, R=kw/2-m; let dx=px-ccx,dy=py-ccy;
-    for(let it=0;it<30;it++){ const fx=Math.abs(dx)+hw,fy=Math.abs(dy)+hh; if(fx*fx+fy*fy<=R*R) break; dx*=0.9; dy*=0.9; }
-    return {x:ccx+dx,y:ccy+dy};
-  }
-  // 四角 / 自由四角
-  if(allowFree) return {x:px,y:py};
-  const minx=ox+m+hw, maxx=ox+kw-m-hw, miny=oy+m+hh, maxy=oy+kh-m-hh;
-  return { x:Math.min(Math.max(px,minx),Math.max(minx,maxx)), y:Math.min(Math.max(py,miny),Math.max(miny,maxy)) };
-}
-
-function posNFCBox(){
-  const wrap=document.getElementById('nfcWrap'), bg=document.getElementById('nfcBg'), box=document.getElementById('nfcBox');
-  if(!wrap||!bg||!box) return;
-  const aw=bg.width||wrap.offsetWidth||260, ah=bg.height||wrap.offsetHeight||200;
-  const geom=getKHRect(aw,ah); const { ox,oy,kw,kh,pxPerCm }=geom;
-  const bw=nfcEW()*pxPerCm, bh=nfcEH()*pxPerCm;
-  let cx=ox+kw*NFCS.x/100, cy=oy+kh*NFCS.y/100;
-  const cl=clampNFCPx(cx,cy,geom,false); cx=cl.x; cy=cl.y;     // 表示時は必ず有効位置へ整える
-  NFCS.x=((cx-ox)/kw)*100; NFCS.y=((cy-oy)/kh)*100;
-  box.style.width=bw+'px'; box.style.height=bh+'px';
-  box.style.left=(cx-bw/2)+'px'; box.style.top=(cy-bh/2)+'px';
-}
-function setupNFCDrag(){
-  const wrap=document.getElementById('nfcWrap'), bg=document.getElementById('nfcBg');
-  let box=document.getElementById('nfcBox'); if(!wrap||!bg||!box) return;
-  const nb=box.cloneNode(true); box.parentNode.replaceChild(nb,box); box=nb;
-  let drag=false, dxp=0, dyp=0;
-  const down=e=>{ drag=true; const r=wrap.getBoundingClientRect(); const cl=e.touches?e.touches[0].clientX:e.clientX, ct=e.touches?e.touches[0].clientY:e.clientY; dxp=cl-r.left-box.offsetLeft; dyp=ct-r.top-box.offsetTop; if(e.cancelable)e.preventDefault(); };
-  const move=e=>{ if(!drag)return; const r=wrap.getBoundingClientRect(); const cl=e.touches?e.touches[0].clientX:e.clientX, ct=e.touches?e.touches[0].clientY:e.clientY;
-    const aw=bg.width,ah=bg.height, geom=getKHRect(aw,ah), { ox,oy,kw,kh,pxPerCm }=geom, bw=nfcEW()*pxPerCm,bh=nfcEH()*pxPerCm;
-    let cx=cl-r.left-dxp+bw/2, cy=ct-r.top-dyp+bh/2;
-    const cl2=clampNFCPx(cx,cy,geom,NFCS.mode==='free'); cx=cl2.x; cy=cl2.y;
-    box.style.left=(cx-bw/2)+'px'; box.style.top=(cy-bh/2)+'px';
-    NFCS.x=((cx-ox)/kw)*100; NFCS.y=((cy-oy)/kh)*100;
-    if(e.cancelable)e.preventDefault(); };
-  const up=()=>{ if(!drag)return; drag=false; if(NFCS.mode==='free') posNFCBox(); };   // 自由モードは離した時に最寄り有効位置へスナップ
-  box.addEventListener('mousedown',down); box.addEventListener('touchstart',down,{passive:false});
-  window.addEventListener('mousemove',move); window.addEventListener('touchmove',move,{passive:false});
-  window.addEventListener('mouseup',up); window.addEventListener('touchend',up);
-}
-function initNFCEditor(){
-  const wrap=document.getElementById('nfcWrap'), bg=document.getElementById('nfcBg'); if(!wrap||!bg) return;
-  const aw=wrap.offsetWidth||260, ah=wrap.offsetHeight||200; bg.width=aw; bg.height=ah;
-  drawQRBg('front', bg, aw, ah);                  // 背景＝本体＋おもて画像（QRの背景描画を流用）
-  const geom=getKHRect(aw,ah), hw=nfcEW()*geom.pxPerCm/2, hh=nfcEH()*geom.pxPerCm/2, m=NFC_MARGIN*geom.pxPerCm;
-  buildNFCGrid(geom,hw,hh,m); posNFCBox(); setupNFCDrag();
-}
-function resyncNFC(){
-  const wrap=document.getElementById('nfcWrap'), bg=document.getElementById('nfcBg'); if(!wrap||!bg) return;
-  const aw=wrap.offsetWidth||260, ah=wrap.offsetHeight||200; bg.width=aw; bg.height=ah;
-  drawQRBg('front', bg, aw, ah);
-  const geom=getKHRect(aw,ah), hw=nfcEW()*geom.pxPerCm/2, hh=nfcEH()*geom.pxPerCm/2, m=NFC_MARGIN*geom.pxPerCm;
-  buildNFCGrid(geom,hw,hh,m); posNFCBox();
-}
-function setNFCMode(m){
-  NFCS.mode=m;
-  document.getElementById('nfcMode-fix').classList.toggle('sel', m==='fix');
-  document.getElementById('nfcMode-free').classList.toggle('sel', m==='free');
-  posNFCBox();
-}
-function setNFCRot(r){
-  NFCS.rot=r;
-  document.getElementById('nfcRot-h').classList.toggle('sel', r===0);
-  document.getElementById('nfcRot-v').classList.toggle('sel', r===1);
-  resyncNFC();   // 向き変更 → 枚サイズが変わるのでグリッド再生成＋再配置
-}
-
-function syncQRAll() { ['front','back'].forEach(s => { const w = document.getElementById('qrWrap-'+s); if (w && w.offsetWidth > 0) resyncQR(s); }); if (S.nfc) { const wn=document.getElementById('nfcWrap'); if (wn && wn.offsetWidth>0) resyncNFC(); } }
-function reopenSilent() { /* 縦横入れ替え時は既存画像をそのまま再フィット表示（drawPreview側でcover）。再切り抜きは不要 */ if (window._redrawAttach) window._redrawAttach(); drawPreview('front'); if (S.imgBack) drawPreview('back'); }
-
-// サイズのステータス文言（自由四角は横×縦、ダイアは長辺×短辺を表示）
-function applySizeStatus() {
-  const t = S.thickCm.toFixed(1) + 'mm';
-  let s;
-  if (S.shape === 'rect')        s = S.widthCm.toFixed(1) + '×' + S.heightCm.toFixed(1) + 'cm';
-  else if (S.shape === 'diecut') s = S.sizeCm.toFixed(1) + '×' + (S.sizeCm * dieAspect()).toFixed(1) + 'cm';
-  else                           s = S.sizeCm.toFixed(1) + 'cm';
-  document.getElementById('pd-size').textContent = s;
-  document.getElementById('ss6').textContent     = s + ' / 厚さ' + t;
-}
-
-function onRwSlider() { setW(+document.getElementById('rwSlider').value); }
-function onRwInput()  { setW(+document.getElementById('rwN').value); }
-function stepRw(d)    { setW(S.widthCm + d); }
-function onRhSlider() { setH(+document.getElementById('rhSlider').value); }
-function onRhInput()  { setH(+document.getElementById('rhN').value); }
-function stepRh(d)    { setH(S.heightCm + d); }
-
-function setTh(v) {
-  v = clampTh(v);
-  document.getElementById('thSlider').value = v;
-  document.getElementById('thN').value      = v;
-  S.thickCm = v;
-  document.getElementById('pd-thick').textContent = v.toFixed(1) + 'mm';
-  applySizeStatus();
-  done(6); updateProg();
-}
-function onSzSlider() { setSz(+document.getElementById('szSlider').value); }
-function onSzInput()  { setSz(+document.getElementById('szN').value); }
-function stepSz(d)    { setSz(S.sizeCm + d); }
-function onThSlider() { setTh(+document.getElementById('thSlider').value); }
-function onThInput()  { setTh(+document.getElementById('thN').value); }
-function stepTh(d)    { setTh(S.thickCm + d); }
-
-// 縁の厚さ（ダイカットのみ）
-// 縁の厚さ（ダイカットのみ・表示はmm、内部 S.borderCm はcmで保持＝縁取り計算がcm基準のため）
-function clampBdMm(v) { return Math.min(10, Math.max(0, Math.round(v))); }   // 0〜10mm（1mm刻み）
-function setBorderCm(mm) {
-  mm = clampBdMm(mm);
-  S.borderCm = mm / 10;                       // mm表示 → 内部cm に変換して保持
-  document.getElementById('bdSlider').value = mm;
-  document.getElementById('bdN').value      = mm;
-  if (S.shape !== 'diecut') return;
-  if (S.imgFrontSrc && S.cropStateFront) {
-    recomputeDie('front', () => {
-      if (S.dieBack || S.imgBack) { S.dieBack = S.dieFront; S.dieHolesBack = S.dieHolesFront; }
-      if (window._redrawAttach) window._redrawAttach();
-      drawPreview('front'); if (S.imgBack) drawPreview('back');
-      if (S.qr) { ['front','back'].forEach(s => { const c = document.getElementById('qrBg-'+s); if (c) drawQRBg(s, c, c.width||260, c.height||220); }); }
-    });
-  } else if (window._redrawAttach) window._redrawAttach();
-}
-function onBdSlider() { setBorderCm(+document.getElementById('bdSlider').value); }
-function onBdInput()  { setBorderCm(+document.getElementById('bdN').value); }
-function stepBd(d)    { setBorderCm((+document.getElementById('bdN').value || 0) + d); }
-
-setSz(7); setTh(2.5); // 初期値
-
-// ═══════════════════════════════════════════════════════
-// 穴エディタ（canvas直接ドラッグ・5mm固定）
-// ═══════════════════════════════════════════════════════
-function setAttachView(side) {
-  S.attachView = side;
-  document.getElementById('attViewFront').style.background  = side==='front' ? 'var(--accent)' : '#fff';
-  document.getElementById('attViewFront').style.color       = side==='front' ? '#fff'          : 'var(--muted)';
-  document.getElementById('attViewFront').style.borderColor = side==='front' ? 'var(--accent)' : 'var(--border)';
-  document.getElementById('attViewBack').style.background   = side==='back'  ? 'var(--accent)' : '#fff';
-  document.getElementById('attViewBack').style.color        = side==='back'  ? '#fff'          : 'var(--muted)';
-  document.getElementById('attViewBack').style.borderColor  = side==='back'  ? 'var(--accent)' : 'var(--border)';
-  if (window._redrawAttach) window._redrawAttach();
-}
-
-(function initAttach(){
-  const wrap = document.getElementById('attachWrap');
-  const cv   = document.getElementById('attachCv');
-  const ctx  = cv.getContext('2d');
+// 穴ミニマップ（page2 と同じ描画ロジック：5mm固定・内側/外側・縁ギリギリは補強リング）
+(function drawAttach(){
+  const cv = document.getElementById('attachMiniCv');
+  const aw = 200, ah = 200;
+  cv.width = aw; cv.height = ah;   // 内部解像度（表示サイズはCSSの .attach-mini に従う）
+  const ctx = cv.getContext('2d');
   const WRAP_BG = '#16161a';
+  const shape  = O.shape || 'circle';
+  const sizeCm = O.sizeCm || 7;
+  const holeCm = O.holeCm || 0.5;          // 5mm固定
+  const acryl  = O.colorHex || '#d9d4c7';
+  const attX   = (O.attX != null ? O.attX : 50);
+  const attY   = (O.attY != null ? O.attY : 10);
 
-  let imgFrontEl = null, imgBackEl = null, lastFrontSrc = null, lastBackSrc = null;
+  // 本体ジオメトリ（中央配置・サイズに比例して拡大縮小／最大15cmで枠いっぱい）
+  const margin = 20, maxBody = Math.min(aw-margin*2, ah-margin*2);
+  const ppc = maxBody / 15;
+  // 丸/四角=正方形、自由四角=横/縦、ダイア=正方形フレーム(シルエットが縦横比を持つ)
+  var bw, bh;
+  if (shape === 'rect') { bw = ppc * (O.widthCm || sizeCm); bh = ppc * (O.heightCm || sizeCm); }
+  else { bw = bh = ppc * sizeCm; }
+  const g = { cx: aw/2, cy: ah/2, w: bw, h: bh, size: Math.max(bw,bh), r: Math.min(bw,bh)/2, x: aw/2-bw/2, y: ah/2-bh/2, rad: Math.min(bw,bh)*0.06 };
+  const pxPerCm = ppc;   // 穴は5mm固定 → 一定サイズ
 
-  function bodyGeom(aw, ah){
-    const margin = 16;
-    const maxBody = Math.min(aw - margin*2, ah - margin*2);
-    const ppc  = maxBody / 12;          // 1cmあたりpx（最大9cm本体＋外付けツメ(縁外1cm)が全方向で枠内に収まる基準）
-    // ダイカットはフレームを 1/DIE_FIT 倍にし、中のシルエット(=DIE_FIT)が ppc*sizeCm（丸/四角と同じ見た目の大きさ）になるようにする
-    let w, h;
-    if (S.shape === 'diecut')    { w = h = ppc * (S.sizeCm || 7) / DIE_FIT; }
-    else if (S.shape === 'rect') { w = ppc * (S.widthCm || 7); h = ppc * (S.heightCm || 7); }
-    else                         { w = h = ppc * (S.sizeCm || 7); }
-    return { cx:aw/2, cy:ah/2, w:w, h:h, size:Math.max(w,h), r:Math.min(w,h)/2, x:aw/2-w/2, y:ah/2-h/2, rad:Math.min(w,h)*0.06, ppc:ppc };
-  }
+  function rrect(c,x,y,w,h,r){ c.beginPath(); c.moveTo(x+r,y); c.arcTo(x+w,y,x+w,y+h,r); c.arcTo(x+w,y+h,x,y+h,r); c.arcTo(x,y+h,x,y,r); c.arcTo(x,y,x+w,y,r); c.closePath(); }
+  // ダイカットの実シルエット（正規化ポリゴン）→ ボックス座標
+  const diePolyN = (shape==='diecut') ? (O.dieFront || O.dieBack || null) : null;
+  const diePts = (diePolyN && diePolyN.length>=3) ? diePolyN.map(function(q){return {x:g.x+q.x*g.size, y:g.y+q.y*g.size};}) : null;
+  function pointInPoly(x,y,pts){ var c=false; for(var i=0,j=pts.length-1;i<pts.length;j=i++){ var xi=pts[i].x,yi=pts[i].y,xj=pts[j].x,yj=pts[j].y; if(((yi>y)!==(yj>y))&&(x<(xj-xi)*(y-yi)/(yj-yi)+xi)) c=!c; } return c; }
+  function polyCentroid(pts){ var sx=0,sy=0; for(var i=0;i<pts.length;i++){sx+=pts[i].x;sy+=pts[i].y;} return {x:sx/pts.length,y:sy/pts.length}; }
+  function segDist(px,py,ax,ay,bx,by){ var dx=bx-ax,dy=by-ay,l2=dx*dx+dy*dy,t=l2?((px-ax)*dx+(py-ay)*dy)/l2:0; t=Math.max(0,Math.min(1,t)); return Math.hypot(px-(ax+t*dx),py-(ay+t*dy)); }
+  function minEdgeDist(x,y,pts){ var m=1e9; for(var i=0,j=pts.length-1;i<pts.length;j=i++) m=Math.min(m,segDist(x,y,pts[j].x,pts[j].y,pts[i].x,pts[i].y)); return m; }
+  function segSegInt(x1,y1,x2,y2,x3,y3,x4,y4){ var d=(x2-x1)*(y4-y3)-(y2-y1)*(x4-x3); if(Math.abs(d)<1e-9) return null; var t=((x3-x1)*(y4-y3)-(y3-y1)*(x4-x3))/d,u=((x3-x1)*(y2-y1)-(y3-y1)*(x2-x1))/d; if(t>=0&&t<=1&&u>=0&&u<=1) return {x:x1+t*(x2-x1),y:y1+t*(y2-y1),t:t}; return null; }
+  function rayPolyHit(cx,cy,px,py,pts){ var dx=px-cx,dy=py-cy,fx=cx+dx*1000,fy=cy+dy*1000,best=null,bt=-1; for(var i=0,j=pts.length-1;i<pts.length;j=i++){ var r=segSegInt(cx,cy,fx,fy,pts[j].x,pts[j].y,pts[i].x,pts[i].y); if(r&&r.t>bt){bt=r.t;best={x:r.x,y:r.y};} } return best; }
+  function diePath(c){ c.beginPath(); c.moveTo(diePts[0].x,diePts[0].y); for(var i=1;i<diePts.length;i++) c.lineTo(diePts[i].x,diePts[i].y); c.closePath(); }
+  function bodyPath(c){ if(shape==='diecut'&&diePts){ diePath(c); return; } c.beginPath(); if(shape==='circle') c.arc(g.cx,g.cy,g.r,0,Math.PI*2); else rrect(c,g.x,g.y,g.w,g.h,g.rad); }
+  function lugFullyInside(px,py,lugR){ if(shape==='diecut'&&diePts) return pointInPoly(px,py,diePts)&&minEdgeDist(px,py,diePts)>=lugR; if(shape==='circle') return Math.hypot(px-g.cx,py-g.cy)+lugR<=g.r; return px>=g.x+lugR&&px<=g.x+g.w-lugR&&py>=g.y+lugR&&py<=g.y+g.h-lugR; }
+  function edgeAnchor(px,py){ if(shape==='diecut'&&diePts){ var c=polyCentroid(diePts); var hit=rayPolyHit(c.x,c.y,px,py,diePts); if(hit) return hit; } var an=Math.atan2(py-g.cy,px-g.cx); if(shape==='circle') return {x:g.cx+Math.cos(an)*g.r,y:g.cy+Math.sin(an)*g.r}; var dx=Math.cos(an),dy=Math.sin(an),hw=g.w/2,hh=g.h/2,tx=dx?hw/Math.abs(dx):1e9,ty=dy?hh/Math.abs(dy):1e9,t=Math.min(tx,ty); return {x:g.cx+dx*t,y:g.cy+dy*t}; }
 
-  // 本体の縦横の実寸(cm)を寸法線で表示。ダイカットはシルエット外周の外接box、自由四角は本体そのもの。
-  function drawDims(g){
-    let bx0, by0, bx1, by1, wCm, hCm;
-    if (S.shape === 'diecut'){
-      const pts = diePtsBox(g); if (!pts) return;
-      bx0=1e9; by0=1e9; bx1=-1e9; by1=-1e9;
-      for (const p of pts){ if(p.x<bx0)bx0=p.x; if(p.x>bx1)bx1=p.x; if(p.y<by0)by0=p.y; if(p.y>by1)by1=p.y; }
-      const longPx = Math.max(bx1-bx0, by1-by0) || 1;
-      wCm = S.sizeCm * (bx1-bx0)/longPx; hCm = S.sizeCm * (by1-by0)/longPx;
-    } else if (S.shape === 'rect'){
-      bx0=g.x; by0=g.y; bx1=g.x+g.w; by1=g.y+g.h; wCm=S.widthCm; hCm=S.heightCm;
-    } else { return; }
-    const aw2 = cv.width / (Math.min(devicePixelRatio||1,2)), ah2 = cv.height / (Math.min(devicePixelRatio||1,2));
-    ctx.save();
-    ctx.strokeStyle='rgba(255,255,255,.55)'; ctx.fillStyle='rgba(255,255,255,.92)';
-    ctx.lineWidth=1; ctx.setLineDash([]); ctx.font='10px sans-serif';
-    // 横寸法線（下側）
-    const yb = Math.min(by1 + 11, ah2 - 3);
-    ctx.beginPath(); ctx.moveTo(bx0,yb); ctx.lineTo(bx1,yb);
-    ctx.moveTo(bx0,yb-3); ctx.lineTo(bx0,yb+3); ctx.moveTo(bx1,yb-3); ctx.lineTo(bx1,yb+3); ctx.stroke();
-    ctx.textAlign='center'; ctx.textBaseline='top';
-    ctx.fillText(wCm.toFixed(1)+'cm', (bx0+bx1)/2, yb+2);
-    // 縦寸法線（右側）
-    const xr = Math.min(bx1 + 11, aw2 - 3);
-    ctx.beginPath(); ctx.moveTo(xr,by0); ctx.lineTo(xr,by1);
-    ctx.moveTo(xr-3,by0); ctx.lineTo(xr+3,by0); ctx.moveTo(xr-3,by1); ctx.lineTo(xr+3,by1); ctx.stroke();
-    ctx.save(); ctx.translate(xr+2, (by0+by1)/2); ctx.rotate(Math.PI/2);
-    ctx.textAlign='center'; ctx.textBaseline='bottom'; ctx.fillText(hCm.toFixed(1)+'cm', 0, 0); ctx.restore();
-    ctx.restore();
-  }
+  const hx = g.x + g.w*attX/100, hy = g.y + g.h*attY/100;
+  const holeR = Math.max(2, (holeCm/2)*pxPerCm);
+  const lugR  = (holeR + Math.max(8, holeR*0.9)) * 2/3;   // ディスク半径＝旧サイズの2/3（首と同じ幅に）
 
-  // ダイカット ポリゴンユーティリティ
-  function diePoly(){ return S.shape === 'diecut' ? (S.dieFront || S.dieBack || null) : null; }
-  function dieHolesArr(){ if (S.shape !== 'diecut') return []; return (S.dieHolesFront && S.dieHolesFront.length ? S.dieHolesFront : S.dieHolesBack) || []; }
-  function diePtsBox(g){ const p = diePoly(); if (!p || p.length < 3) return null; return p.map(q => ({ x:g.x+q.x*g.size, y:g.y+q.y*g.size })); }
-  function pointInPoly(x, y, pts){ let c=false; for (let i=0,j=pts.length-1;i<pts.length;j=i++){ const xi=pts[i].x,yi=pts[i].y,xj=pts[j].x,yj=pts[j].y; if (((yi>y)!==(yj>y))&&(x<(xj-xi)*(y-yi)/(yj-yi)+xi)) c=!c; } return c; }
-  function polyCentroid(pts){ let sx=0,sy=0; for (const p of pts){ sx+=p.x; sy+=p.y; } return {x:sx/pts.length, y:sy/pts.length}; }
-  function segDist(px,py,ax,ay,bx,by){ const dx=bx-ax,dy=by-ay,l2=dx*dx+dy*dy; let t=l2?((px-ax)*dx+(py-ay)*dy)/l2:0; t=Math.max(0,Math.min(1,t)); return Math.hypot(px-(ax+t*dx),py-(ay+t*dy)); }
-  // 多角形の輪郭上で (px,py) に最も近い点を返す（辺の内側に落ちれば、その点への向きは辺に直角になる）
-  function nearestOnPoly(px,py,pts){ let best=null,bd=Infinity; for (let i=0,j=pts.length-1;i<pts.length;j=i++){ const ax=pts[j].x,ay=pts[j].y,bx=pts[i].x,by=pts[i].y,dx=bx-ax,dy=by-ay,l2=dx*dx+dy*dy; let t=l2?((px-ax)*dx+(py-ay)*dy)/l2:0; t=Math.max(0,Math.min(1,t)); const qx=ax+t*dx,qy=ay+t*dy,d=(px-qx)*(px-qx)+(py-qy)*(py-qy); if(d<bd){bd=d;best={x:qx,y:qy};} } return best; }
-  function minEdgeDist(x,y,pts){ let m=Infinity; for (let i=0,j=pts.length-1;i<pts.length;j=i++) m=Math.min(m,segDist(x,y,pts[j].x,pts[j].y,pts[i].x,pts[i].y)); return m; }
-  function segSegInt(x1,y1,x2,y2,x3,y3,x4,y4){ const d=(x2-x1)*(y4-y3)-(y2-y1)*(x4-x3); if(Math.abs(d)<1e-9) return null; const t=((x3-x1)*(y4-y3)-(y3-y1)*(x4-x3))/d,u=((x3-x1)*(y2-y1)-(y3-y1)*(x2-x1))/d; if(t>=0&&t<=1&&u>=0&&u<=1) return {x:x1+t*(x2-x1),y:y1+t*(y2-y1),t}; return null; }
-  function rayPolyHit(cx,cy,px,py,pts){ const dx=px-cx,dy=py-cy,fx=cx+dx*1000,fy=cy+dy*1000; let best=null,bt=-1; for (let i=0,j=pts.length-1;i<pts.length;j=i++){ const r=segSegInt(cx,cy,fx,fy,pts[j].x,pts[j].y,pts[i].x,pts[i].y); if(r&&r.t>bt){bt=r.t;best={x:r.x,y:r.y};} } return best; }
-
-  function isInsideBody(px, py, g){
-    if (S.shape === 'circle') return Math.hypot(px-g.cx, py-g.cy) <= g.r;
-    if (S.shape === 'diecut'){ const pts=diePtsBox(g); if(pts) return pointInPoly(px,py,pts); }
-    return px>=g.x && px<=g.x+g.w && py>=g.y && py<=g.y+g.h;
-  }
-  function lugFullyInside(px, py, g, lugR){
-    if (S.shape === 'circle') return Math.hypot(px-g.cx, py-g.cy)+lugR <= g.r;
-    if (S.shape === 'diecut'){ const pts=diePtsBox(g); if(pts) return pointInPoly(px,py,pts) && minEdgeDist(px,py,pts)>=lugR; }
-    return px>=g.x+lugR && px<=g.x+g.w-lugR && py>=g.y+lugR && py<=g.y+g.h-lugR;
-  }
-  // 穴の付け根（本体の縁）と、首の向き ang を返す。
-  // ダイカット／四角：穴から一番近い縁の点。向きは「最近点→穴」（＝辺に直角に接続）
-  // 丸：中心から穴への方向（＝最近点と一致）
-  function edgeAnchor(hx, hy, g){
-    if (S.shape === 'diecut'){ const pts=diePtsBox(g); if(pts){ const a=nearestOnPoly(hx,hy,pts); return {x:a.x, y:a.y, ang:Math.atan2(hy-a.y, hx-a.x)}; } }
-    if (S.shape === 'circle'){ const ang = Math.atan2(hy-g.cy, hx-g.cx); return {x:g.cx+Math.cos(ang)*g.r, y:g.cy+Math.sin(ang)*g.r, ang:ang}; }
-    // 四角：外周の最近点（一番近い辺へ直角／角では角へ）
-    const x2=g.x+g.w, y2=g.y+g.h;
-    const cands=[{x:Math.max(g.x,Math.min(x2,hx)),y:g.y},{x:Math.max(g.x,Math.min(x2,hx)),y:y2},{x:g.x,y:Math.max(g.y,Math.min(y2,hy))},{x:x2,y:Math.max(g.y,Math.min(y2,hy))}];
-    let best=cands[0],bd=Infinity; for(const c of cands){const d=(hx-c.x)*(hx-c.x)+(hy-c.y)*(hy-c.y); if(d<bd){bd=d;best=c;}}
-    return {x:best.x, y:best.y, ang:Math.atan2(hy-best.y, hx-best.x)};
-  }
-
-  function bodyPath(g){
-    ctx.beginPath();
-    if (S.shape === 'circle') { ctx.arc(g.cx, g.cy, g.r, 0, Math.PI*2); return; }
-    if (S.shape === 'diecut'){ const pts=diePtsBox(g); if(pts){ ctx.moveTo(pts[0].x,pts[0].y); for(let i=1;i<pts.length;i++) ctx.lineTo(pts[i].x,pts[i].y); ctx.closePath(); return; } }
-    rrect(ctx, g.x, g.y, g.w, g.h, g.rad);
-  }
-  function drawBody(g){
-    const backNoPrint = (S.attachView === 'back' && !S.imgBack);   // 裏面・印刷なし
-    const imgEl = backNoPrint ? null : (S.attachView === 'back' ? (imgBackEl || imgFrontEl) : imgFrontEl);
-    const acryl = S.colorHex || '#d9d4c7';
-    // ダイカット：画像のアルファに沿って描画（穴・すき間はそのまま透過）。表画像が必要
-    if (S.shape === 'diecut' && imgFrontEl) {
-      drawDieBodyAlpha(ctx, imgEl || imgFrontEl, g.x, g.y, g.size, acryl, dieBorderPx(g.size), !!imgEl);
-      return;
-    }
-    // それ以外（丸・四角／ダイカットで表画像未読込）：形状でクリップして塗り＋画像
-    ctx.save(); bodyPath(g); ctx.clip();
-    if (S.shape === 'diecut') { ctx.fillStyle = acryl; ctx.fill(); }
-    if (imgEl) {
-      const ir = imgEl.naturalWidth / imgEl.naturalHeight, br = g.w / g.h;
-      let dw,dh,dx,dy;
-      if (ir > br) { dh=g.h; dw=dh*ir; dx=g.x-(dw-g.w)/2; dy=g.y; }
-      else         { dw=g.w; dh=dw/ir; dy=g.y-(dh-g.h)/2; dx=g.x; }
-      ctx.drawImage(imgEl, dx, dy, dw, dh);
-    } else { ctx.fillStyle = acryl; ctx.fill(); }   // 画像なし（裏面印刷なし含む）＝アクリル単色
-    ctx.restore();
-  }
-
-  // 穴まわりの補強。withNeck=true:首付きツメ（外付け）／false:丸い膨らみのみ（本体内・縁近く）
-  let _tabCv = null;
-  function buildTab(aw, ah, g, hx, hy, holeR, acryl, lugR, withNeck){
-    const a    = edgeAnchor(hx, hy, g);
-    const ang  = a.ang;                       // 最近点→穴の向き（辺に直角に接続）
-    const neckW = lugR * 2;   // 首の太さ＝ディスク直径（縮小後lugR×2＝従来の首と同じ太さ）
-    const rootX = a.x - Math.cos(ang) * lugR, rootY = a.y - Math.sin(ang) * lugR;
+  // 補強のツメ（穴を囲むふち＋同じ太さの首、接合部は直角）
+  function buildTab(){
+    const a = edgeAnchor(hx,hy), an = Math.atan2(hy-g.cy,hx-g.cx);
+    const neckW = lugR*2, rootX = a.x-Math.cos(an)*lugR, rootY = a.y-Math.sin(an)*lugR;   // 首＝ディスク直径（従来の首と同じ太さ）
     const BORDER = 'rgba(255,255,255,.30)';
-    if (!_tabCv) _tabCv = document.createElement('canvas');
-    if (_tabCv.width !== aw || _tabCv.height !== ah) { _tabCv.width = aw; _tabCv.height = ah; }
-    const tctx = _tabCv.getContext('2d');
-    tctx.setTransform(1,0,0,1,0,0); tctx.clearRect(0,0,aw,ah);
-    tctx.lineCap = 'round'; tctx.lineJoin = 'round';
-    if (withNeck) { tctx.strokeStyle = BORDER; tctx.lineWidth = neckW + 3; tctx.beginPath(); tctx.moveTo(rootX, rootY); tctx.lineTo(hx, hy); tctx.stroke(); }
-    tctx.fillStyle = BORDER; tctx.beginPath(); tctx.arc(hx, hy, lugR+1.5, 0, Math.PI*2); tctx.fill();
-    if (withNeck) { tctx.strokeStyle = acryl; tctx.lineWidth = neckW; tctx.beginPath(); tctx.moveTo(rootX, rootY); tctx.lineTo(hx, hy); tctx.stroke(); }
-    tctx.fillStyle = acryl; tctx.beginPath(); tctx.arc(hx, hy, lugR, 0, Math.PI*2); tctx.fill();
-    // 丸・四角のみ本体形状をくり抜く（ダイカットはアルファ本体を上に重ねるため、くり抜くと輪郭ズレで透明帯ができる）
-    if (S.shape !== 'diecut') {
-      tctx.globalCompositeOperation = 'destination-out'; tctx.fillStyle = '#000';
-      tctx.beginPath();
-      if (S.shape === 'circle') tctx.arc(g.cx, g.cy, g.r, 0, Math.PI*2);
-      else rrect(tctx, g.x, g.y, g.w, g.h, g.rad);
-      tctx.fill(); tctx.globalCompositeOperation = 'source-over';
-    }
-    return _tabCv;
+    const tc = document.createElement('canvas'); tc.width=aw; tc.height=ah;
+    const t = tc.getContext('2d'); t.lineCap='round'; t.lineJoin='round';
+    t.strokeStyle=BORDER; t.lineWidth=neckW+3; t.beginPath(); t.moveTo(rootX,rootY); t.lineTo(hx,hy); t.stroke();
+    t.fillStyle=BORDER; t.beginPath(); t.arc(hx,hy,lugR+1.5,0,Math.PI*2); t.fill();
+    t.strokeStyle=acryl; t.lineWidth=neckW; t.beginPath(); t.moveTo(rootX,rootY); t.lineTo(hx,hy); t.stroke();
+    t.fillStyle=acryl; t.beginPath(); t.arc(hx,hy,lugR,0,Math.PI*2); t.fill();
+    t.globalCompositeOperation='destination-out'; t.fillStyle='#000'; bodyPath(t); t.fill();
+    t.globalCompositeOperation='source-over';
+    return tc;
   }
 
-  function redraw(){
-    const rect = wrap.getBoundingClientRect();
-    const aw = rect.width || wrap.clientWidth || 300, ah = rect.height || wrap.clientHeight || 200;
-    if (aw === 0) { setTimeout(redraw, 50); return; }
-
-    // 画像キャッシュ（変化した時だけ読み込む）
-    if (S.imgFront && S.imgFront !== lastFrontSrc) { lastFrontSrc = S.imgFront; const im=new Image(); im.onload=()=>{imgFrontEl=im;redraw();}; im.src=S.imgFront; }
-    if (!S.imgFront) { imgFrontEl=null; lastFrontSrc=null; }
-    if (S.imgBack  && S.imgBack  !== lastBackSrc)  { lastBackSrc  = S.imgBack;  const im=new Image(); im.onload=()=>{imgBackEl=im; redraw();}; im.src=S.imgBack; }
-    if (!S.imgBack)  { imgBackEl=null;  lastBackSrc=null; }
-
-    const dpr = Math.min(devicePixelRatio||1, 2);
-    cv.width = aw*dpr; cv.height = ah*dpr;
-    ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+  function draw(imgEl){
     ctx.clearRect(0,0,aw,ah);
-
-    const g     = bodyGeom(aw, ah);
-    let hx = g.x + g.w * S.attX/100, hy = g.y + g.h * S.attY/100;
-    // 穴は本体の縁から最大1cm（内側・外側とも）。深い内側はドラッグしても縁から1cm内に制限し、サイズ変更後も常に保証する
-    { const _a = edgeAnchor(hx, hy, g), _dx = hx - _a.x, _dy = hy - _a.y, _d = Math.hypot(_dx, _dy);
-      if (_d > g.ppc) { hx = _a.x + _dx/_d*g.ppc; hy = _a.y + _dy/_d*g.ppc; S.attX = (hx-g.x)/g.w*100; S.attY = (hy-g.y)/g.h*100; } }
-    const holeR = Math.max(2, (S.holeCm/2) * g.ppc);
-    const lugR  = (holeR + Math.max(8, holeR * 0.9)) * 2/3;   // ディスク半径＝旧サイズの2/3（首と同じ幅に）
-    const inside = isInsideBody(hx, hy, g);
-    S.attMode = inside ? 'inside' : 'outside';
-    const acryl = S.colorHex || '#d9d4c7';
-    const backView = (S.attachView === 'back');
-
-    ctx.save();
-    if (backView) { ctx.translate(aw, 0); ctx.scale(-1, 1); }
-
-    // 補強：外付け（中心が本体外）は首付きツメ／本体内でも縁ギリギリなら丸い膨らみのみ（穴の外側が欠けないように）
-    if (!isInsideBody(hx, hy, g)) {
-      const tab = buildTab(aw, ah, g, hx, hy, holeR, acryl, lugR, true);
-      ctx.drawImage(tab, 0, 0, aw, ah);
-    } else if (!lugFullyInside(hx, hy, g, lugR)) {
-      const tab = buildTab(aw, ah, g, hx, hy, holeR, acryl, lugR, false);
-      ctx.drawImage(tab, 0, 0, aw, ah);
-    }
-    drawBody(g);
-    if (S.shape !== 'diecut') { ctx.strokeStyle = 'rgba(255,255,255,.30)'; ctx.lineWidth = 1.5; bodyPath(g); ctx.stroke(); }
-
-    // 穴を抜く
-    ctx.beginPath(); ctx.arc(hx, hy, holeR, 0, Math.PI*2);
-    ctx.fillStyle = WRAP_BG; ctx.fill();
-    ctx.lineWidth=1.4; ctx.strokeStyle='rgba(0,0,0,.45)';
-    ctx.beginPath(); ctx.arc(hx,hy,holeR,0,Math.PI*2); ctx.stroke();
-    ctx.lineWidth=1; ctx.strokeStyle='rgba(255,255,255,.22)';
-    ctx.beginPath(); ctx.arc(hx,hy,Math.max(1,holeR-1.4),0,Math.PI*2); ctx.stroke();
-
-    // 照準リング
-    ctx.strokeStyle='rgba(255,255,255,.85)'; ctx.lineWidth=1.5; ctx.setLineDash([3,3]);
-    ctx.beginPath(); ctx.arc(hx,hy,holeR+5,0,Math.PI*2); ctx.stroke(); ctx.setLineDash([]);
-
+    ctx.fillStyle=WRAP_BG; ctx.fillRect(0,0,aw,ah);
+    if(!lugFullyInside(hx,hy,lugR)) ctx.drawImage(buildTab(),0,0,aw,ah);  // 補強リング/ツメ（本体の下）
+    // 本体（画像 or 単色）
+    ctx.save(); bodyPath(ctx); ctx.clip();
+    if(shape==='diecut'&&diePts){ ctx.fillStyle=acryl; ctx.fill(); }   // ダイカットは土台色（縁取り）
+    if(imgEl){ const ir=imgEl.naturalWidth/imgEl.naturalHeight, br=g.w/g.h; let dw,dh,dx,dy; if(ir>br){dh=g.h;dw=dh*ir;dx=g.x-(dw-g.w)/2;dy=g.y;} else {dw=g.w;dh=dw/ir;dy=g.y-(dh-g.h)/2;dx=g.x;} ctx.drawImage(imgEl,dx,dy,dw,dh); }
+    else if(shape!=='diecut'){ ctx.fillStyle=acryl; ctx.fill(); }
     ctx.restore();
-
-    // ダイカット／自由四角：本体の寸法線（縦・横の実寸cm）をプレビュー上に表示
-    drawDims(g);
-
-    // 面ラベル
-    ctx.fillStyle='rgba(255,255,255,.5)';
-    ctx.font='11px sans-serif'; ctx.textAlign='right'; ctx.textBaseline='bottom';
-    ctx.fillText(S.attachView === 'back' ? 'うら面' : 'おもて面', aw-8, ah-6);
-
-    // ステータス更新
-    document.getElementById('attX').textContent = Math.round(S.attX);
-    document.getElementById('attY').textContent = Math.round(S.attY);
-    S.attAngle = inside ? 0 : (Math.round(Math.atan2(hy-g.cy, hx-g.cx)*180/Math.PI)+360)%360;
-    const badge = document.getElementById('attModeBadge');
-    if (badge) { badge.textContent = inside ? '本体内' : '外付けツメ'; badge.className = 'att-mode ' + (inside ? 'inside' : 'outside'); }
-    document.getElementById('ss7').textContent = (inside ? '本体内' : '外付け') + ' / X:'+Math.round(S.attX)+'% Y:'+Math.round(S.attY)+'%';
-    done(7); updateProg();
+    ctx.strokeStyle='rgba(255,255,255,.30)'; ctx.lineWidth=1.5; bodyPath(ctx); ctx.stroke();
+    // 穴をくり抜く
+    ctx.beginPath(); ctx.arc(hx,hy,holeR,0,Math.PI*2); ctx.fillStyle=WRAP_BG; ctx.fill();
+    ctx.lineWidth=1.4; ctx.strokeStyle='rgba(0,0,0,.45)'; ctx.beginPath(); ctx.arc(hx,hy,holeR,0,Math.PI*2); ctx.stroke();
+    ctx.lineWidth=1; ctx.strokeStyle='rgba(255,255,255,.22)'; ctx.beginPath(); ctx.arc(hx,hy,Math.max(1,holeR-1.4),0,Math.PI*2); ctx.stroke();
   }
 
-  window._redrawAttach = () => redraw();
-
-  let drag = false;
-  function setFromPointer(clientX, clientY){
-    const r = wrap.getBoundingClientRect();
-    const aw = r.width, ah = r.height;
-    let rawx = clientX - r.left;
-    if (S.attachView === 'back') rawx = aw - rawx;
-    let hx = Math.min(aw, Math.max(0, rawx));
-    let hy = Math.min(ah, Math.max(0, clientY - r.top));
-    const g = bodyGeom(aw, ah);
-    const maxOut = g.ppc; // 1cm
-    if (!isInsideBody(hx, hy, g)) {
-      const a   = edgeAnchor(hx, hy, g);
-      const ang = a.ang;
-      if (Math.hypot(hx-a.x, hy-a.y) > maxOut) {
-        hx = a.x + Math.cos(ang) * maxOut;
-        hy = a.y + Math.sin(ang) * maxOut;
-      }
-    }
-    S.attX = (hx - g.x) / g.w * 100;
-    S.attY = (hy - g.y) / g.h * 100;
-    redraw();
-  }
-  wrap.addEventListener('mousedown',  e => { drag=true; e.preventDefault(); setFromPointer(e.clientX, e.clientY); });
-  window.addEventListener('mousemove', e => { if (drag) setFromPointer(e.clientX, e.clientY); });
-  window.addEventListener('mouseup',   () => { drag=false; });
-  wrap.addEventListener('touchstart', e => { drag=true; e.preventDefault(); const t=e.touches[0]; setFromPointer(t.clientX, t.clientY); }, {passive:false});
-  wrap.addEventListener('touchmove',  e => { if(!drag) return; e.preventDefault(); const t=e.touches[0]; setFromPointer(t.clientX, t.clientY); }, {passive:false});
-  window.addEventListener('touchend',  () => { drag=false; });
-  new ResizeObserver(redraw).observe(wrap);
-  setTimeout(redraw, 100);
+  const useImg = (O.attachView==='back' ? O.imgBack : O.imgFront) || O.imgFront;
+  if(useImg){ const im=new Image(); im.onload=()=>draw(im); im.onerror=()=>draw(null); im.src=useImg; }
+  else draw(null);
 })();
-
-// ═══════════════════════════════════════════════════════
-// PROGRESS
-// ═══════════════════════════════════════════════════════
-function done(n) { const el = document.getElementById('sn'+n); if (el) el.classList.add('done'); }
-function updateProg() {
-  const steps = [S.color, S.shape, true, true, S.imgFront, true, S.sizeCm, true];
-  document.getElementById('progFill').style.width = (steps.filter(Boolean).length/steps.length*100)+'%';
-}
-updateProg();
-
-// 旧コードとの互換性（rebuild3D 呼び出しを無害化）
-function rebuild3D(){}
-
-// ═══════════════════════════════════════════════════════
-// SUBMIT
-// ═══════════════════════════════════════════════════════
-function doSubmit() {
-  if (!S.color)    { toast('土台カラーを選択してください'); document.getElementById('sb1').classList.remove('hidden'); document.getElementById('sec1').scrollIntoView({behavior:'smooth',block:'center'}); return; }
-  if (!S.shape)    { toast('形状を選択してください'); document.getElementById('sb2').classList.remove('hidden'); document.getElementById('sec2').scrollIntoView({behavior:'smooth',block:'center'}); return; }
-  if (!S.imgFront) { toast('おもて面の画像を設定してください'); document.getElementById('sb4').classList.remove('hidden'); document.getElementById('sec4').scrollIntoView({behavior:'smooth',block:'center'}); return; }
-  if (S.backPrint && !S.imgBack) { toast('うら面の画像を設定してください'); document.getElementById('sec4').scrollIntoView({behavior:'smooth',block:'center'}); return; }
-
-  const orderData = {
-    orderId:    S.orderId,
-    color:      S.color,
-    colorHex:   S.colorHex,
-    shape:      S.shape,
-    nfc:        S.nfc,
-    nfcUrl:     S.nfcUrl,
-    backPrint:  S.backPrint,
-    imgFront:   S.imgFront,
-    imgBack:    S.imgBack || null,
-    qr:         S.qr,
-    qrSide:     S.qrSide,
-    qrUrl:      S.qrUrl,
-    qrFront:    { ...QRS.front },
-    qrBack:     { ...QRS.back },
-    nfcPos:     { x: NFCS.x, y: NFCS.y, w: nfcEW(), h: nfcEH(), mode: NFCS.mode, rot: NFCS.rot },
-    sizeCm:     S.sizeCm,
-    widthCm:    S.shape === 'rect' ? S.widthCm  : S.sizeCm,
-    heightCm:   S.shape === 'rect' ? S.heightCm : S.sizeCm,
-    thickCm:    S.thickCm,
-    attX:       S.attX,
-    attY:       S.attY,
-    attAngle:   S.attAngle,
-    attMode:    S.attMode,
-    holeCm:     S.holeCm,
-    dieFront:   S.dieFront || null,
-    dieBack:    S.dieBack  || null,
-    dieHolesFront: S.dieHolesFront || [],
-    dieHolesBack:  S.dieHolesBack  || [],
-    dieReinforce:  false,                  // 折れ防止は廃止：常に false（page3/worker へ送る注文データも固定）
-    borderCm:      S.borderCm != null ? S.borderCm : 0.3,
-    submittedAt: new Date().toLocaleString('ja-JP'),
-  };
-
-  const warnings = [];
-  if (S.nfc && !S.nfcUrl.trim()) warnings.push('・NFCタグのURL が未入力です');
-  if (S.qr  && !S.qrUrl.trim())  warnings.push('・QRコードのURL が未入力です');
-  if (warnings.length > 0) {
-    showUrlWarning(warnings, function(proceed) {
-      if (proceed) { submitOrder(orderData); }
-      else {
-        if (S.nfc && !S.nfcUrl.trim()) { document.getElementById('sb3').classList.remove('hidden'); document.getElementById('sec3').scrollIntoView({behavior:'smooth',block:'center'}); }
-        else { document.getElementById('sb5').classList.remove('hidden'); document.getElementById('sec5').scrollIntoView({behavior:'smooth',block:'center'}); }
-      }
-    });
-    return;
-  }
-  submitOrder(orderData);
-}
-
-function showUrlWarning(warnings, callback) {
-  const ex = document.getElementById('urlWarnDialog'); if (ex) ex.remove();
-  const d = document.createElement('div');
-  d.id = 'urlWarnDialog';
-  d.style.cssText = 'position:fixed;inset:0;background:rgba(0,0,0,.7);z-index:500;display:flex;align-items:center;justify-content:center;padding:20px;';
-  d.innerHTML = '<div style="background:#fff;border-radius:16px;padding:24px;max-width:340px;width:100%;">'
-    + '<div style="font-size:16px;font-weight:700;margin-bottom:12px;color:#2c2740;">⚠ URL未入力</div>'
-    + '<div style="font-size:13px;color:#6b6860;line-height:1.8;margin-bottom:16px;">'
-    + warnings.join('<br>') + '<br><br>URLを入力せずに送信しますか？<br>'
-    + '<span style="font-size:11px;">（後から管理画面で変更できます）</span></div>'
-    + '<div style="display:flex;gap:8px;">'
-    + '<button id="warnOk" style="flex:1;padding:12px;border:1.5px solid #ccc;border-radius:10px;background:#fff;cursor:pointer;font-family:\'Noto Sans JP\',sans-serif;font-size:13px;color:#6b6860;">このまま送信</button>'
-    + '<button id="warnCancel" style="flex:1;padding:12px;background:#ff7a59;border:none;border-radius:10px;color:#fff;cursor:pointer;font-family:\'Noto Sans JP\',sans-serif;font-size:13px;font-weight:500;">URLを入力する</button>'
-    + '</div></div>';
-  document.body.appendChild(d);
-  document.getElementById('warnOk').onclick    = () => { d.remove(); callback(true); };
-  document.getElementById('warnCancel').onclick = () => { d.remove(); callback(false); };
-}
-
-function submitOrder(orderData) {
-  try {
-    sessionStorage.setItem('orderData', JSON.stringify(orderData));
-  } catch(e) {
-    const lite = { ...orderData, imgFront: '__large__', imgBack: '__large__' };
-    sessionStorage.setItem('orderData', JSON.stringify(lite));
-    sessionStorage.setItem('orderImgFront', S.imgFront || '');
-    sessionStorage.setItem('orderImgBack',  S.imgBack  || '');
-  }
-
-  const btn = document.querySelector('.submit-btn');
-  if (btn) { btn.textContent = '送信中...'; btn.disabled = true; }
-
-  Promise.race([
-    Promise.all([
-      fetch(WORKER_ORIGIN + '/api/save-order', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(orderData),
-      }).catch(() => {}),
-      fetch(WORKER_ORIGIN + '/api/register', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer Kiki.n0825' },
-        body: JSON.stringify({
-          orderId: orderData.orderId,
-          nfcUrl:  orderData.nfcUrl || '',
-          qrUrl:   orderData.qrUrl  || '',
-          label:   (orderData.color || '') + ' / ' + (orderData.shape || ''),
-        }),
-      }).catch(() => {}),
-    ]),
-    new Promise(r => setTimeout(r, 4000))
-  ]).then(() => {
-    window.location.href = 'page3.html';
-  });
-}
-
-// ═══════════════════════════════════════════════════════
-// TOAST
-// ═══════════════════════════════════════════════════════
-function toast(msg, type) {
-  const el = document.getElementById('toast');
-  el.textContent = msg;
-  // type='alert' のとき赤系で目立たせる（オプション未購入など）
-  el.classList.toggle('alert', type === 'alert');
-  el.classList.add('show');
-  setTimeout(() => el.classList.remove('show'), 2800);
-}
-</script>
-<script>
-(function(){var root=document.documentElement,ticking=false;
-function upd(){ticking=false;var st=window.pageYOffset||root.scrollTop||0;var h=root.scrollHeight-root.clientHeight;var sp=h>0?Math.min(1,Math.max(0,st/h)):0;root.style.setProperty('--top',(1-sp).toFixed(3));root.style.setProperty('--bot',sp.toFixed(3));}
-function onS(){if(!ticking){ticking=true;requestAnimationFrame(upd);}}
-window.addEventListener('scroll',onS,{passive:true});window.addEventListener('resize',onS);upd();})();
 </script>
 <script>
 (function(){var t=document.getElementById('navToggle'),d=document.getElementById('navDrawer'),o=document.getElementById('navOverlay'),c=document.getElementById('navClose');if(!t||!d)return;function op(){d.classList.add('open');if(o)o.classList.add('open');d.setAttribute('aria-hidden','false');}function cl(){d.classList.remove('open');if(o)o.classList.remove('open');d.setAttribute('aria-hidden','true');}t.addEventListener('click',op);if(c)c.addEventListener('click',cl);if(o)o.addEventListener('click',cl);document.addEventListener('keydown',function(e){if(e.key==='Escape')cl();});})();
