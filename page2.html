@@ -362,7 +362,6 @@ if(document.readyState!=='loading')w();else document.addEventListener('DOMConten
         </div>
         <div class="shape-name">ダイカット</div>
         <div class="shape-sub">輪郭切抜</div>
-        <div class="extra-tag" style="margin:4px 0 0;font-weight:700;">+¥150</div>
       </button>
     </div>
     <div id="diecut-note" style="display:none;margin-top:12px;padding:10px;background:#fffbf0;border:1.5px solid #f0d080;border-radius:9px;font-size:12px;color:#7a6020;line-height:1.7;">
@@ -536,13 +535,13 @@ if(document.readyState!=='loading')w();else document.addEventListener('DOMConten
 <div class="sec" id="sec3">
   <div class="sec-head" onclick="toggle(3)">
     <div class="sec-num" id="sn3">6</div>
-    <div class="sec-title">NFC タグ<span class="extra-tag">+¥100</span></div>
+    <div class="sec-title">NFC タグ<span class="extra-tag">+¥200</span></div>
     <div class="sec-status" id="ss3">なし</div>
   </div>
   <div class="sec-body hidden" id="sb3">
     <div style="font-size:12px;color:var(--muted);margin-bottom:14px;line-height:1.6;">スマホをかざすと登録したURLに飛べます。</div>
     <div class="yn-row">
-      <button class="yn-btn" id="nfc-yes" onclick="setNFC(true)">あり<div class="yn-sub">+¥100</div></button>
+      <button class="yn-btn" id="nfc-yes" onclick="setNFC(true)">あり<div class="yn-sub">+¥200</div></button>
       <button class="yn-btn sel" id="nfc-no" onclick="setNFC(false)">なし</button>
     </div>
     <div class="url-box" id="nfcUrl-box">
@@ -994,7 +993,7 @@ function setNFC(val) {
   document.getElementById('nfc-yes').classList.toggle('sel', val);
   document.getElementById('nfc-no').classList.toggle('sel', !val);
   document.getElementById('nfcUrl-box').classList.toggle('show', val);
-  document.getElementById('ss3').textContent = val ? 'あり (+¥100)' : 'なし';
+  document.getElementById('ss3').textContent = val ? 'あり (+¥200)' : 'なし';
   done(3); updateProg();
   if (val) setTimeout(initNFCEditor, 40);   // NFCあり → 位置エディタを初期化
 }
