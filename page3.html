@@ -344,6 +344,11 @@ if(document.readyState!=='loading')w();else document.addEventListener('DOMConten
   </div>
 
   <!-- QR位置 -->
+  <div class="card" id="nfcPosCard" style="display:none;">
+    <div class="card-head">📍 NFCタグの位置</div>
+    <div class="card-body" id="nfcPosBody"></div>
+  </div>
+
   <div class="card" id="qrPosCard" style="display:none;">
     <div class="card-head">📍 QRコードの位置</div>
     <div class="card-body" id="qrPosBody"></div>
@@ -440,6 +445,54 @@ if (O.nfc) {
   document.getElementById('diNfcUrl').textContent = O.nfcUrl || '（URL未入力）';
 } else {
   nfcEl.innerHTML = '<span class="badge badge-no">なし</span>';
+}
+
+// ─── NFC位置ミニマップ ───
+if (O.nfc && O.nfcPos) makeNFCMiniMap(O.nfcPos, O.imgFront);
+function makeNFCMiniMap(np, imgSrc) {
+  const card = document.getElementById('nfcPosCard'); if (!card) return;
+  card.style.display = '';
+  const body = document.getElementById('nfcPosBody');
+  const wrap = document.createElement('div'); wrap.style.cssText = 'margin-bottom:4px;';
+  const row  = document.createElement('div'); row.className = 'qr-info-row';
+  const mini = document.createElement('canvas'); mini.width = 100; mini.height = 100;
+  mini.style.cssText = 'width:100px;height:100px;border-radius:8px;border:1.5px solid var(--border);flex-shrink:0;';
+  row.appendChild(mini);
+  const W = (np.w || 2.5), H = (np.h || 1.8);
+  const info = document.createElement('div'); info.className = 'qr-info-text';
+  info.innerHTML =
+    '<div>\u30b5\u30a4\u30ba: <strong>' + W + '\u00d7' + H + ' cm</strong></div>' +
+    '<div>\u4f4d\u7f6e X: <strong>' + Math.round(np.x) + '%</strong>\u3000Y: <strong>' + Math.round(np.y) + '%</strong></div>' +
+    '<div style="font-size:11px;margin-top:4px;color:var(--muted);">\uff08\u7e01\u304b\u30892mm\u5185\u5074\u30fb\u30ad\u30fc\u30db\u30eb\u30c0\u30fc\u9818\u57df\u5185\uff09</div>';
+  row.appendChild(info); wrap.appendChild(row); body.appendChild(wrap);
+
+  const ctx = mini.getContext('2d'); const mw = 100, mh = 100, margin = 8;
+  const box = Math.min(mw, mh) - margin*2; let kw = box, kh = box;
+  if (O.shape === 'rect' && O.widthCm && O.heightCm) { const ar = O.widthCm/O.heightCm; if (ar>=1){kw=box;kh=box/ar;} else {kh=box;kw=box*ar;} }
+  const ox = (mw-kw)/2, oy = (mh-kh)/2; const DIE_FIT_ = 0.82;
+  function drawMini(imgEl) {
+    ctx.clearRect(0,0,mw,mh); ctx.save(); ctx.beginPath();
+    if (O.shape === 'circle') ctx.arc(ox+kw/2, oy+kh/2, Math.min(kw,kh)/2, 0, Math.PI*2); else ctx.rect(ox,oy,kw,kh);
+    if (imgEl) {
+      ctx.clip(); const ir = imgEl.naturalWidth/imgEl.naturalHeight, kr = kw/kh; let dw,dh,dx,dy;
+      if (ir>kr){dh=kh;dw=dh*ir;dx=ox-(dw-kw)/2;dy=oy;} else {dw=kw;dh=dw/ir;dy=oy-(dh-kh)/2;dx=ox;}
+      ctx.drawImage(imgEl,dx,dy,dw,dh);
+    } else { ctx.fillStyle = O.colorHex || '#e8e5dc'; ctx.fill(); }
+    ctx.restore();
+    ctx.strokeStyle='rgba(0,0,0,.15)'; ctx.lineWidth=1; ctx.beginPath();
+    if (O.shape==='circle') ctx.arc(ox+kw/2,oy+kh/2,Math.min(kw,kh)/2,0,Math.PI*2); else ctx.rect(ox,oy,kw,kh);
+    ctx.stroke();
+    // NFC枠（長方形・実寸点線）
+    const pxPerCm = (O.shape==='diecut') ? DIE_FIT_*kw/(O.sizeCm||7) : ((O.shape==='rect'&&O.widthCm) ? kw/O.widthCm : kw/(O.sizeCm||7));
+    const bw = Math.max(8, W*pxPerCm), bh = Math.max(6, H*pxPerCm);
+    const nx = ox + kw*np.x/100 - bw/2, ny = oy + kh*np.y/100 - bh/2;
+    ctx.lineWidth=2.2; ctx.strokeStyle='rgba(255,255,255,.9)'; ctx.setLineDash([]); ctx.strokeRect(nx,ny,bw,bh);
+    ctx.lineWidth=1.3; ctx.strokeStyle='#3a4ad0'; ctx.setLineDash([4,3]); ctx.strokeRect(nx,ny,bw,bh); ctx.setLineDash([]);
+    ctx.font='bold 7px sans-serif'; ctx.textAlign='center'; ctx.textBaseline='middle'; ctx.lineJoin='round';
+    ctx.lineWidth=2.4; ctx.strokeStyle='rgba(255,255,255,.9)'; ctx.strokeText('NFC', nx+bw/2, ny+bh/2);
+    ctx.fillStyle='#3a4ad0'; ctx.fillText('NFC', nx+bw/2, ny+bh/2);
+  }
+  if (imgSrc) { const img = new Image(); img.src = imgSrc; img.onload = () => drawMini(img); } else drawMini(null);
 }
 
 const backEl = document.getElementById('diBack');
