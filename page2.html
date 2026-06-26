@@ -128,6 +128,12 @@ body{font-family:'Noto Sans JP',sans-serif;background:var(--paper);color:var(--i
 .qr-size-row{display:flex;align-items:center;gap:8px;}
 .qr-size-row label{font-size:11px;color:var(--muted);width:40px;flex-shrink:0;}
 .qr-size-row input[type=range]{flex:1;accent-color:var(--accent);}
+.nfc-box{position:absolute;border:2.5px solid #fff;box-shadow:0 0 0 1.5px rgba(0,0,0,.28),0 2px 8px rgba(0,0,0,.3);cursor:grab;border-radius:3px;display:flex;align-items:center;justify-content:center;background:rgba(96,116,255,.22);}
+.nfc-box:active{cursor:grabbing;}
+.nfc-box span{font-size:9px;font-weight:700;color:#fff;letter-spacing:.05em;text-shadow:0 1px 2px rgba(0,0,0,.65);pointer-events:none;}
+.nfc-mode-row{display:flex;gap:8px;margin:8px 0 10px;}
+.nfc-mode-btn{flex:1;padding:9px 6px;border:1.5px solid var(--border);border-radius:9px;background:var(--surface);color:var(--muted);font-size:12px;font-weight:700;cursor:pointer;font-family:inherit;line-height:1.4;text-align:center;}
+.nfc-mode-btn.sel{border-color:var(--accent);background:var(--sel);color:var(--accent);}
 .num-step{display:flex;align-items:center;border:1.5px solid var(--border);border-radius:8px;overflow:hidden;background:var(--surface);flex-shrink:0;}
 .num-step button{width:28px;height:30px;border:none;background:transparent;font-size:16px;cursor:pointer;color:var(--ink);display:flex;align-items:center;justify-content:center;}
 .num-step button:hover{background:var(--cream);}
@@ -313,6 +319,7 @@ if(document.readyState!=='loading')w();else document.addEventListener('DOMConten
 <div class="form-col">
 
 <!-- 1. 土台カラー -->
+<!-- 1. 土台カラー -->
 <div class="sec" id="sec1">
   <div class="sec-head" onclick="toggle(1)">
     <div class="sec-num" id="sn1">1</div>
@@ -364,27 +371,6 @@ if(document.readyState!=='loading')w();else document.addEventListener('DOMConten
   </div>
 </div>
 
-<!-- 3. NFC -->
-<div class="sec" id="sec3">
-  <div class="sec-head" onclick="toggle(3)">
-    <div class="sec-num" id="sn3">3</div>
-    <div class="sec-title">NFC タグ<span class="extra-tag">+¥100</span></div>
-    <div class="sec-status" id="ss3">なし</div>
-  </div>
-  <div class="sec-body hidden" id="sb3">
-    <div style="font-size:12px;color:var(--muted);margin-bottom:14px;line-height:1.6;">スマホをかざすと登録したURLに飛べます。</div>
-    <div class="yn-row">
-      <button class="yn-btn" id="nfc-yes" onclick="setNFC(true)">あり<div class="yn-sub">+¥100</div></button>
-      <button class="yn-btn sel" id="nfc-no" onclick="setNFC(false)">なし</button>
-    </div>
-    <div class="url-box" id="nfcUrl-box">
-      <label>登録するURL</label>
-      <input type="url" id="nfcUrl" placeholder="https://example.com" oninput="S.nfcUrl=this.value">
-      <div class="url-hint">※ SNSプロフィールURLや作品ページなど</div>
-    </div>
-  </div>
-</div>
-
 <!-- 3.5 裏面印刷 -->
 <div class="sec" id="sec35">
   <div class="sec-head" onclick="toggle(35)">
@@ -400,10 +386,10 @@ if(document.readyState!=='loading')w();else document.addEventListener('DOMConten
   </div>
 </div>
 
-<!-- 4. 画像（ロック） -->
+<!-- 4. キーホルダー画像 -->
 <div class="sec locked" id="sec4">
   <div class="sec-head" onclick="onImgSecClick()">
-    <div class="sec-num" id="sn4">4</div>
+    <div class="sec-num" id="sn4">3</div>
     <div class="sec-title">キーホルダー画像</div>
     <div class="sec-status" id="ss4">未設定</div>
   </div>
@@ -441,81 +427,10 @@ if(document.readyState!=='loading')w();else document.addEventListener('DOMConten
   <div class="lock-bar" onclick="onLockBarClick()">⚠ <span id="lockMsg">先に「土台カラー」と「形状」を選択してください</span> →</div>
 </div>
 
-<!-- 5. QR -->
-<div class="sec" id="sec5">
-  <div class="sec-head" onclick="toggle(5)">
-    <div class="sec-num" id="sn5">5</div>
-    <div class="sec-title">QR コード</div>
-    <div class="sec-status" id="ss5">なし</div>
-  </div>
-  <div class="sec-body hidden" id="sb5">
-    <div class="yn-row" style="margin-bottom:14px;">
-      <button class="yn-btn" id="qr-yes" onclick="setQR(true)">あり</button>
-      <button class="yn-btn sel" id="qr-no" onclick="setQR(false)">なし</button>
-    </div>
-    <div id="qrOptions" style="display:none;">
-      <div style="margin-bottom:14px;">
-        <div class="url-box show" style="margin-top:0;">
-          <label>QRコードに登録するURL</label>
-          <input type="url" id="qrUrl" placeholder="https://example.com" oninput="S.qrUrl=this.value">
-          <div class="url-hint">※ SNS・作品ページ・ポートフォリオなど</div>
-        </div>
-      </div>
-      <div class="section-label" style="margin-bottom:8px;">印刷する面</div>
-      <div class="yn-row" style="margin-bottom:14px;">
-        <button class="yn-btn" id="qrs-front" onclick="setQRSide('front')">おもて面</button>
-        <button class="yn-btn" id="qrs-back" onclick="setQRSide('back')">うら面</button>
-      </div>
-      <!-- QR位置エディタ（おもて） -->
-      <div id="qrEd-front" style="display:none;">
-        <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:6px;">
-          <div class="section-label" style="margin-bottom:0;">おもて面 — 位置をドラッグで指定</div>
-          <button onclick="resyncQR('front')" style="font-size:11px;padding:4px 10px;border:1.5px solid var(--border);border-radius:7px;background:#fff;cursor:pointer;color:var(--ink);white-space:nowrap;">↺ 本体サイズを反映</button>
-        </div>
-        <div class="qr-canvas-wrap" id="qrWrap-front">
-          <canvas id="qrBg-front"></canvas>
-          <div class="qr-box" id="qrBox-front"><span>QR</span></div>
-        </div>
-        <div class="qr-size-row">
-          <label>サイズ</label>
-          <input type="range" id="qrSz-front" min="1.2" max="5" step="0.1" value="2" oninput="onQRSzSlider('front')">
-          <div class="num-step">
-            <button onclick="stepQR('front',-0.1)">−</button>
-            <input type="number" id="qrSzN-front" min="1.2" max="5" step="0.1" value="2" oninput="onQRSzInput('front')">
-            <span class="unit">cm</span>
-            <button onclick="stepQR('front',0.1)">＋</button>
-          </div>
-        </div>
-      </div>
-      <!-- QR位置エディタ（うら） -->
-      <div id="qrEd-back" style="display:none;margin-top:12px;">
-        <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:6px;">
-          <div class="section-label" style="margin-bottom:0;">うら面 — 位置をドラッグで指定</div>
-          <button onclick="resyncQR('back')" style="font-size:11px;padding:4px 10px;border:1.5px solid var(--border);border-radius:7px;background:#fff;cursor:pointer;color:var(--ink);white-space:nowrap;">↺ 本体サイズを反映</button>
-        </div>
-        <div class="qr-canvas-wrap" id="qrWrap-back">
-          <canvas id="qrBg-back"></canvas>
-          <div class="qr-box" id="qrBox-back"><span>QR</span></div>
-        </div>
-        <div class="qr-size-row">
-          <label>サイズ</label>
-          <input type="range" id="qrSz-back" min="1.2" max="5" step="0.1" value="2" oninput="onQRSzSlider('back')">
-          <div class="num-step">
-            <button onclick="stepQR('back',-0.1)">−</button>
-            <input type="number" id="qrSzN-back" min="1.2" max="5" step="0.1" value="2" oninput="onQRSzInput('back')">
-            <span class="unit">cm</span>
-            <button onclick="stepQR('back',0.1)">＋</button>
-          </div>
-        </div>
-      </div>
-    </div>
-  </div>
-</div>
-
-<!-- 6. サイズ -->
+<!-- 5. サイズ -->
 <div class="sec" id="sec6">
   <div class="sec-head" onclick="toggle(6)">
-    <div class="sec-num" id="sn6">6</div>
+    <div class="sec-num" id="sn6">4</div>
     <div class="sec-title">サイズ設定</div>
     <div class="sec-status" id="ss6">7.0cm / 厚さ2.5mm</div>
   </div>
@@ -593,10 +508,10 @@ if(document.readyState!=='loading')w();else document.addEventListener('DOMConten
   </div>
 </div>
 
-<!-- 7. 穴の位置 -->
+<!-- 6. 穴の位置 -->
 <div class="sec" id="sec7">
   <div class="sec-head" onclick="toggle(7)">
-    <div class="sec-num" id="sn7">7</div>
+    <div class="sec-num" id="sn7">5</div>
     <div class="sec-title">穴の位置</div>
     <div class="sec-status" id="ss7">未設定</div>
   </div>
@@ -613,6 +528,114 @@ if(document.readyState!=='loading')w();else document.addEventListener('DOMConten
     <div class="attach-info">
       <span class="att-mode inside" id="attModeBadge">本体内</span>
       <span>X:<span id="attX">50</span>% Y:<span id="attY">10</span>%</span>
+    </div>
+  </div>
+</div>
+
+<!-- 7. NFC -->
+<div class="sec" id="sec3">
+  <div class="sec-head" onclick="toggle(3)">
+    <div class="sec-num" id="sn3">6</div>
+    <div class="sec-title">NFC タグ<span class="extra-tag">+¥100</span></div>
+    <div class="sec-status" id="ss3">なし</div>
+  </div>
+  <div class="sec-body hidden" id="sb3">
+    <div style="font-size:12px;color:var(--muted);margin-bottom:14px;line-height:1.6;">スマホをかざすと登録したURLに飛べます。</div>
+    <div class="yn-row">
+      <button class="yn-btn" id="nfc-yes" onclick="setNFC(true)">あり<div class="yn-sub">+¥100</div></button>
+      <button class="yn-btn sel" id="nfc-no" onclick="setNFC(false)">なし</button>
+    </div>
+    <div class="url-box" id="nfcUrl-box">
+      <label>登録するURL</label>
+      <input type="url" id="nfcUrl" placeholder="https://example.com" oninput="S.nfcUrl=this.value">
+      <div class="url-hint">※ SNSプロフィールURLや作品ページなど</div>
+      <!-- NFC埋め込み位置 -->
+      <div style="margin-top:16px;">
+        <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:6px;">
+          <div class="section-label" style="margin-bottom:0;">NFCタグの位置</div>
+          <button type="button" onclick="resyncNFC()" style="font-size:11px;padding:4px 10px;border:1.5px solid var(--border);border-radius:7px;background:#fff;cursor:pointer;color:var(--ink);white-space:nowrap;">↺ 本体サイズを反映</button>
+        </div>
+        <div style="font-size:11px;color:var(--muted);margin-bottom:8px;line-height:1.6;">2.5×1.8cm のタグです。印刷の都合上、縁から 2mm 以上内側に配置されます。</div>
+        <div class="nfc-mode-row">
+          <button type="button" class="nfc-mode-btn sel" id="nfcMode-fix" onclick="setNFCMode('fix')">ボタンでかんたん<br><span style="font-weight:400;font-size:10px;opacity:.85;">縁の内側だけ動く</span></button>
+          <button type="button" class="nfc-mode-btn" id="nfcMode-free" onclick="setNFCMode('free')">自由に配置<br><span style="font-weight:400;font-size:10px;opacity:.85;">長押しでどこでも</span></button>
+        </div>
+        <div class="qr-canvas-wrap" id="nfcWrap">
+          <canvas id="nfcBg"></canvas>
+          <div class="nfc-box" id="nfcBox"><span>NFC</span></div>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- 8. QR -->
+<div class="sec" id="sec5">
+  <div class="sec-head" onclick="toggle(5)">
+    <div class="sec-num" id="sn5">7</div>
+    <div class="sec-title">QR コード</div>
+    <div class="sec-status" id="ss5">なし</div>
+  </div>
+  <div class="sec-body hidden" id="sb5">
+    <div class="yn-row" style="margin-bottom:14px;">
+      <button class="yn-btn" id="qr-yes" onclick="setQR(true)">あり</button>
+      <button class="yn-btn sel" id="qr-no" onclick="setQR(false)">なし</button>
+    </div>
+    <div id="qrOptions" style="display:none;">
+      <div style="margin-bottom:14px;">
+        <div class="url-box show" style="margin-top:0;">
+          <label>QRコードに登録するURL</label>
+          <input type="url" id="qrUrl" placeholder="https://example.com" oninput="S.qrUrl=this.value">
+          <div class="url-hint">※ SNS・作品ページ・ポートフォリオなど</div>
+        </div>
+      </div>
+      <div class="section-label" style="margin-bottom:8px;">印刷する面</div>
+      <div class="yn-row" style="margin-bottom:14px;">
+        <button class="yn-btn" id="qrs-front" onclick="setQRSide('front')">おもて面</button>
+        <button class="yn-btn" id="qrs-back" onclick="setQRSide('back')">うら面</button>
+      </div>
+      <!-- QR位置エディタ（おもて） -->
+      <div id="qrEd-front" style="display:none;">
+        <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:6px;">
+          <div class="section-label" style="margin-bottom:0;">おもて面 — 位置をドラッグで指定</div>
+          <button onclick="resyncQR('front')" style="font-size:11px;padding:4px 10px;border:1.5px solid var(--border);border-radius:7px;background:#fff;cursor:pointer;color:var(--ink);white-space:nowrap;">↺ 本体サイズを反映</button>
+        </div>
+        <div class="qr-canvas-wrap" id="qrWrap-front">
+          <canvas id="qrBg-front"></canvas>
+          <div class="qr-box" id="qrBox-front"><span>QR</span></div>
+        </div>
+        <div class="qr-size-row">
+          <label>サイズ</label>
+          <input type="range" id="qrSz-front" min="1.2" max="5" step="0.1" value="2" oninput="onQRSzSlider('front')">
+          <div class="num-step">
+            <button onclick="stepQR('front',-0.1)">−</button>
+            <input type="number" id="qrSzN-front" min="1.2" max="5" step="0.1" value="2" oninput="onQRSzInput('front')">
+            <span class="unit">cm</span>
+            <button onclick="stepQR('front',0.1)">＋</button>
+          </div>
+        </div>
+      </div>
+      <!-- QR位置エディタ（うら） -->
+      <div id="qrEd-back" style="display:none;margin-top:12px;">
+        <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:6px;">
+          <div class="section-label" style="margin-bottom:0;">うら面 — 位置をドラッグで指定</div>
+          <button onclick="resyncQR('back')" style="font-size:11px;padding:4px 10px;border:1.5px solid var(--border);border-radius:7px;background:#fff;cursor:pointer;color:var(--ink);white-space:nowrap;">↺ 本体サイズを反映</button>
+        </div>
+        <div class="qr-canvas-wrap" id="qrWrap-back">
+          <canvas id="qrBg-back"></canvas>
+          <div class="qr-box" id="qrBox-back"><span>QR</span></div>
+        </div>
+        <div class="qr-size-row">
+          <label>サイズ</label>
+          <input type="range" id="qrSz-back" min="1.2" max="5" step="0.1" value="2" oninput="onQRSzSlider('back')">
+          <div class="num-step">
+            <button onclick="stepQR('back',-0.1)">−</button>
+            <input type="number" id="qrSzN-back" min="1.2" max="5" step="0.1" value="2" oninput="onQRSzInput('back')">
+            <span class="unit">cm</span>
+            <button onclick="stepQR('back',0.1)">＋</button>
+          </div>
+        </div>
+      </div>
     </div>
   </div>
 </div>
@@ -765,8 +788,7 @@ function applyOptionLocks() {
   setSectionLock('sec3', S.purchased.nfc, 'NFCタグ');
   // 両面印刷（セクション35）
   setSectionLock('sec35', S.purchased.double, '両面印刷');
-  // ダイカット（形状ボタン）
-  setShapeLock(S.purchased.diecut);
+  // ダイカットは標準で選択可能（オプション扱いをやめたためロックしない）
 }
 
 // セクション（NFC・両面印刷）をロック/解除する。
@@ -911,11 +933,6 @@ initPurchasedOptions();
 // SHAPE
 // ═══════════════════════════════════════════════════════
 function pickShape(sh) {
-  // ダイカットが未購入のときは選択させず、赤いトーストで通知
-  if (sh === 'diecut' && !S.purchased.diecut) {
-    toast('ダイカットは注文されていません', 'alert');
-    return;
-  }
   ['circle','square','rect','diecut'].forEach(s => {
     document.getElementById('sh-' + s).classList.toggle('sel', s === sh);
   });
@@ -979,6 +996,7 @@ function setNFC(val) {
   document.getElementById('nfcUrl-box').classList.toggle('show', val);
   document.getElementById('ss3').textContent = val ? 'あり (+¥100)' : 'なし';
   done(3); updateProg();
+  if (val) setTimeout(initNFCEditor, 40);   // NFCあり → 位置エディタを初期化
 }
 
 // ═══════════════════════════════════════════════════════
@@ -1375,6 +1393,7 @@ function recomputeDie(face, cb) {
     if (face === 'back') { S.dieBack  = res ? res.outer : null; S.dieHolesBack  = res ? res.holes : []; }
     else                 { S.dieFront = res ? res.outer : null; S.dieHolesFront = res ? res.holes : []; }
     updateSizeUI();   // シルエット確定後、短辺6cm制約に合わせて長辺の上限を再適用
+    if (S.nfc) { const wn=document.getElementById('nfcWrap'); if (wn && wn.offsetWidth>0) resyncNFC(); }
     if (cb) cb();
   };
   im.onerror = () => { if (cb) cb(); };
@@ -1870,7 +1889,7 @@ function setSz(v) {
   applySizeStatus();
   done(6); updateProg();
   if (window._redrawAttach) window._redrawAttach();
-  if (S.qr) { ['front','back'].forEach(s => { const w = document.getElementById('qrWrap-'+s); if (w && w.offsetWidth > 0) resyncQR(s); }); }
+  if (S.qr || S.nfc) syncQRAll();   // サイズ変更 → QRもNFCも自動反映
 }
 
 // 自由四角：横(width)
@@ -1879,7 +1898,7 @@ function setW(v, silent) {
   S.widthCm = r.w; S.heightCm = r.h; S.sizeCm = Math.max(r.w, r.h);
   document.getElementById('rwSlider').value = r.w; document.getElementById('rwN').value = r.w;
   document.getElementById('rhSlider').value = r.h; document.getElementById('rhN').value = r.h;
-  if (!silent) { applySizeStatus(); done(6); updateProg(); if (window._redrawAttach) window._redrawAttach(); if (S.qr) syncQRAll(); }
+  if (!silent) { applySizeStatus(); done(6); updateProg(); if (window._redrawAttach) window._redrawAttach(); if (S.qr || S.nfc) syncQRAll(); }
 }
 // 自由四角：縦(height)
 function setH(v, silent) {
@@ -1887,7 +1906,7 @@ function setH(v, silent) {
   S.widthCm = r.w; S.heightCm = r.h; S.sizeCm = Math.max(r.w, r.h);
   document.getElementById('rwSlider').value = r.w; document.getElementById('rwN').value = r.w;
   document.getElementById('rhSlider').value = r.h; document.getElementById('rhN').value = r.h;
-  if (!silent) { applySizeStatus(); done(6); updateProg(); if (window._redrawAttach) window._redrawAttach(); if (S.qr) syncQRAll(); }
+  if (!silent) { applySizeStatus(); done(6); updateProg(); if (window._redrawAttach) window._redrawAttach(); if (S.qr || S.nfc) syncQRAll(); }
 }
 function swapWH() {
   const t = S.widthCm; S.widthCm = S.heightCm; S.heightCm = t; S.sizeCm = Math.max(S.widthCm, S.heightCm);
@@ -1896,9 +1915,109 @@ function swapWH() {
   applySizeStatus(); done(6); updateProg();
   if (window._redrawAttach) window._redrawAttach();
   if (S.imgFront && S.cropStateFront) { reopenSilent(); } // 画像の縦横比を新しい形へ合わせ直す（必要時）
-  if (S.qr) syncQRAll();
+  if (S.qr || S.nfc) syncQRAll();
 }
-function syncQRAll() { ['front','back'].forEach(s => { const w = document.getElementById('qrWrap-'+s); if (w && w.offsetWidth > 0) resyncQR(s); }); }
+// ───── NFC 埋め込み位置 ─────
+const NFCS = { x: 50, y: 50, mode: 'fix' };          // x,y%（本体矩形基準）, mode:'fix'(縁内のみ)/'free'(自由＋離すと最寄りへ)
+const NFC_W = 2.5, NFC_H = 1.8, NFC_MARGIN = 0.2;    // cm（長辺2.5 / 短辺1.8 / 縁マージン2mm）
+let NFC_GRID = null;                                  // ダイカット用 有効枠中心点（px）
+
+// 多角形ヘルパー（NFC用・グローバル）
+function _segD(px,py,ax,ay,bx,by){ const dx=bx-ax,dy=by-ay,l2=dx*dx+dy*dy; let t=l2?((px-ax)*dx+(py-ay)*dy)/l2:0; t=Math.max(0,Math.min(1,t)); return Math.hypot(px-(ax+t*dx),py-(ay+t*dy)); }
+function _pip(x,y,pts){ let c=false; for(let i=0,j=pts.length-1;i<pts.length;j=i++){ const xi=pts[i].x,yi=pts[i].y,xj=pts[j].x,yj=pts[j].y; if(((yi>y)!==(yj>y))&&(x<(xj-xi)*(y-yi)/(yj-yi)+xi)) c=!c; } return c; }
+function _minED(x,y,pts){ let m=Infinity; for(let i=0,j=pts.length-1;i<pts.length;j=i++) m=Math.min(m,_segD(x,y,pts[j].x,pts[j].y,pts[i].x,pts[i].y)); return m; }
+function nfcDiePoly(){ return (S.dieFront || S.dieBack || null); }
+
+// 枠（中心px,py / 半幅hw,hh px）がダイカット形状内＋縁マージンmを満たすか
+function nfcValidPx(px,py,geom,hw,hh,m){
+  const poly=nfcDiePoly(); if(!poly||poly.length<3) return true;
+  const { ox,oy,kw }=geom; const mN=m/kw;            // ダイカットは kw=kh（正方形領域）
+  const cs=[[px-hw,py-hh],[px+hw,py-hh],[px-hw,py+hh],[px+hw,py+hh],[px,py-hh],[px,py+hh],[px-hw,py],[px+hw,py]];
+  for(let k=0;k<cs.length;k++){ const nx=(cs[k][0]-ox)/kw, ny=(cs[k][1]-oy)/kw; if(!_pip(nx,ny,poly)) return false; if(_minED(nx,ny,poly)<mN) return false; }
+  return true;
+}
+// ダイカット：有効な枠中心点をサンプリング（px座標で保持）
+function buildNFCGrid(geom,hw,hh,m){
+  NFC_GRID=null; const poly=nfcDiePoly(); if(S.shape!=='diecut'||!poly||poly.length<3) return;
+  const { ox,oy,kw }=geom; const pts=[]; const N=44;
+  for(let i=0;i<=N;i++) for(let j=0;j<=N;j++){ const px=ox+kw*i/N, py=oy+kw*j/N; if(nfcValidPx(px,py,geom,hw,hh,m)) pts.push({x:px,y:py}); }
+  NFC_GRID=pts.length?pts:null;
+}
+function snapNFCGrid(px,py){ if(!NFC_GRID) return {x:px,y:py}; let b=NFC_GRID[0],bd=Infinity; for(let k=0;k<NFC_GRID.length;k++){ const d=(NFC_GRID[k].x-px)**2+(NFC_GRID[k].y-py)**2; if(d<bd){bd=d;b=NFC_GRID[k];} } return {x:b.x,y:b.y}; }
+
+// 枠中心px(px,py)を有効位置に整える。allowFree=true なら（自由ドラッグ中）そのまま返す
+function clampNFCPx(px,py,geom,allowFree){
+  const { ox,oy,kw,kh,pxPerCm }=geom;
+  const hw=NFC_W*pxPerCm/2, hh=NFC_H*pxPerCm/2, m=NFC_MARGIN*pxPerCm;
+  if(S.shape==='diecut'){
+    if(allowFree) return {x:px,y:py};
+    if(nfcValidPx(px,py,geom,hw,hh,m)) return {x:px,y:py};
+    return snapNFCGrid(px,py);
+  }
+  if(S.shape==='circle'){
+    if(allowFree) return {x:px,y:py};
+    const ccx=ox+kw/2, ccy=oy+kh/2, R=kw/2-m; let dx=px-ccx,dy=py-ccy;
+    for(let it=0;it<30;it++){ const fx=Math.abs(dx)+hw,fy=Math.abs(dy)+hh; if(fx*fx+fy*fy<=R*R) break; dx*=0.9; dy*=0.9; }
+    return {x:ccx+dx,y:ccy+dy};
+  }
+  // 四角 / 自由四角
+  if(allowFree) return {x:px,y:py};
+  const minx=ox+m+hw, maxx=ox+kw-m-hw, miny=oy+m+hh, maxy=oy+kh-m-hh;
+  return { x:Math.min(Math.max(px,minx),Math.max(minx,maxx)), y:Math.min(Math.max(py,miny),Math.max(miny,maxy)) };
+}
+
+function posNFCBox(){
+  const wrap=document.getElementById('nfcWrap'), bg=document.getElementById('nfcBg'), box=document.getElementById('nfcBox');
+  if(!wrap||!bg||!box) return;
+  const aw=bg.width||wrap.offsetWidth||260, ah=bg.height||wrap.offsetHeight||200;
+  const geom=getKHRect(aw,ah); const { ox,oy,kw,kh,pxPerCm }=geom;
+  const bw=NFC_W*pxPerCm, bh=NFC_H*pxPerCm;
+  let cx=ox+kw*NFCS.x/100, cy=oy+kh*NFCS.y/100;
+  const cl=clampNFCPx(cx,cy,geom,false); cx=cl.x; cy=cl.y;     // 表示時は必ず有効位置へ整える
+  NFCS.x=((cx-ox)/kw)*100; NFCS.y=((cy-oy)/kh)*100;
+  box.style.width=bw+'px'; box.style.height=bh+'px';
+  box.style.left=(cx-bw/2)+'px'; box.style.top=(cy-bh/2)+'px';
+}
+function setupNFCDrag(){
+  const wrap=document.getElementById('nfcWrap'), bg=document.getElementById('nfcBg');
+  let box=document.getElementById('nfcBox'); if(!wrap||!bg||!box) return;
+  const nb=box.cloneNode(true); box.parentNode.replaceChild(nb,box); box=nb;
+  let drag=false, dxp=0, dyp=0;
+  const down=e=>{ drag=true; const r=wrap.getBoundingClientRect(); const cl=e.touches?e.touches[0].clientX:e.clientX, ct=e.touches?e.touches[0].clientY:e.clientY; dxp=cl-r.left-box.offsetLeft; dyp=ct-r.top-box.offsetTop; if(e.cancelable)e.preventDefault(); };
+  const move=e=>{ if(!drag)return; const r=wrap.getBoundingClientRect(); const cl=e.touches?e.touches[0].clientX:e.clientX, ct=e.touches?e.touches[0].clientY:e.clientY;
+    const aw=bg.width,ah=bg.height, geom=getKHRect(aw,ah), { ox,oy,kw,kh,pxPerCm }=geom, bw=NFC_W*pxPerCm,bh=NFC_H*pxPerCm;
+    let cx=cl-r.left-dxp+bw/2, cy=ct-r.top-dyp+bh/2;
+    const cl2=clampNFCPx(cx,cy,geom,NFCS.mode==='free'); cx=cl2.x; cy=cl2.y;
+    box.style.left=(cx-bw/2)+'px'; box.style.top=(cy-bh/2)+'px';
+    NFCS.x=((cx-ox)/kw)*100; NFCS.y=((cy-oy)/kh)*100;
+    if(e.cancelable)e.preventDefault(); };
+  const up=()=>{ if(!drag)return; drag=false; if(NFCS.mode==='free') posNFCBox(); };   // 自由モードは離した時に最寄り有効位置へスナップ
+  box.addEventListener('mousedown',down); box.addEventListener('touchstart',down,{passive:false});
+  window.addEventListener('mousemove',move); window.addEventListener('touchmove',move,{passive:false});
+  window.addEventListener('mouseup',up); window.addEventListener('touchend',up);
+}
+function initNFCEditor(){
+  const wrap=document.getElementById('nfcWrap'), bg=document.getElementById('nfcBg'); if(!wrap||!bg) return;
+  const aw=wrap.offsetWidth||260, ah=wrap.offsetHeight||200; bg.width=aw; bg.height=ah;
+  drawQRBg('front', bg, aw, ah);                  // 背景＝本体＋おもて画像（QRの背景描画を流用）
+  const geom=getKHRect(aw,ah), hw=NFC_W*geom.pxPerCm/2, hh=NFC_H*geom.pxPerCm/2, m=NFC_MARGIN*geom.pxPerCm;
+  buildNFCGrid(geom,hw,hh,m); posNFCBox(); setupNFCDrag();
+}
+function resyncNFC(){
+  const wrap=document.getElementById('nfcWrap'), bg=document.getElementById('nfcBg'); if(!wrap||!bg) return;
+  const aw=wrap.offsetWidth||260, ah=wrap.offsetHeight||200; bg.width=aw; bg.height=ah;
+  drawQRBg('front', bg, aw, ah);
+  const geom=getKHRect(aw,ah), hw=NFC_W*geom.pxPerCm/2, hh=NFC_H*geom.pxPerCm/2, m=NFC_MARGIN*geom.pxPerCm;
+  buildNFCGrid(geom,hw,hh,m); posNFCBox();
+}
+function setNFCMode(m){
+  NFCS.mode=m;
+  document.getElementById('nfcMode-fix').classList.toggle('sel', m==='fix');
+  document.getElementById('nfcMode-free').classList.toggle('sel', m==='free');
+  posNFCBox();
+}
+
+function syncQRAll() { ['front','back'].forEach(s => { const w = document.getElementById('qrWrap-'+s); if (w && w.offsetWidth > 0) resyncQR(s); }); if (S.nfc) { const wn=document.getElementById('nfcWrap'); if (wn && wn.offsetWidth>0) resyncNFC(); } }
 function reopenSilent() { /* 縦横入れ替え時は既存画像をそのまま再フィット表示（drawPreview側でcover）。再切り抜きは不要 */ if (window._redrawAttach) window._redrawAttach(); drawPreview('front'); if (S.imgBack) drawPreview('back'); }
 
 // サイズのステータス文言（自由四角は横×縦、ダイアは長辺×短辺を表示）
@@ -2261,6 +2380,7 @@ function doSubmit() {
     qrUrl:      S.qrUrl,
     qrFront:    { ...QRS.front },
     qrBack:     { ...QRS.back },
+    nfcPos:     { x: NFCS.x, y: NFCS.y, w: NFC_W, h: NFC_H, mode: NFCS.mode },
     sizeCm:     S.sizeCm,
     widthCm:    S.shape === 'rect' ? S.widthCm  : S.sizeCm,
     heightCm:   S.shape === 'rect' ? S.heightCm : S.sizeCm,
