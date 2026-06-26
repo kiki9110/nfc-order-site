@@ -559,6 +559,10 @@ if(document.readyState!=='loading')w();else document.addEventListener('DOMConten
           <button type="button" class="nfc-mode-btn sel" id="nfcMode-fix" onclick="setNFCMode('fix')">ボタンでかんたん<br><span style="font-weight:400;font-size:10px;opacity:.85;">縁の内側だけ動く</span></button>
           <button type="button" class="nfc-mode-btn" id="nfcMode-free" onclick="setNFCMode('free')">自由に配置<br><span style="font-weight:400;font-size:10px;opacity:.85;">長押しでどこでも</span></button>
         </div>
+        <div class="nfc-mode-row">
+          <button type="button" class="nfc-mode-btn sel" id="nfcRot-h" onclick="setNFCRot(0)">よこ向き<br><span style="font-weight:400;font-size:10px;opacity:.85;">2.4×1.4cm</span></button>
+          <button type="button" class="nfc-mode-btn" id="nfcRot-v" onclick="setNFCRot(1)">たて向き<br><span style="font-weight:400;font-size:10px;opacity:.85;">1.4×2.4cm</span></button>
+        </div>
         <div class="qr-canvas-wrap" id="nfcWrap">
           <canvas id="nfcBg"></canvas>
           <div class="nfc-box" id="nfcBox"><span>NFC</span></div>
@@ -1843,10 +1847,10 @@ function dieAspect() {
 // 長辺スライダー（丸・四角・ダイア）の上限。すべて9cm。
 function maxSizeFor(shape) {
   if (shape === 'circle' || shape === 'square') return 6;        // 丸・四角は最大6cm
-  if (shape === 'diecut') return Math.min(9, 6 / dieAspect());   // 長辺は9cmまで、かつ短辺が6cmを超えないよう上限を抑える
+  if (shape === 'diecut') return Math.floor(Math.min(9, 6 / dieAspect()) * 2) / 2;   // 長辺9cmまで＆短辺6cm以内、0.5cm刻みに切り下げ
   return 9;                                                      // 自由四角の長辺など
 }
-function clampSz(v) { return Math.min(maxSizeFor(S.shape), Math.max(3, Math.round(v*10)/10)); }
+function clampSz(v) { const st = (S.shape === 'diecut') ? 2 : 10; return Math.min(maxSizeFor(S.shape), Math.max(3, Math.round(v*st)/st)); }   // ダイカットは0.5cm刻み
 function clampTh(v) { return Math.min(5, Math.max(2.5, Math.round(v*10)/10)); }
 
 // 自由四角の縦横ルール：各辺3〜9cm。
@@ -1917,8 +1921,10 @@ function swapWH() {
   if (S.qr || S.nfc) syncQRAll();
 }
 // ───── NFC 埋め込み位置 ─────
-const NFCS = { x: 50, y: 50, mode: 'fix' };          // x,y%（本体矩形基準）, mode:'fix'(縁内のみ)/'free'(自由＋離すと最寄りへ)
-const NFC_W = 2.5, NFC_H = 1.8, NFC_MARGIN = 0.2;    // cm（長辺2.5 / 短辺1.8 / 縁マージン2mm）
+const NFCS = { x: 50, y: 50, mode: 'fix', rot: 0 };  // mode:'fix'/'free', rot:0=よこ 1=たて
+const NFC_W = 2.4, NFC_H = 1.4, NFC_MARGIN = 0.2;    // cm（長辺2.4 / 短辺1.4 / 縁マージン2mm）
+function nfcEW(){ return NFCS.rot ? NFC_H : NFC_W; } // 実効幅（向き反映）
+function nfcEH(){ return NFCS.rot ? NFC_W : NFC_H; } // 実効高（向き反映）
 let NFC_GRID = null;                                  // ダイカット用 有効枠中心点（px）
 
 // 多角形ヘルパー（NFC用・グローバル）
@@ -1947,7 +1953,7 @@ function snapNFCGrid(px,py){ if(!NFC_GRID) return {x:px,y:py}; let b=NFC_GRID[0]
 // 枠中心px(px,py)を有効位置に整える。allowFree=true なら（自由ドラッグ中）そのまま返す
 function clampNFCPx(px,py,geom,allowFree){
   const { ox,oy,kw,kh,pxPerCm }=geom;
-  const hw=NFC_W*pxPerCm/2, hh=NFC_H*pxPerCm/2, m=NFC_MARGIN*pxPerCm;
+  const hw=nfcEW()*pxPerCm/2, hh=nfcEH()*pxPerCm/2, m=NFC_MARGIN*pxPerCm;
   if(S.shape==='diecut'){
     if(allowFree) return {x:px,y:py};
     if(nfcValidPx(px,py,geom,hw,hh,m)) return {x:px,y:py};
@@ -1970,7 +1976,7 @@ function posNFCBox(){
   if(!wrap||!bg||!box) return;
   const aw=bg.width||wrap.offsetWidth||260, ah=bg.height||wrap.offsetHeight||200;
   const geom=getKHRect(aw,ah); const { ox,oy,kw,kh,pxPerCm }=geom;
-  const bw=NFC_W*pxPerCm, bh=NFC_H*pxPerCm;
+  const bw=nfcEW()*pxPerCm, bh=nfcEH()*pxPerCm;
   let cx=ox+kw*NFCS.x/100, cy=oy+kh*NFCS.y/100;
   const cl=clampNFCPx(cx,cy,geom,false); cx=cl.x; cy=cl.y;     // 表示時は必ず有効位置へ整える
   NFCS.x=((cx-ox)/kw)*100; NFCS.y=((cy-oy)/kh)*100;
@@ -1984,7 +1990,7 @@ function setupNFCDrag(){
   let drag=false, dxp=0, dyp=0;
   const down=e=>{ drag=true; const r=wrap.getBoundingClientRect(); const cl=e.touches?e.touches[0].clientX:e.clientX, ct=e.touches?e.touches[0].clientY:e.clientY; dxp=cl-r.left-box.offsetLeft; dyp=ct-r.top-box.offsetTop; if(e.cancelable)e.preventDefault(); };
   const move=e=>{ if(!drag)return; const r=wrap.getBoundingClientRect(); const cl=e.touches?e.touches[0].clientX:e.clientX, ct=e.touches?e.touches[0].clientY:e.clientY;
-    const aw=bg.width,ah=bg.height, geom=getKHRect(aw,ah), { ox,oy,kw,kh,pxPerCm }=geom, bw=NFC_W*pxPerCm,bh=NFC_H*pxPerCm;
+    const aw=bg.width,ah=bg.height, geom=getKHRect(aw,ah), { ox,oy,kw,kh,pxPerCm }=geom, bw=nfcEW()*pxPerCm,bh=nfcEH()*pxPerCm;
     let cx=cl-r.left-dxp+bw/2, cy=ct-r.top-dyp+bh/2;
     const cl2=clampNFCPx(cx,cy,geom,NFCS.mode==='free'); cx=cl2.x; cy=cl2.y;
     box.style.left=(cx-bw/2)+'px'; box.style.top=(cy-bh/2)+'px';
@@ -1999,14 +2005,14 @@ function initNFCEditor(){
   const wrap=document.getElementById('nfcWrap'), bg=document.getElementById('nfcBg'); if(!wrap||!bg) return;
   const aw=wrap.offsetWidth||260, ah=wrap.offsetHeight||200; bg.width=aw; bg.height=ah;
   drawQRBg('front', bg, aw, ah);                  // 背景＝本体＋おもて画像（QRの背景描画を流用）
-  const geom=getKHRect(aw,ah), hw=NFC_W*geom.pxPerCm/2, hh=NFC_H*geom.pxPerCm/2, m=NFC_MARGIN*geom.pxPerCm;
+  const geom=getKHRect(aw,ah), hw=nfcEW()*geom.pxPerCm/2, hh=nfcEH()*geom.pxPerCm/2, m=NFC_MARGIN*geom.pxPerCm;
   buildNFCGrid(geom,hw,hh,m); posNFCBox(); setupNFCDrag();
 }
 function resyncNFC(){
   const wrap=document.getElementById('nfcWrap'), bg=document.getElementById('nfcBg'); if(!wrap||!bg) return;
   const aw=wrap.offsetWidth||260, ah=wrap.offsetHeight||200; bg.width=aw; bg.height=ah;
   drawQRBg('front', bg, aw, ah);
-  const geom=getKHRect(aw,ah), hw=NFC_W*geom.pxPerCm/2, hh=NFC_H*geom.pxPerCm/2, m=NFC_MARGIN*geom.pxPerCm;
+  const geom=getKHRect(aw,ah), hw=nfcEW()*geom.pxPerCm/2, hh=nfcEH()*geom.pxPerCm/2, m=NFC_MARGIN*geom.pxPerCm;
   buildNFCGrid(geom,hw,hh,m); posNFCBox();
 }
 function setNFCMode(m){
@@ -2014,6 +2020,12 @@ function setNFCMode(m){
   document.getElementById('nfcMode-fix').classList.toggle('sel', m==='fix');
   document.getElementById('nfcMode-free').classList.toggle('sel', m==='free');
   posNFCBox();
+}
+function setNFCRot(r){
+  NFCS.rot=r;
+  document.getElementById('nfcRot-h').classList.toggle('sel', r===0);
+  document.getElementById('nfcRot-v').classList.toggle('sel', r===1);
+  resyncNFC();   // 向き変更 → 枚サイズが変わるのでグリッド再生成＋再配置
 }
 
 function syncQRAll() { ['front','back'].forEach(s => { const w = document.getElementById('qrWrap-'+s); if (w && w.offsetWidth > 0) resyncQR(s); }); if (S.nfc) { const wn=document.getElementById('nfcWrap'); if (wn && wn.offsetWidth>0) resyncNFC(); } }
@@ -2379,7 +2391,7 @@ function doSubmit() {
     qrUrl:      S.qrUrl,
     qrFront:    { ...QRS.front },
     qrBack:     { ...QRS.back },
-    nfcPos:     { x: NFCS.x, y: NFCS.y, w: NFC_W, h: NFC_H, mode: NFCS.mode },
+    nfcPos:     { x: NFCS.x, y: NFCS.y, w: nfcEW(), h: nfcEH(), mode: NFCS.mode, rot: NFCS.rot },
     sizeCm:     S.sizeCm,
     widthCm:    S.shape === 'rect' ? S.widthCm  : S.sizeCm,
     heightCm:   S.shape === 'rect' ? S.heightCm : S.sizeCm,
