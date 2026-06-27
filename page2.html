@@ -439,10 +439,10 @@ if(document.readyState!=='loading')w();else document.addEventListener('DOMConten
     <div class="slider-group" id="szGroup">
       <label id="szLabel">長辺（最長部分）</label>
       <div class="slider-row">
-        <input type="range" id="szSlider" min="3" max="9" step="0.5" value="7" oninput="onSzSlider()">
+        <input type="range" id="szSlider" min="3" max="9" step="0.5" value="5" oninput="onSzSlider()">
         <div class="num-step">
           <button onclick="stepSz(-0.5)">−</button>
-          <input type="number" id="szN" min="3" max="9" step="0.5" value="7" oninput="onSzInput()">
+          <input type="number" id="szN" min="3" max="9" step="0.5" value="5" oninput="onSzInput()">
           <span class="unit">cm</span>
           <button onclick="stepSz(0.5)">＋</button>
         </div>
@@ -456,10 +456,10 @@ if(document.readyState!=='loading')w();else document.addEventListener('DOMConten
       <div class="slider-group">
         <label>横（幅）</label>
         <div class="slider-row">
-          <input type="range" id="rwSlider" min="3" max="9" step="0.5" value="9" oninput="onRwSlider()">
+          <input type="range" id="rwSlider" min="3" max="9" step="0.5" value="5" oninput="onRwSlider()">
           <div class="num-step">
             <button onclick="stepRw(-0.5)">−</button>
-            <input type="number" id="rwN" min="3" max="9" step="0.5" value="9" oninput="onRwInput()">
+            <input type="number" id="rwN" min="3" max="9" step="0.5" value="5" oninput="onRwInput()">
             <span class="unit">cm</span>
             <button onclick="stepRw(0.5)">＋</button>
           </div>
@@ -468,10 +468,10 @@ if(document.readyState!=='loading')w();else document.addEventListener('DOMConten
       <div class="slider-group">
         <label>縦（高さ）</label>
         <div class="slider-row">
-          <input type="range" id="rhSlider" min="3" max="9" step="0.5" value="6" oninput="onRhSlider()">
+          <input type="range" id="rhSlider" min="3" max="9" step="0.5" value="5" oninput="onRhSlider()">
           <div class="num-step">
             <button onclick="stepRh(-0.5)">−</button>
-            <input type="number" id="rhN" min="3" max="9" step="0.5" value="6" oninput="onRhInput()">
+            <input type="number" id="rhN" min="3" max="9" step="0.5" value="5" oninput="onRhInput()">
             <span class="unit">cm</span>
             <button onclick="stepRh(0.5)">＋</button>
           </div>
@@ -754,8 +754,8 @@ const S = {
   qr:         false, qrSide: null, qrUrl: '',
   qrFront:    { x: 50, y: 50, cm: 2 },
   qrBack:     { x: 50, y: 50, cm: 2 },
-  sizeCm:     7, thickCm: 2.5,        // sizeCm = 長辺（丸/四角=辺, 自由四角=max(縦横), ダイア=長辺）
-  widthCm:    9, heightCm: 6,      // 自由四角(rect)専用：横・縦
+  sizeCm:     5, thickCm: 2.5,        // sizeCm = 長辺（丸/四角=辺, 自由四角=max(縦横), ダイア=長辺）
+  widthCm:    5, heightCm: 5,      // 自由四角(rect)専用：横・縦
 
   attX:       50, attY: 10, attAngle: 0,
   holeCm:     0.5,     // 穴の直径(cm) ＝ 5mm 固定
@@ -2111,7 +2111,7 @@ function onBdSlider() { setBorderCm(+document.getElementById('bdSlider').value);
 function onBdInput()  { setBorderCm(+document.getElementById('bdN').value); }
 function stepBd(d)    { setBorderCm((+document.getElementById('bdN').value || 0) + d); }
 
-setSz(7); setTh(2.5); // 初期値
+setSz(5); setTh(2.5); // 初期値（サイズは全形状5cm）
 
 // ═══════════════════════════════════════════════════════
 // 穴エディタ（canvas直接ドラッグ・5mm固定）
@@ -2497,7 +2497,6 @@ function submitOrder(orderData) {
           orderId: orderData.orderId,
           nfcUrl:  orderData.nfcUrl || '',
           qrUrl:   orderData.qrUrl  || '',
-          label:   (orderData.color || '') + ' / ' + (orderData.shape || ''),
         }),
       }).catch(() => {}),
     ]),
