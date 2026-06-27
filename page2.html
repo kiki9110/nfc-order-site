@@ -118,6 +118,7 @@ body{font-family:'Noto Sans JP',sans-serif;background:var(--paper);color:var(--i
 .section-label{font-size:11px;font-weight:500;color:var(--muted);text-transform:uppercase;letter-spacing:.06em;margin-bottom:8px;}
 .divider{height:1px;background:var(--cream);margin:14px 0;}
 .extra-tag{display:inline-block;font-size:10px;padding:1px 7px;background:#fde8e0;color:var(--accent);border-radius:20px;font-weight:500;margin-left:6px;}
+.hide-price .extra-tag,.hide-price .yn-sub{display:none;}   /* 10桁番号は値段を隠す */
 
 /* QR EDITOR */
 .qr-canvas-wrap{position:relative;width:100%;height:220px;border-radius:10px;overflow:hidden;border:1.5px solid var(--border);background:var(--cream);margin-bottom:10px;}
@@ -771,7 +772,7 @@ let cropTarget = 'front';
 
 document.getElementById('topOrder').textContent = S.orderId;
 // 10桁の数字（自己登録）のときだけ製作枚数欄を表示
-if (/^[0-9]{10}$/.test(S.orderId)) { var _qs = document.getElementById('qtySec'); if (_qs) _qs.style.display = 'block'; }
+if (/^[0-9]{10}$/.test(S.orderId)) { var _qs = document.getElementById('qtySec'); if (_qs) _qs.style.display = 'block'; document.body.classList.add('hide-price'); }
 
 // ═══════════════════════════════════════════════════════
 // 購入オプションの取得とロック適用
@@ -1020,7 +1021,7 @@ function setNFC(val) {
   document.getElementById('nfc-yes').classList.toggle('sel', val);
   document.getElementById('nfc-no').classList.toggle('sel', !val);
   document.getElementById('nfcUrl-box').classList.toggle('show', val);
-  document.getElementById('ss3').textContent = val ? 'あり (+¥200)' : 'なし';
+  document.getElementById('ss3').textContent = val ? (document.body.classList.contains('hide-price') ? 'あり' : 'あり (+¥200)') : 'なし';
   done(3); updateProg();
   if (val) setTimeout(initNFCEditor, 40);   // NFCあり → 位置エディタを初期化
 }
@@ -1032,7 +1033,7 @@ function setBackPrint(val) {
   S.backPrint = val;
   document.getElementById('bp-yes').classList.toggle('sel', val);
   document.getElementById('bp-no').classList.toggle('sel', !val);
-  document.getElementById('ss35').textContent = val ? 'あり (+¥100)' : 'なし';
+  document.getElementById('ss35').textContent = val ? (document.body.classList.contains('hide-price') ? 'あり' : 'あり (+¥100)') : 'なし';
   document.getElementById('backArea').style.display  = val ? 'block' : 'none';
   document.getElementById('frontLbl').style.display  = val ? 'block' : 'none';
   updateProg();
