@@ -317,6 +317,13 @@ function processOrders() {
   } catch (e) {
     Logger.log('メッセージ通知エラー: ' + e);
   }
+
+  // サポート：新規サポートのメール通知＋1週間放置の自動解決。
+  try {
+    notifyNewSupport();
+  } catch (e) {
+    Logger.log('サポート通知エラー: ' + e);
+  }
 }
 
 
@@ -403,6 +410,94 @@ function notifyNewMessages() {
  */
 function notifyOnce() {
   notifyNewMessages();
+}
+
+
+// ============================================================
+// サポートの通知＋自動解決
+// ============================================================
+/**
+ * Worker に届いた「未通知」のサポートを取得してメールで知らせ、
+ * 送信できたものは Worker 側で emailed=true（通知済み）にする。
+ * あわせて「管理者の返信から1週間放置」のサポートを自動で解決済みにする。
+ *
+ * processOrders() の最後から呼ばれるので、5分おきのトリガーで自動実行される。
+ */
+function notifyNewSupport() {
+  // 1) 未通知サポート一覧を取得（?pending=1 で emailed=false のものだけ返る）
+  const url = CONFIG.WORKER_ORIGIN + '/api/support-list?pending=1';
+  const res = UrlFetchApp.fetch(url, {
+    headers: { 'Authorization': 'Bearer ' + CONFIG.ADMIN_PASSWORD },
+    muteHttpExceptions: true,
+  });
+  if (res.getResponseCode() === 200) {
+    const data  = JSON.parse(res.getContentText());
+    const items = (data && data.items) ? data.items : [];
+    if (items.length > 0) {
+      const to = CONFIG.NOTIFY_EMAIL || Session.getEffectiveUser().getEmail();
+      const sentNumbers = [];
+      for (let i = 0; i < items.length; i++) {
+        const s = items[i];
+        const when = s.createdAt
+          ? Utilities.formatDate(new Date(s.createdAt), Session.getScriptTimeZone(), 'yyyy/MM/dd HH:mm')
+          : '';
+        const body = [
+          'サポートページに新しいサポートが届きました。',
+          '',
+          '日時　　：' + when,
+          'サポート番号：' + (s.number || ''),
+          '連絡先　：' + (s.contact || '（未記入）'),
+          '要件　　：' + (s.subject || ''),
+          '',
+          '----- 要件の詳細 -----',
+          s.detail || '',
+          '----------------------',
+          '',
+          '▼ 管理画面のサポートで返信',
+          CONFIG.WORKER_ORIGIN + '/admin#support',
+        ].join('\n');
+        try {
+          MailApp.sendEmail({
+            to: to,
+            subject: '【BUKI BOOTH】サポート（番号 ' + (s.number || '') + '）' + (s.subject ? '：' + s.subject : ''),
+            body: body,
+          });
+          sentNumbers.push(s.number);
+        } catch (e) {
+          Logger.log('サポートメール送信失敗（' + s.number + '）: ' + e);
+        }
+      }
+      // 送信できたものを「通知済み」にする（次回から再送されない）
+      if (sentNumbers.length > 0) {
+        const up = UrlFetchApp.fetch(CONFIG.WORKER_ORIGIN + '/api/support-update', {
+          method: 'post',
+          contentType: 'application/json',
+          headers: { 'Authorization': 'Bearer ' + CONFIG.ADMIN_PASSWORD },
+          payload: JSON.stringify({ numbers: sentNumbers, emailed: true }),
+          muteHttpExceptions: true,
+        });
+        if (up.getResponseCode() !== 200) {
+          Logger.log('サポート通知済みフラグ更新失敗: ' + up.getResponseCode() + ' ' + up.getContentText());
+        }
+      }
+      Logger.log('サポート通知 — 送信: ' + sentNumbers.length + ' 件');
+    }
+  } else {
+    Logger.log('サポート取得失敗: ' + res.getResponseCode() + ' ' + res.getContentText());
+  }
+
+  // 2) 放置サポートの自動解決スイープ（管理者返信から1週間お客さんの反応なし → 解決済み）
+  const sweep = UrlFetchApp.fetch(CONFIG.WORKER_ORIGIN + '/api/support-update', {
+    method: 'post',
+    contentType: 'application/json',
+    headers: { 'Authorization': 'Bearer ' + CONFIG.ADMIN_PASSWORD },
+    payload: JSON.stringify({ sweep: true }),
+    muteHttpExceptions: true,
+  });
+  if (sweep.getResponseCode() === 200) {
+    const sd = JSON.parse(sweep.getContentText());
+    if (sd && sd.resolved) Logger.log('サポート自動解決: ' + sd.resolved + ' 件');
+  }
 }
 
 

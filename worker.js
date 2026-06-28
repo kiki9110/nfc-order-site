@@ -88,6 +88,17 @@ export default {
     if (path === '/api/messages')       return handleMessageList(request, env, cors);   // 管理者：一覧
     if (path === '/api/message-update') return handleMessageUpdate(request, env, cors);  // 管理者：既読/削除/通知済み
 
+    // ── サポート（チケット＋チャット）──
+    if (path === '/support' || path === '/support/') return new Response(supportListHTML(origin), { headers: htmlHdr }); // 本人のサポート一覧
+    if (path === '/support/new')                     return new Response(supportNewHTML(origin),  { headers: htmlHdr }); // 新規作成
+    if (path.startsWith('/support/'))                return new Response(supportChatHTML(origin), { headers: htmlHdr }); // 番号別チャット
+    if (path === '/api/support-create')  return handleSupportCreate(request, env, cors);  // 公開：作成 → 6桁番号
+    if (path === '/api/support-get')     return handleSupportGet(request, env, cors);     // 公開：番号で取得（チャット）
+    if (path === '/api/support-message') return handleSupportMessage(request, env, cors); // 公開：本人がメッセージ追加
+    if (path === '/api/support-list')    return handleSupportList(request, env, cors);    // 管理者：一覧
+    if (path === '/api/support-reply')   return handleSupportReply(request, env, cors);   // 管理者：返信
+    if (path === '/api/support-update')  return handleSupportUpdate(request, env, cors);  // 管理者：状態/通知済み/自動解決
+
     return new Response('NFC Order Worker ✓');
   }
 };
@@ -1466,8 +1477,27 @@ tr:hover td{background:#f7f9fb;}
 .ul-row:last-child{border-bottom:none;}
 .ul-label{font-size:12px;font-weight:600;color:var(--ink);margin-bottom:3px;}
 .ul-url{font-size:11px;color:var(--muted);word-break:break-all;margin-bottom:6px;font-family:monospace;}
+.ul-url a{color:var(--accent);text-decoration:none;}
+.ul-url a:hover{text-decoration:underline;}
 .ul-actions{display:flex;gap:6px;flex-wrap:wrap;}
 .ul-actions .copy-btn{margin-left:0;}
+
+/* ── サポート ── */
+.badge{font-size:11px;font-weight:700;padding:2px 9px;border-radius:10px;white-space:nowrap;}
+.badge.open{background:#eef2fe;color:#3257d6;}
+.badge.resolved{background:#e7f6ec;color:#15803d;}
+.sup-row{background:#fff;border:1.5px solid var(--border);border-radius:10px;padding:13px 15px;margin-bottom:10px;cursor:pointer;transition:border-color .15s;}
+.sup-row:hover{border-color:var(--ink);}
+.sup-row-top{display:flex;align-items:center;justify-content:space-between;gap:10px;margin-bottom:5px;}
+.sup-row-subj{font-size:15px;font-weight:700;word-break:break-all;}
+.sup-row-sub{font-size:11px;color:var(--muted);word-break:break-all;}
+.sup-bw{display:flex;flex-direction:column;max-width:84%;margin-bottom:6px;}
+.sup-bw.admin{align-self:flex-end;align-items:flex-end;}
+.sup-bw.user{align-self:flex-start;align-items:flex-start;}
+.sup-bub{padding:8px 12px;border-radius:13px;font-size:13.5px;line-height:1.6;word-break:break-all;white-space:pre-wrap;}
+.sup-bub.admin{background:#3257d6;color:#fff;border-bottom-right-radius:4px;}
+.sup-bub.user{background:#f1f3f6;color:var(--ink);border-bottom-left-radius:4px;}
+.sup-bt{font-size:10px;color:var(--muted);margin:2px 4px 0;}
 
 /* ── 編集モーダル ── */
 .modal-bg{display:none;position:fixed;inset:0;background:rgba(0,0,0,.6);z-index:100;align-items:center;justify-content:center;padding:20px;}
@@ -1596,6 +1626,11 @@ tr:hover td{background:#f7f9fb;}
         <div class="menu-name">メッセージ一覧</div>
         <div class="menu-desc">お問い合わせフォームから届いたメッセージの確認・既読 / 削除</div>
       </button>
+      <button class="menu-card" onclick="showSupport()">
+        <div class="menu-icon">🎫</div>
+        <div class="menu-name">サポート</div>
+        <div class="menu-desc">お客さんからのサポートの一覧・チャットでの返信・解決済みの管理</div>
+      </button>
       <button class="menu-card" onclick="showSelfOpt()">
         <div class="menu-icon">⚙️</div>
         <div class="menu-name">自己登録の設定</div>
@@ -1647,8 +1682,6 @@ tr:hover td{background:#f7f9fb;}
         <thead>
           <tr>
             <th>注文番号</th>
-            <th>NFC URL</th>
-            <th>QR URL</th>
             <th>メモ</th>
             <th>最終更新</th>
             <th>アクセス</th>
@@ -1656,7 +1689,7 @@ tr:hover td{background:#f7f9fb;}
           </tr>
         </thead>
         <tbody id="listBody">
-          <tr><td colspan="7" class="empty">読み込み中...</td></tr>
+          <tr><td colspan="5" class="empty">読み込み中...</td></tr>
         </tbody>
       </table>
     </div>
@@ -1849,6 +1882,38 @@ tr:hover td{background:#f7f9fb;}
     </div>
   </div>
 
+  <!-- サポート画面 -->
+  <div id="supportView" class="wrap" style="display:none;">
+    <div class="section-title" style="margin-top:4px;">サポート一覧</div>
+    <div class="backup-note" style="margin-bottom:16px;">
+      お客さんから届いたサポートです。カードをクリックするとチャットで返信できます。<br>
+      こちらの返信から1週間お客さんの反応が無いものは、自動で「解決済み」になります。
+    </div>
+    <div class="controls"><button class="reload-btn" onclick="loadSupport()">↺ 更新</button></div>
+    <div id="supListBox"><div class="empty">読み込み中...</div></div>
+  </div>
+
+<!-- ===== サポート返信モーダル ===== -->
+<div class="modal-bg" id="supportModal">
+  <div class="modal" style="max-width:560px;display:flex;flex-direction:column;max-height:90vh;">
+    <div style="display:flex;align-items:flex-start;justify-content:space-between;gap:10px;">
+      <div style="min-width:0;">
+        <h3 id="supTitle" style="margin:0;word-break:break-all;">要件</h3>
+        <div id="supNum" style="font-family:monospace;font-size:12px;color:var(--muted);margin-top:3px;"></div>
+      </div>
+      <button class="modal-cancel" style="flex:0 0 auto;width:auto;padding:7px 14px;" onclick="closeSupport()">閉じる</button>
+    </div>
+    <div id="supContact" style="font-size:12px;color:var(--muted);margin-top:8px;"></div>
+    <div id="supDetail" style="font-size:13px;color:var(--ink);background:var(--cream);border-radius:8px;padding:10px;margin-top:8px;white-space:pre-wrap;word-break:break-all;max-height:120px;overflow-y:auto;"></div>
+    <div style="margin-top:10px;"><button class="edit-btn" id="supStatusBtn" onclick="toggleSupStatus()">解決済みにする</button></div>
+    <div id="supChat" style="flex:1;overflow-y:auto;margin-top:12px;border-top:1px solid var(--cream);padding-top:12px;display:flex;flex-direction:column;gap:4px;min-height:160px;"></div>
+    <div id="supReplyBar" style="display:flex;gap:8px;margin-top:10px;">
+      <textarea id="supReply" rows="2" placeholder="返信を入力" style="flex:1;border:1.5px solid var(--border);border-radius:9px;padding:9px;font-family:inherit;font-size:14px;resize:none;outline:none;"></textarea>
+      <button class="modal-save" style="flex:0 0 auto;width:auto;padding:0 18px;" onclick="sendSupReply()">送信</button>
+    </div>
+  </div>
+</div>
+
 <!-- ===== 編集モーダル ===== -->
 <div class="modal-bg" id="editModal">
   <div class="modal">
@@ -2004,62 +2069,95 @@ function doLogout() {
 function enterApp() {
   document.getElementById('loginView').style.display = 'none';
   document.getElementById('appView').style.display   = 'block';
-  showHome();
+  // URLハッシュがあればその画面を、無ければホームを表示（ブックマーク・再読み込み対応）
+  if (location.hash && location.hash.slice(1)) adminRoute(false);
+  else showHome();
 }
 
-// ─── 画面切り替え ───
+// ─── 画面切り替え（各画面にURLハッシュを割り当て、ブラウザの戻る/進むで行き来できる）───
 function hideAll() {
-  ['homeView','keychainsView','inventoryView','backupView','optStockView','messagesView','selfOptView','qrGenView'].forEach(function(id){
+  ['homeView','keychainsView','inventoryView','backupView','optStockView','messagesView','selfOptView','qrGenView','supportView'].forEach(function(id){
     document.getElementById(id).style.display = 'none';
   });
   document.getElementById('homeNavBtn').style.display = 'none';
 }
-function showHome() {
+// 表示中の画面に対応するURL(#xxx)を履歴に積む。
+// push===false（ブラウザの戻る/進む経由の呼び出し）のときは積まない＝二重登録を防ぐ。
+function nav(view, push) {
+  if (push === false) return;
+  if (location.hash.slice(1) === view) return;   // 同じURLなら積まない
+  history.pushState(null, '', '#' + view);
+}
+// URLハッシュ → 対応する画面表示関数。
+var ADMIN_ROUTES = {
+  home: showHome, keychains: showKeychains, inventory: showInventory, backup: showBackup,
+  optstock: showOptStock, messages: showMessages, selfopt: showSelfOpt, qrgen: showQrGen,
+  support: showSupport
+};
+// 現在のURLハッシュに合わせて画面を表示する。
+function adminRoute(push) {
+  var v = (location.hash.slice(1) || 'home').toLowerCase();
+  (ADMIN_ROUTES[v] || showHome)(push);
+}
+// ブラウザの戻る/進む：ログイン後（アプリ表示中）のみ画面を切り替える。
+window.addEventListener('popstate', function () {
+  if (document.getElementById('appView').style.display !== 'none') adminRoute(false);
+});
+
+function showHome(push) {
   hideAll();
   document.getElementById('homeView').style.display = 'block';
+  nav('home', push);
 }
-function showKeychains() {
+function showKeychains(push) {
   hideAll();
   document.getElementById('keychainsView').style.display = 'block';
   document.getElementById('homeNavBtn').style.display    = 'inline-block';
   loadList();
+  nav('keychains', push);
 }
-function showInventory() {
+function showInventory(push) {
   hideAll();
   document.getElementById('inventoryView').style.display = 'block';
   document.getElementById('homeNavBtn').style.display    = 'inline-block';
   loadInventory();
+  nav('inventory', push);
 }
-function showBackup() {
+function showBackup(push) {
   hideAll();
   document.getElementById('backupView').style.display = 'block';
   document.getElementById('homeNavBtn').style.display = 'inline-block';
+  nav('backup', push);
 }
-function showOptStock() {
+function showOptStock(push) {
   hideAll();
   document.getElementById('optStockView').style.display = 'block';
   document.getElementById('homeNavBtn').style.display   = 'inline-block';
   loadOptList();
+  nav('optstock', push);
 }
-function showMessages() {
+function showMessages(push) {
   hideAll();
   document.getElementById('messagesView').style.display = 'block';
   document.getElementById('homeNavBtn').style.display   = 'inline-block';
   loadMessages();
+  nav('messages', push);
 }
-function showSelfOpt() {
+function showSelfOpt(push) {
   hideAll();
   document.getElementById('selfOptView').style.display = 'block';
   document.getElementById('homeNavBtn').style.display  = 'inline-block';
   loadSelfOpt();
+  nav('selfopt', push);
 }
 
 // ─── QRコード生成（注文番号から。注文が存在しなくても作れる）───
 var QRGEN_ID = '';
-function showQrGen() {
+function showQrGen(push) {
   hideAll();
   document.getElementById('qrGenView').style.display  = 'block';
   document.getElementById('homeNavBtn').style.display = 'inline-block';
+  nav('qrgen', push);
 }
 function genQrCodes() {
   var id = (document.getElementById('qrGenOrderId').value || '').trim();
@@ -2082,9 +2180,7 @@ function dlQr(boxId, kind) {
   var im = box.querySelector('img') || box.querySelector('canvas');
   if (!im) return;
   var src = (im.tagName === 'IMG') ? im.src : im.toDataURL('image/png');
-  var a = document.createElement('a');
-  a.href = src; a.download = kind + '_qr_' + QRGEN_ID + '.png';
-  document.body.appendChild(a); a.click(); a.remove();
+  saveImage(src, kind + '_qr_' + QRGEN_ID + '.png', 'QRコード');
 }
 function loadSelfOpt() {
   fetch(BASE + '/api/self-opt-get').then(function(r){ return r.json(); }).then(function(d){
@@ -2158,6 +2254,57 @@ function loadList() {
     .catch(function () { toast('一覧の取得に失敗しました'); });
 }
 
+// ─── 画像の保存（スマホは「写真に保存」、PCはダウンロード）───
+// スマホ(iPhone/iPad/Android)では Web Share でOSの共有シートを開き、「画像を保存」でカメラロールへ。
+// 共有が使えない端末（多くのPC等）では従来どおりPNGダウンロードにフォールバックする。
+function isMobileLike() {
+  return /Android|iPhone|iPad|iPod/i.test(navigator.userAgent) ||
+         (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1); // iPadOS（Mac偽装）対策
+}
+function dataUrlToBlob(d) {
+  var head = d.split(',')[0], body = d.split(',')[1];
+  var mime = head.substring(head.indexOf(':') + 1, head.indexOf(';'));
+  var bin = atob(body), n = bin.length, u8 = new Uint8Array(n);
+  for (var i = 0; i < n; i++) u8[i] = bin.charCodeAt(i);
+  return new Blob([u8], { type: mime });
+}
+function saveImage(dataUrl, filename, title) {
+  if (isMobileLike() && navigator.canShare) {
+    try {
+      var file = new File([dataUrlToBlob(dataUrl)], filename, { type: 'image/png' });
+      if (navigator.canShare({ files: [file] })) {
+        navigator.share({ files: [file], title: title || filename }).catch(function () {});
+        return; // 共有シートが開いた（ユーザーが「写真に保存」を選べる）
+      }
+    } catch (e) { /* 失敗時は下のダウンロードへ */ }
+  }
+  var a = document.createElement('a');
+  a.href = dataUrl; a.download = filename;
+  document.body.appendChild(a); a.click(); a.remove();
+}
+
+// ─── ラベル保存（注文番号専用QR入りの黒枠ラベルを生成して保存）───
+function printLabel(oid) {
+  if (!window.QRCode) { alert('QRライブラリの読み込み中です。少し待ってからもう一度押してください。'); return; }
+  var setupUrl = location.origin + '/setup/' + encodeURIComponent(oid);
+  var tmp = document.createElement('div');
+  new QRCode(tmp, { text: setupUrl, width: 240, height: 240, correctLevel: QRCode.CorrectLevel.M });
+  setTimeout(function () {
+    var qrEl = tmp.querySelector('canvas') || tmp.querySelector('img');
+    var cv = document.createElement('canvas'); cv.width = 930; cv.height = 300;
+    var ctx = cv.getContext('2d'); var W = cv.width, H = cv.height, INK = '#000';
+    ctx.fillStyle = '#fff'; ctx.fillRect(0, 0, W, H);
+    ctx.strokeStyle = INK; ctx.lineWidth = 4; ctx.strokeRect(5, 5, W - 10, H - 10);
+    var q = 240; ctx.imageSmoothingEnabled = false; ctx.drawImage(qrEl, 34, (H - q) / 2, q, q);
+    ctx.fillStyle = INK; ctx.textBaseline = 'alphabetic';
+    ctx.font = '900 80px sans-serif'; ctx.fillText('BUKI製作所', 322, 150);
+    ctx.lineWidth = 5; ctx.beginPath(); ctx.moveTo(326, 180); ctx.lineTo(900, 180); ctx.stroke();
+    ctx.fillStyle = '#000'; ctx.font = '700 46px sans-serif'; ctx.fillText('QRを読み取って登録', 326, 244);
+    var dataUrl = cv.toDataURL('image/png');
+    saveImage(dataUrl, 'label_' + oid + '.png', 'ラベル ' + oid);
+  }, 80);
+}
+
 // ─── 一覧描画（検索フィルタ + 並び替え）───
 function renderList() {
   const tbody = document.getElementById('listBody');
@@ -2180,7 +2327,7 @@ function renderList() {
   });
 
   if (!items.length) {
-    tbody.innerHTML = '<tr><td colspan="7" class="empty">' + (q ? '該当する注文がありません' : 'まだ登録がありません') + '</td></tr>';
+    tbody.innerHTML = '<tr><td colspan="5" class="empty">' + (q ? '該当する注文がありません' : 'まだ登録がありません') + '</td></tr>';
     return;
   }
 
@@ -2189,20 +2336,11 @@ function renderList() {
     const item   = items[i];
     const oid    = item.orderId;
     const oidEnc = encodeURIComponent(oid);
-    const nfcTagUrl  = BASE + '/nfc/'    + oidEnc;
-    const qrTagUrl   = BASE + '/qr/'     + oidEnc;
-    const portalUrl  = BASE + '/portal?add=' + oidEnc;
-    const nfcDest    = item.nfcUrl || '';
-    const qrDest     = item.qrUrl  || '';
-    const shortNfc   = nfcDest ? (nfcDest.length > 22 ? nfcDest.slice(0,22)+'…' : nfcDest) : '未設定';
-    const shortQr    = qrDest  ? (qrDest.length  > 22 ? qrDest.slice(0,22)+'…'  : qrDest)  : '未設定';
 
     html += '<tr>';
     html += '<td>';
     html +=   '<span class="order-id">' + esc(oid) + '</span>';
     html += '</td>';
-    html += '<td class="url-cell">' + (nfcDest ? '<a href="' + esc(nfcDest) + '" target="_blank">' + esc(shortNfc) + '</a>' : '<span style="color:var(--muted);">未設定</span>') + '</td>';
-    html += '<td class="url-cell">' + (qrDest  ? '<a href="' + esc(qrDest)  + '" target="_blank">' + esc(shortQr)  + '</a>' : '<span style="color:var(--muted);">未設定</span>') + '</td>';
     html += '<td style="font-size:12px;color:var(--muted);">' + esc(item.label || '—') + '</td>';
     html += '<td class="date-cell">' + fmtDate(item.lastUrlUpdate) + '</td>';
     html += '<td><span class="count-badge">📡' + (item.accessCount||0) + ' / 📷' + (item.qrAccessCount||0) + '</span></td>';
@@ -2210,6 +2348,7 @@ function renderList() {
     html +=   '<button class="edit-btn" onclick="openEdit(\\'' + esc(oid) + '\\')">編集</button> ';
     html +=   '<button class="del-btn"  onclick="deleteEntry(\\'' + esc(oid) + '\\')">削除</button> ';
     html +=   '<button class="edit-btn" style="background:var(--blue-bg);border-color:#b8d9f0;color:var(--blue);" onclick="window.open(\\'/order/' + oidEnc + '?pw=\\'+encodeURIComponent(PW),\\'_blank\\')">詳細</button> ';
+    html +=   '<button class="edit-btn" onclick="printLabel(\\'' + esc(oid) + '\\')">ラベル保存</button> ';
     html +=   '<button class="edit-btn" style="background:#eef9f0;border-color:#bfe3c6;color:var(--green);" onclick="openUrlList(\\'' + esc(oid) + '\\')">URL一覧</button>';
     html += '</td>';
     html += '</tr>';
@@ -2567,9 +2706,25 @@ function openUrlList(orderId) {
     h += '</div></div>';
     return h;
   }
+  // 設定済みの飛び先URL。リンクをクリックするとその先（お客さんが設定したURL）が開く。
+  // 顧客入力なので esc() でエスケープし、onclickには生URLを入れない（リンク自体で開く）。
+  function destRow(label, url) {
+    var h = '<div class="ul-row"><div class="ul-label">' + label + '</div>';
+    if (url) {
+      h += '<div class="ul-url"><a href="' + esc(url) + '" target="_blank" rel="noopener">' + esc(url) + ' ↗</a></div>';
+    } else {
+      h += '<div class="ul-url" style="color:var(--muted);">未設定</div>';
+    }
+    h += '</div>';
+    return h;
+  }
+  var nfcDest = item ? (item.nfcUrl || '') : '';
+  var qrDest  = item ? (item.qrUrl  || '') : '';
   var rows = '';
-  rows += row('📡 NFC タグURL', nfcUrl, true);
-  rows += row('📷 QR タグURL', qrUrl, true);
+  rows += row('📡 NFC タグURL（印刷・貼付用）', nfcUrl, true);
+  rows += destRow('　↳ NFCの飛び先（タップで開くお客さんの設定URL）', nfcDest);
+  rows += row('📷 QR タグURL（印刷・貼付用）', qrUrl, true);
+  rows += destRow('　↳ QRの飛び先（読み取りで開くお客さんの設定URL）', qrDest);
   rows += row('🔗 変更ページURL（お客さん用）', portal, false);
   document.getElementById('urlListRows').innerHTML = rows;
 
@@ -2604,8 +2759,7 @@ function dlUlQr(boxId, kind) {
   var box = document.getElementById(boxId);
   var im = box.querySelector('img') || box.querySelector('canvas'); if (!im) return;
   var src = (im.tagName === 'IMG') ? im.src : im.toDataURL('image/png');
-  var a = document.createElement('a'); a.href = src; a.download = kind + '_qr_' + URLLIST_ID + '.png';
-  document.body.appendChild(a); a.click(); a.remove();
+  saveImage(src, kind + '_qr_' + URLLIST_ID + '.png', 'QRコード');
 }
 function dlUrlListTxt() {
   var blob = new Blob([URLLIST_TXT], { type: 'text/plain;charset=utf-8' });
@@ -2613,6 +2767,94 @@ function dlUrlListTxt() {
   var a = document.createElement('a'); a.href = url; a.download = 'urls_' + URLLIST_ID + '.txt';
   document.body.appendChild(a); a.click(); a.remove();
   setTimeout(function () { URL.revokeObjectURL(url); }, 1000);
+}
+
+// ─── サポート（管理者：一覧＋チャット返信）───
+var SUP_ITEMS = [], SUP_CUR = null, SUP_RESOLVED = false, supPoll = null, supLastCount = -1;
+function showSupport(push) {
+  hideAll();
+  document.getElementById('supportView').style.display = 'block';
+  document.getElementById('homeNavBtn').style.display  = 'inline-block';
+  loadSupport();
+  nav('support', push);
+}
+function loadSupport() {
+  var box = document.getElementById('supListBox');
+  box.innerHTML = '<div class="empty">読み込み中...</div>';
+  fetch(BASE + '/api/support-list', { headers: { Authorization: 'Bearer ' + PW } })
+    .then(function (r) { return r.json(); })
+    .then(function (d) { SUP_ITEMS = (d && d.items) ? d.items : []; renderSupport(); })
+    .catch(function () { box.innerHTML = '<div class="empty">読み込みに失敗しました</div>'; });
+}
+function renderSupport() {
+  var box = document.getElementById('supListBox');
+  if (!SUP_ITEMS.length) { box.innerHTML = '<div class="empty">サポートはまだありません</div>'; return; }
+  var html = '';
+  for (var i = 0; i < SUP_ITEMS.length; i++) {
+    var t = SUP_ITEMS[i]; var resolved = (t.status === 'resolved');
+    html += '<div class="sup-row" onclick="openSupport(\\'' + esc(t.number) + '\\')">';
+    html += '<div class="sup-row-top"><span class="sup-row-subj">' + esc(t.subject) + '</span>';
+    html += '<span class="badge ' + (resolved ? 'resolved' : 'open') + '">' + (resolved ? '解決済み' : '対応中') + '</span></div>';
+    html += '<div class="sup-row-sub">番号 ' + esc(t.number) + ' ・ ' + fmtDate(t.updatedAt || t.createdAt) + (t.contact ? (' ・ 連絡先：' + esc(t.contact)) : '') + '</div>';
+    html += '</div>';
+  }
+  box.innerHTML = html;
+}
+function findSup(number) { for (var i = 0; i < SUP_ITEMS.length; i++) { if (SUP_ITEMS[i].number === number) return SUP_ITEMS[i]; } return null; }
+function openSupport(number) {
+  SUP_CUR = number; supLastCount = -1;
+  var t = findSup(number) || {};
+  document.getElementById('supTitle').textContent   = t.subject || '';
+  document.getElementById('supNum').textContent     = 'サポート番号：' + number;
+  document.getElementById('supContact').textContent = t.contact ? ('連絡先：' + t.contact) : '連絡先：（未記入）';
+  document.getElementById('supDetail').textContent  = t.detail || '';
+  document.getElementById('supChat').innerHTML = '';
+  document.getElementById('supReply').value = '';
+  document.getElementById('supportModal').classList.add('open');
+  loadSupChat();
+  if (supPoll) clearInterval(supPoll);
+  supPoll = setInterval(loadSupChat, 4000);
+}
+function closeSupport() {
+  document.getElementById('supportModal').classList.remove('open');
+  if (supPoll) { clearInterval(supPoll); supPoll = null; }
+  SUP_CUR = null; loadSupport();
+}
+function loadSupChat() {
+  if (!SUP_CUR) return;
+  fetch(BASE + '/api/support-get?number=' + encodeURIComponent(SUP_CUR))
+    .then(function (r) { return r.json(); })
+    .then(function (d) {
+      if (!d || !d.exists) return;
+      var t = d.ticket; SUP_RESOLVED = (t.status === 'resolved');
+      document.getElementById('supStatusBtn').textContent = SUP_RESOLVED ? '対応中に戻す' : '解決済みにする';
+      renderSupChat(t.messages || []);
+    }).catch(function () {});
+}
+function renderSupChat(msgs) {
+  if (msgs.length === supLastCount) return; supLastCount = msgs.length;
+  var box = document.getElementById('supChat'), html = '';
+  for (var i = 0; i < msgs.length; i++) {
+    var m = msgs[i]; var who = (m.from === 'admin') ? 'admin' : 'user';
+    html += '<div class="sup-bw ' + who + '"><div class="sup-bub ' + who + '">' + esc(m.text) + '</div><div class="sup-bt">' + (who === 'admin' ? 'あなた ' : 'お客さん ') + fmtDate(m.ts) + '</div></div>';
+  }
+  if (!msgs.length) html = '<div class="empty" style="padding:20px 0;">まだメッセージはありません</div>';
+  box.innerHTML = html; box.scrollTop = box.scrollHeight;
+}
+function sendSupReply() {
+  var ta = document.getElementById('supReply'); var text = (ta.value || '').trim(); if (!text || !SUP_CUR) return;
+  fetch(BASE + '/api/support-reply', { method: 'POST', headers: { 'Content-Type': 'application/json', Authorization: 'Bearer ' + PW }, body: JSON.stringify({ number: SUP_CUR, text: text }) })
+    .then(function (r) { return r.json(); })
+    .then(function (d) { if (d && d.ok) { ta.value = ''; supLastCount = -1; loadSupChat(); } else { toast((d && d.error) || '送信に失敗しました'); } })
+    .catch(function () { toast('通信エラー'); });
+}
+function toggleSupStatus() {
+  if (!SUP_CUR) return;
+  var next = SUP_RESOLVED ? 'open' : 'resolved';
+  fetch(BASE + '/api/support-update', { method: 'POST', headers: { 'Content-Type': 'application/json', Authorization: 'Bearer ' + PW }, body: JSON.stringify({ number: SUP_CUR, status: next }) })
+    .then(function (r) { return r.json(); })
+    .then(function (d) { if (d && d.ok) { SUP_RESOLVED = (next === 'resolved'); document.getElementById('supStatusBtn').textContent = SUP_RESOLVED ? '対応中に戻す' : '解決済みにする'; toast(SUP_RESOLVED ? '解決済みにしました' : '対応中に戻しました'); } })
+    .catch(function () { toast('通信エラー'); });
 }
 
 function copyText(t) { navigator.clipboard.writeText(t).then(function () { toast('コピーしました'); }); }
@@ -2722,7 +2964,7 @@ if(document.readyState!=='loading')w();else document.addEventListener('DOMConten
 </script>
 </head>
 <body>
-<div class="topbar"><div class="logo">BUKI BOOTH<span>マイページ</span></div><div class="topbar-right"><button id="themeToggle" class="theme-toggle" type="button" aria-label="ライト/ダーク表示を切り替え"><svg class="ic-moon" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M21 12.8A9 9 0 1 1 11.2 3a7 7 0 0 0 9.8 9.8Z"/></svg><svg class="ic-sun" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><circle cx="12" cy="12" r="4"/><path d="M12 3v1.5M12 19.5V21M3 12h1.5M19.5 12H21M5.6 5.6l1 1M17.4 17.4l1 1M18.4 5.6l-1 1M6.6 17.4l-1 1"/></svg></button><button id="navToggle" class="nav-toggle" type="button" aria-label="メニューを開く"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><path d="M3 6h18M3 12h18M3 18h18"/></svg></button></div></div><style>.topbar-right{display:flex;align-items:center;gap:12px;}.nav-toggle{display:inline-flex;align-items:center;justify-content:center;width:36px;height:36px;border-radius:50%;border:1.5px solid rgba(255,255,255,.55);background:rgba(255,255,255,.2);color:#fff;cursor:pointer;padding:0;-webkit-backdrop-filter:blur(6px);backdrop-filter:blur(6px);transition:transform .12s,background .2s;flex-shrink:0;}.nav-toggle:hover{transform:scale(1.08);}.nav-toggle:active{transform:scale(.93);}.nav-toggle svg{width:20px;height:20px;display:block;}:root[data-theme="night"] .nav-toggle{border-color:rgba(255,255,255,.18);background:rgba(255,255,255,.08);color:#ffce9e;}.nav-overlay{position:fixed;inset:0;background:rgba(10,8,16,.45);opacity:0;pointer-events:none;transition:opacity .25s;z-index:1999;-webkit-backdrop-filter:blur(2px);backdrop-filter:blur(2px);}.nav-overlay.open{opacity:1;pointer-events:auto;}.nav-drawer{position:fixed;top:0;right:0;height:100%;width:min(84vw,330px);background:#fff;color:var(--ink);box-shadow:-12px 0 40px -12px rgba(0,0,0,.4);transform:translateX(102%);transition:transform .28s cubic-bezier(.4,0,.2,1);z-index:2000;display:flex;flex-direction:column;overflow-y:auto;}.nav-drawer.open{transform:translateX(0);}:root[data-theme="night"] .nav-drawer{background:#1b1726;box-shadow:-12px 0 50px -10px rgba(0,0,0,.7);}.nav-dhead{display:flex;align-items:center;justify-content:space-between;padding:18px 18px 14px;border-bottom:1px solid var(--border);}.nav-dtitle{font-family:var(--pop);font-size:16px;color:var(--ink);}.nav-close{width:34px;height:34px;border:none;background:transparent;color:var(--muted);cursor:pointer;display:flex;align-items:center;justify-content:center;border-radius:50%;}.nav-close:hover{background:var(--cream);}.nav-close svg{width:18px;height:18px;}.nav-link{display:flex;align-items:center;gap:12px;padding:15px 20px;color:var(--ink);text-decoration:none;font-size:15px;font-weight:700;border-bottom:1px solid var(--border);transition:background .15s;}.nav-link:hover{background:var(--cream);}.nav-link:active{background:var(--sel);}.nav-link.cur{color:var(--accent);background:var(--sel);}.nav-ic{font-size:18px;width:24px;text-align:center;}</style><div class="nav-overlay" id="navOverlay"></div><nav class="nav-drawer" id="navDrawer" aria-hidden="true"><div class="nav-dhead"><span class="nav-dtitle">メニュー</span><button class="nav-close" id="navClose" type="button" aria-label="閉じる"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><path d="M6 6l12 12M18 6L6 18"/></svg></button></div><a class="nav-link" href="https://kiki9110.github.io/nfc-order-site/home.html"><span class="nav-ic">🏠</span>ホーム</a><a class="nav-link" href="https://kiki9110.github.io/nfc-order-site/page1.html"><span class="nav-ic">📝</span>注文ページ</a><a class="nav-link cur" href="/portal"><span class="nav-ic">🔗</span>URL変更（マイページ）</a><a class="nav-link" href="https://kiki9110.github.io/nfc-order-site/page4.html"><span class="nav-ic">⚙️</span>オプション割り当て</a><a class="nav-link" href="https://kiki9110.github.io/nfc-order-site/message.html"><span class="nav-ic">✉️</span>お問い合わせ</a></nav><script>(function(){var t=document.getElementById('navToggle'),d=document.getElementById('navDrawer'),o=document.getElementById('navOverlay'),c=document.getElementById('navClose');if(!t||!d)return;function op(){d.classList.add('open');if(o)o.classList.add('open');d.setAttribute('aria-hidden','false');}function cl(){d.classList.remove('open');if(o)o.classList.remove('open');d.setAttribute('aria-hidden','true');}t.addEventListener('click',op);if(c)c.addEventListener('click',cl);if(o)o.addEventListener('click',cl);document.addEventListener('keydown',function(e){if(e.key==='Escape')cl();});})();</script>
+<div class="topbar"><div class="logo">BUKI BOOTH<span>マイページ</span></div><div class="topbar-right"><button id="themeToggle" class="theme-toggle" type="button" aria-label="ライト/ダーク表示を切り替え"><svg class="ic-moon" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M21 12.8A9 9 0 1 1 11.2 3a7 7 0 0 0 9.8 9.8Z"/></svg><svg class="ic-sun" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><circle cx="12" cy="12" r="4"/><path d="M12 3v1.5M12 19.5V21M3 12h1.5M19.5 12H21M5.6 5.6l1 1M17.4 17.4l1 1M18.4 5.6l-1 1M6.6 17.4l-1 1"/></svg></button><button id="navToggle" class="nav-toggle" type="button" aria-label="メニューを開く"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><path d="M3 6h18M3 12h18M3 18h18"/></svg></button></div></div><style>.topbar-right{display:flex;align-items:center;gap:12px;}.nav-toggle{display:inline-flex;align-items:center;justify-content:center;width:36px;height:36px;border-radius:50%;border:1.5px solid rgba(255,255,255,.55);background:rgba(255,255,255,.2);color:#fff;cursor:pointer;padding:0;-webkit-backdrop-filter:blur(6px);backdrop-filter:blur(6px);transition:transform .12s,background .2s;flex-shrink:0;}.nav-toggle:hover{transform:scale(1.08);}.nav-toggle:active{transform:scale(.93);}.nav-toggle svg{width:20px;height:20px;display:block;}:root[data-theme="night"] .nav-toggle{border-color:rgba(255,255,255,.18);background:rgba(255,255,255,.08);color:#ffce9e;}.nav-overlay{position:fixed;inset:0;background:rgba(10,8,16,.45);opacity:0;pointer-events:none;transition:opacity .25s;z-index:1999;-webkit-backdrop-filter:blur(2px);backdrop-filter:blur(2px);}.nav-overlay.open{opacity:1;pointer-events:auto;}.nav-drawer{position:fixed;top:0;right:0;height:100%;width:min(84vw,330px);background:#fff;color:var(--ink);box-shadow:-12px 0 40px -12px rgba(0,0,0,.4);transform:translateX(102%);transition:transform .28s cubic-bezier(.4,0,.2,1);z-index:2000;display:flex;flex-direction:column;overflow-y:auto;}.nav-drawer.open{transform:translateX(0);}:root[data-theme="night"] .nav-drawer{background:#1b1726;box-shadow:-12px 0 50px -10px rgba(0,0,0,.7);}.nav-dhead{display:flex;align-items:center;justify-content:space-between;padding:18px 18px 14px;border-bottom:1px solid var(--border);}.nav-dtitle{font-family:var(--pop);font-size:16px;color:var(--ink);}.nav-close{width:34px;height:34px;border:none;background:transparent;color:var(--muted);cursor:pointer;display:flex;align-items:center;justify-content:center;border-radius:50%;}.nav-close:hover{background:var(--cream);}.nav-close svg{width:18px;height:18px;}.nav-link{display:flex;align-items:center;gap:12px;padding:15px 20px;color:var(--ink);text-decoration:none;font-size:15px;font-weight:700;border-bottom:1px solid var(--border);transition:background .15s;}.nav-link:hover{background:var(--cream);}.nav-link:active{background:var(--sel);}.nav-link.cur{color:var(--accent);background:var(--sel);}.nav-ic{font-size:18px;width:24px;text-align:center;}</style><div class="nav-overlay" id="navOverlay"></div><nav class="nav-drawer" id="navDrawer" aria-hidden="true"><div class="nav-dhead"><span class="nav-dtitle">メニュー</span><button class="nav-close" id="navClose" type="button" aria-label="閉じる"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><path d="M6 6l12 12M18 6L6 18"/></svg></button></div><a class="nav-link" href="https://kiki9110.github.io/nfc-order-site/home.html"><span class="nav-ic">🏠</span>ホーム</a><a class="nav-link" href="https://kiki9110.github.io/nfc-order-site/page1.html"><span class="nav-ic">📝</span>注文ページ</a><a class="nav-link cur" href="/portal"><span class="nav-ic">🔗</span>URL変更（マイページ）</a><a class="nav-link" href="https://kiki9110.github.io/nfc-order-site/page4.html"><span class="nav-ic">⚙️</span>オプション割り当て</a><a class="nav-link" href="https://kiki9110.github.io/nfc-order-site/message.html"><span class="nav-ic">✉️</span>お問い合わせ</a><a class="nav-link" href="/support"><span class="nav-ic">🎫</span>サポート</a></nav><script>(function(){var t=document.getElementById('navToggle'),d=document.getElementById('navDrawer'),o=document.getElementById('navOverlay'),c=document.getElementById('navClose');if(!t||!d)return;function op(){d.classList.add('open');if(o)o.classList.add('open');d.setAttribute('aria-hidden','false');}function cl(){d.classList.remove('open');if(o)o.classList.remove('open');d.setAttribute('aria-hidden','true');}t.addEventListener('click',op);if(c)c.addEventListener('click',cl);if(o)o.addEventListener('click',cl);document.addEventListener('keydown',function(e){if(e.key==='Escape')cl();});})();</script>
 <div class="wrap">
   <div class="page-hello">マイページ</div>
   <div class="page-sub">購入時の注文番号を追加すると、NFCタグ・QRコードのリンク先をいつでも何度でも変更できます。</div>
@@ -3002,6 +3244,386 @@ async function handleMessageUpdate(request, env, cors) {
   if (body.emailed === true) r.emailed = true;
   await env.NFC_URLS.put(id, JSON.stringify(r));
   return json({ ok: true }, 200, cors);
+}
+
+// ============================================================
+// サポート（チケット＋チャット）
+// ============================================================
+// KV: 'SUP:<6桁番号>' →
+//   { number, subject, detail, contact, status:'open'|'resolved',
+//     createdAt, updatedAt, emailed, autoResolved,
+//     messages:[{from:'user'|'admin', text, ts}], lastAdminReplyAt }
+
+// 重複しない6桁のサポート番号を作る
+async function genSupportNumber(env) {
+  for (let i = 0; i < 25; i++) {
+    const n = String(Math.floor(100000 + Math.random() * 900000)); // 100000〜999999
+    const exists = await env.NFC_URLS.get('SUP:' + n);
+    if (!exists) return n;
+  }
+  return String(Date.now()).slice(-6); // 保険
+}
+
+// 管理者の返信から1週間、お客さんの反応が無ければ自動で解決済みにする。
+// （最後のメッセージが管理者＝お客さん放置、のときのみ）。変更したら true を返す（put は呼び出し側）。
+function autoResolveIfStale(r) {
+  if (!r || r.status !== 'open') return false;
+  const msgs = r.messages || [];
+  if (!msgs.length) return false;
+  const last = msgs[msgs.length - 1];
+  if (!last || last.from !== 'admin') return false;
+  const WEEK = 7 * 24 * 60 * 60 * 1000;
+  if (Date.now() - (last.ts || 0) >= WEEK) { r.status = 'resolved'; r.autoResolved = true; return true; }
+  return false;
+}
+
+// お客さん（番号を知る人）に返す内容。連絡先は含めない（総当たり対策）。
+function publicTicket(r) {
+  return {
+    number: r.number, subject: r.subject, detail: r.detail,
+    status: r.status, createdAt: r.createdAt, messages: r.messages || [],
+  };
+}
+
+// 公開：サポート作成 { subject, detail, contact? } → { number }
+async function handleSupportCreate(request, env, cors) {
+  if (request.method !== 'POST') return json({ error: 'POST必須' }, 405, cors);
+  let body; try { body = await request.json(); } catch (e) { return json({ error: 'JSON不正' }, 400, cors); }
+  const subject = String(body.subject || '').slice(0, 100).trim();
+  const detail  = String(body.detail  || '').slice(0, 4000).trim();
+  const contact = String(body.contact || '').slice(0, 200).trim();
+  if (!subject) return json({ error: '要件を入力してください' }, 400, cors);
+  if (!detail)  return json({ error: '要件の詳細を入力してください' }, 400, cors);
+  const number = await genSupportNumber(env);
+  const now = new Date().toISOString();
+  const rec = {
+    number, subject, detail, contact,
+    status: 'open', createdAt: now, updatedAt: now,
+    emailed: false, autoResolved: false, lastAdminReplyAt: null, messages: [],
+  };
+  await env.NFC_URLS.put('SUP:' + number, JSON.stringify(rec));
+  return json({ ok: true, number }, 200, cors);
+}
+
+// 公開：番号で取得（チャット表示）。読み込み時に自動解決も判定する。
+async function handleSupportGet(request, env, cors) {
+  const url = new URL(request.url);
+  const number = (url.searchParams.get('number') || '').trim();
+  if (!number) return json({ error: 'number必須' }, 400, cors);
+  const raw = await env.NFC_URLS.get('SUP:' + number);
+  if (!raw) return json({ exists: false }, 200, cors);
+  let r; try { r = JSON.parse(raw); } catch (e) { return json({ exists: false }, 200, cors); }
+  if (autoResolveIfStale(r)) { r.updatedAt = new Date().toISOString(); await env.NFC_URLS.put('SUP:' + number, JSON.stringify(r)); }
+  return json({ exists: true, ticket: publicTicket(r) }, 200, cors);
+}
+
+// 公開：本人がメッセージを追加 { number, text }。解決済みは送れない。
+async function handleSupportMessage(request, env, cors) {
+  if (request.method !== 'POST') return json({ error: 'POST必須' }, 405, cors);
+  let body; try { body = await request.json(); } catch (e) { return json({ error: 'JSON不正' }, 400, cors); }
+  const number = String(body.number || '').trim();
+  const text   = String(body.text || '').slice(0, 4000).trim();
+  if (!number || !text) return json({ error: '入力が不正です' }, 400, cors);
+  const raw = await env.NFC_URLS.get('SUP:' + number);
+  if (!raw) return json({ error: '見つかりません' }, 404, cors);
+  let r; try { r = JSON.parse(raw); } catch (e) { return json({ error: 'parse' }, 500, cors); }
+  if (r.status === 'resolved') return json({ error: 'このサポートは解決済みのため送信できません' }, 403, cors);
+  r.messages = r.messages || [];
+  r.messages.push({ from: 'user', text, ts: Date.now() });
+  r.updatedAt = new Date().toISOString();
+  await env.NFC_URLS.put('SUP:' + number, JSON.stringify(r));
+  return json({ ok: true }, 200, cors);
+}
+
+// 管理者：一覧（?pending=1 で未通知だけ＝Code.gs用）。返す前に古いものは自動解決。
+async function handleSupportList(request, env, cors) {
+  const auth = request.headers.get('Authorization');
+  if (auth !== adminBearer(env)) return json({ error: '認証エラー' }, 401, cors);
+  const url = new URL(request.url);
+  const pendingOnly = url.searchParams.get('pending') === '1';
+  const list = await env.NFC_URLS.list({ prefix: 'SUP:' });
+  const items = [];
+  for (const k of list.keys) {
+    const v = await env.NFC_URLS.get(k.name); if (!v) continue;
+    let r; try { r = JSON.parse(v); } catch (e) { continue; }
+    if (autoResolveIfStale(r)) { r.updatedAt = new Date().toISOString(); await env.NFC_URLS.put(k.name, JSON.stringify(r)); }
+    if (pendingOnly && r.emailed) continue;
+    items.push(r);
+  }
+  items.sort(function (a, b) { return new Date(b.updatedAt || b.createdAt).getTime() - new Date(a.updatedAt || a.createdAt).getTime(); });
+  return json({ items }, 200, cors);
+}
+
+// 管理者：返信 { number, text }（返信すると lastAdminReplyAt 更新・解決済みなら再オープン）
+async function handleSupportReply(request, env, cors) {
+  const auth = request.headers.get('Authorization');
+  if (auth !== adminBearer(env)) return json({ error: '認証エラー' }, 401, cors);
+  let body; try { body = await request.json(); } catch (e) { return json({ error: 'JSON不正' }, 400, cors); }
+  const number = String(body.number || '').trim();
+  const text   = String(body.text || '').slice(0, 4000).trim();
+  if (!number || !text) return json({ error: '入力が不正です' }, 400, cors);
+  const raw = await env.NFC_URLS.get('SUP:' + number);
+  if (!raw) return json({ error: '見つかりません' }, 404, cors);
+  let r; try { r = JSON.parse(raw); } catch (e) { return json({ error: 'parse' }, 500, cors); }
+  const ts = Date.now();
+  r.messages = r.messages || [];
+  r.messages.push({ from: 'admin', text, ts });
+  r.lastAdminReplyAt = new Date(ts).toISOString();
+  if (r.status === 'resolved') { r.status = 'open'; r.autoResolved = false; }
+  r.updatedAt = new Date().toISOString();
+  await env.NFC_URLS.put('SUP:' + number, JSON.stringify(r));
+  return json({ ok: true }, 200, cors);
+}
+
+// 管理者：状態更新／削除／通知済みフラグ（バッチ）／自動解決スイープ
+async function handleSupportUpdate(request, env, cors) {
+  const auth = request.headers.get('Authorization');
+  if (auth !== adminBearer(env)) return json({ error: '認証エラー' }, 401, cors);
+  let body; try { body = await request.json(); } catch (e) { return json({ error: 'JSON不正' }, 400, cors); }
+
+  // 自動解決スイープ（Code.gsが定期実行）：放置チケットをまとめて解決済みにする
+  if (body.sweep === true) {
+    const list = await env.NFC_URLS.list({ prefix: 'SUP:' });
+    let n = 0;
+    for (const k of list.keys) {
+      const v = await env.NFC_URLS.get(k.name); if (!v) continue;
+      let r; try { r = JSON.parse(v); } catch (e) { continue; }
+      if (autoResolveIfStale(r)) { r.updatedAt = new Date().toISOString(); await env.NFC_URLS.put(k.name, JSON.stringify(r)); n++; }
+    }
+    return json({ ok: true, resolved: n }, 200, cors);
+  }
+
+  // 通知済みフラグのバッチ（Code.gsが送信後に立てる）{ numbers:[...], emailed:true }
+  if (Array.isArray(body.numbers)) {
+    for (const num of body.numbers) {
+      const v = await env.NFC_URLS.get('SUP:' + num); if (!v) continue;
+      let r; try { r = JSON.parse(v); } catch (e) { continue; }
+      if (body.emailed === true) r.emailed = true;
+      await env.NFC_URLS.put('SUP:' + num, JSON.stringify(r));
+    }
+    return json({ ok: true }, 200, cors);
+  }
+
+  // 単一：状態変更 { number, status } / 削除 { number, delete:true }
+  const number = String(body.number || '').trim();
+  if (!number) return json({ error: 'number必須' }, 400, cors);
+  if (body.delete === true) { await env.NFC_URLS.delete('SUP:' + number); return json({ ok: true }, 200, cors); }
+  const raw = await env.NFC_URLS.get('SUP:' + number);
+  if (!raw) return json({ error: '見つかりません' }, 404, cors);
+  let r; try { r = JSON.parse(raw); } catch (e) { return json({ error: 'parse' }, 500, cors); }
+  if (body.status === 'open' || body.status === 'resolved') { r.status = body.status; if (body.status === 'open') r.autoResolved = false; }
+  r.updatedAt = new Date().toISOString();
+  await env.NFC_URLS.put('SUP:' + number, JSON.stringify(r));
+  return json({ ok: true }, 200, cors);
+}
+
+
+// ============================================================
+// サポート：お客さん向けページ（Worker配信）
+// ============================================================
+
+// 一覧ページ（この端末で作成した分。localStorage に番号を保存）
+function supportListHTML(origin) {
+  return `<!DOCTYPE html>
+<html lang="ja"><head>
+<meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>サポート — BUKI BOOTH</title>
+<style>
+*{box-sizing:border-box;margin:0;padding:0;}
+body{font-family:'Noto Sans JP',system-ui,sans-serif;background:#f6f7f9;color:#1a1d23;min-height:100vh;}
+.topbar{display:flex;align-items:center;justify-content:space-between;gap:10px;padding:14px 18px;background:#1a1d23;color:#fff;}
+.logo{font-weight:700;font-size:16px;}
+.newbtn{background:#3257d6;color:#fff;border:none;border-radius:8px;padding:9px 16px;font-size:13px;font-weight:700;cursor:pointer;font-family:inherit;text-decoration:none;display:inline-block;}
+.newbtn:hover{background:#2543b0;}
+.wrap{max-width:680px;margin:0 auto;padding:22px 16px;}
+.page-title{font-size:18px;font-weight:700;margin-bottom:4px;}
+.page-sub{font-size:12px;color:#6b7280;margin-bottom:18px;line-height:1.7;}
+.sup-card{display:block;text-decoration:none;color:inherit;background:#fff;border:1.5px solid #e4e7ec;border-radius:10px;padding:14px 16px;margin-bottom:10px;transition:border-color .15s;}
+.sup-card:hover{border-color:#1a1d23;}
+.sup-top{display:flex;align-items:center;justify-content:space-between;gap:10px;margin-bottom:6px;}
+.sup-subj{font-size:15px;font-weight:700;word-break:break-all;}
+.sup-num{font-family:monospace;font-size:12px;color:#6b7280;}
+.badge{font-size:11px;font-weight:700;padding:2px 9px;border-radius:10px;white-space:nowrap;}
+.badge.open{background:#eef2fe;color:#3257d6;}
+.badge.resolved{background:#e7f6ec;color:#15803d;}
+.empty{text-align:center;color:#9ca3af;font-size:13px;padding:40px 16px;line-height:1.9;}
+@media(max-width:520px){.topbar{flex-direction:column;align-items:stretch;}.newbtn{text-align:center;}}
+</style></head>
+<body>
+<div class="topbar"><div class="logo">BUKI BOOTH サポート</div><a class="newbtn" href="/support/new">＋ 新規サポート作成</a></div>
+<div class="wrap">
+  <div class="page-title">あなたのサポート</div>
+  <div class="page-sub">この端末から作成したサポートの一覧です。別の端末では表示されません。サポート番号があればチャットを開けます。</div>
+  <div id="listArea"><div class="empty">読み込み中...</div></div>
+</div>
+<script>
+var BASE = location.origin, LS = 'buki_support_numbers';
+function getNums(){ try { return JSON.parse(localStorage.getItem(LS) || '[]'); } catch(e){ return []; } }
+function esc(s){ return String(s==null?'':s).replace(/[&<>"']/g,function(c){return ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'})[c];}); }
+function render(){
+  var nums = getNums(), area = document.getElementById('listArea');
+  if (!nums.length){ area.innerHTML = '<div class="empty">まだサポートはありません。<br>右上（スマホは上）の「＋ 新規サポート作成」から作成できます。</div>'; return; }
+  Promise.all(nums.map(function(n){
+    return fetch(BASE + '/api/support-get?number=' + encodeURIComponent(n)).then(function(r){return r.json();}).then(function(d){ return (d && d.exists) ? d.ticket : null; }).catch(function(){ return null; });
+  })).then(function(tickets){
+    var html = '';
+    for (var i=0;i<tickets.length;i++){
+      var t = tickets[i]; if (!t) continue;
+      var resolved = t.status === 'resolved';
+      html += '<a class="sup-card" href="/support/' + encodeURIComponent(t.number) + '">';
+      html += '<div class="sup-top"><span class="sup-subj">' + esc(t.subject) + '</span>';
+      html += '<span class="badge ' + (resolved?'resolved':'open') + '">' + (resolved?'解決済み':'対応中') + '</span></div>';
+      html += '<div class="sup-num">サポート番号：' + esc(t.number) + '</div></a>';
+    }
+    area.innerHTML = html || '<div class="empty">表示できるサポートがありません。</div>';
+  });
+}
+render();
+</script>
+</body></html>`;
+}
+
+// 新規作成ページ
+function supportNewHTML(origin) {
+  return `<!DOCTYPE html>
+<html lang="ja"><head>
+<meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>サポート作成 — BUKI BOOTH</title>
+<style>
+*{box-sizing:border-box;margin:0;padding:0;}
+body{font-family:'Noto Sans JP',system-ui,sans-serif;background:#f6f7f9;color:#1a1d23;min-height:100vh;}
+.topbar{display:flex;align-items:center;justify-content:space-between;gap:10px;padding:14px 18px;background:#1a1d23;color:#fff;}
+.logo{font-weight:700;font-size:16px;} .back{color:rgba(255,255,255,.85);font-size:13px;text-decoration:none;}
+.wrap{max-width:620px;margin:0 auto;padding:22px 16px;}
+.page-title{font-size:18px;font-weight:700;margin-bottom:4px;}
+.page-sub{font-size:12px;color:#6b7280;margin-bottom:20px;line-height:1.7;}
+.field{margin-bottom:16px;}
+.field label{display:block;font-size:13px;font-weight:700;margin-bottom:6px;}
+.req{color:#dc2626;font-size:11px;margin-left:6px;} .opt{color:#9ca3af;font-size:11px;margin-left:6px;}
+input,textarea{width:100%;padding:11px 13px;border:1.5px solid #e4e7ec;border-radius:9px;font-size:14px;font-family:inherit;outline:none;background:#fff;}
+input:focus,textarea:focus{border-color:#3257d6;}
+textarea{min-height:150px;resize:vertical;}
+.hint{font-size:11px;color:#9ca3af;margin-top:5px;line-height:1.6;}
+.submit{width:100%;padding:14px;background:#3257d6;color:#fff;border:none;border-radius:10px;font-size:15px;font-weight:700;cursor:pointer;font-family:inherit;}
+.submit:hover{background:#2543b0;} .submit:disabled{opacity:.6;cursor:default;}
+.toast{position:fixed;left:50%;bottom:24px;transform:translateX(-50%);background:#1a1d23;color:#fff;padding:10px 18px;border-radius:8px;font-size:13px;opacity:0;pointer-events:none;transition:opacity .2s;}
+</style></head>
+<body>
+<div class="topbar"><div class="logo">サポート作成</div><a class="back" href="/support">← 一覧</a></div>
+<div class="wrap">
+  <div class="page-title">新しいサポートを作成</div>
+  <div class="page-sub">内容を入力して送信してください。送信するとサポート番号が発行され、チャットでやり取りできます。</div>
+  <div class="field"><label>要件<span class="req">必須</span></label>
+    <input type="text" id="subject" placeholder="例：NFCタグが反応しません" maxlength="100"></div>
+  <div class="field"><label>要件の詳細<span class="req">必須</span></label>
+    <textarea id="detail" placeholder="状況をできるだけ詳しく教えてください。" maxlength="4000"></textarea></div>
+  <div class="field"><label>連絡先（メールアドレスなど）<span class="opt">任意</span></label>
+    <input type="text" id="contact" placeholder="無くてもOK" maxlength="200">
+    <div class="hint">未入力でも構いません。このサポートページ上でやり取りします。</div></div>
+  <button class="submit" id="sb" onclick="submitSupport()">送信する</button>
+</div>
+<div class="toast" id="toast"></div>
+<script>
+var BASE = location.origin, LS = 'buki_support_numbers';
+function toast(m){ var t=document.getElementById('toast'); t.textContent=m; t.style.opacity='1'; setTimeout(function(){t.style.opacity='0';},2400); }
+function addNum(n){ var a; try{a=JSON.parse(localStorage.getItem(LS)||'[]');}catch(e){a=[];} if(a.indexOf(n)<0){a.unshift(n);localStorage.setItem(LS,JSON.stringify(a));} }
+function submitSupport(){
+  var subject=document.getElementById('subject').value.trim();
+  var detail=document.getElementById('detail').value.trim();
+  var contact=document.getElementById('contact').value.trim();
+  if(!subject){ toast('要件を入力してください'); return; }
+  if(!detail){ toast('要件の詳細を入力してください'); return; }
+  var b=document.getElementById('sb'); b.disabled=true; b.textContent='送信中...';
+  fetch(BASE+'/api/support-create',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({subject:subject,detail:detail,contact:contact})})
+   .then(function(r){return r.json();})
+   .then(function(d){ if(d&&d.ok&&d.number){ addNum(d.number); location.href='/support/'+encodeURIComponent(d.number); } else { toast('送信に失敗：'+((d&&d.error)||'不明')); b.disabled=false; b.textContent='送信する'; } })
+   .catch(function(){ toast('通信エラー'); b.disabled=false; b.textContent='送信する'; });
+}
+</script>
+</body></html>`;
+}
+
+// チャットページ（番号別）
+function supportChatHTML(origin) {
+  return `<!DOCTYPE html>
+<html lang="ja"><head>
+<meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>サポートチャット — BUKI BOOTH</title>
+<style>
+*{box-sizing:border-box;margin:0;padding:0;}
+html,body{height:100%;}
+body{font-family:'Noto Sans JP',system-ui,sans-serif;background:#f6f7f9;color:#1a1d23;display:flex;flex-direction:column;height:100vh;}
+.topbar{display:flex;align-items:center;justify-content:space-between;gap:10px;padding:12px 16px;background:#1a1d23;color:#fff;flex-shrink:0;}
+.logo{font-weight:700;font-size:15px;} .back{color:rgba(255,255,255,.85);font-size:13px;text-decoration:none;}
+.head{background:#fff;border-bottom:1px solid #e4e7ec;padding:14px 16px;flex-shrink:0;}
+.head .row1{display:flex;align-items:center;justify-content:space-between;gap:10px;margin-bottom:4px;}
+.head .subj{font-size:16px;font-weight:700;word-break:break-all;}
+.head .num{font-family:monospace;font-size:12px;color:#6b7280;}
+.head .detail{font-size:13px;color:#374151;line-height:1.7;white-space:pre-wrap;word-break:break-all;margin-top:8px;background:#f6f7f9;border-radius:8px;padding:9px 11px;}
+.badge{font-size:11px;font-weight:700;padding:2px 9px;border-radius:10px;white-space:nowrap;}
+.badge.open{background:#eef2fe;color:#3257d6;} .badge.resolved{background:#e7f6ec;color:#15803d;}
+.chat{flex:1;overflow-y:auto;padding:16px;display:flex;flex-direction:column;gap:4px;}
+.bw{display:flex;flex-direction:column;max-width:82%;margin-bottom:6px;}
+.bw.user{align-self:flex-end;align-items:flex-end;} .bw.admin{align-self:flex-start;align-items:flex-start;}
+.bubble{padding:9px 13px;border-radius:14px;font-size:14px;line-height:1.6;word-break:break-all;white-space:pre-wrap;}
+.bubble.user{background:#3257d6;color:#fff;border-bottom-right-radius:4px;}
+.bubble.admin{background:#fff;border:1px solid #e4e7ec;border-bottom-left-radius:4px;}
+.bt{font-size:10px;color:#9ca3af;margin:2px 4px 0;}
+.inbar{flex-shrink:0;display:flex;gap:8px;padding:10px 12px;background:#fff;border-top:1px solid #e4e7ec;}
+.inbar textarea{flex:1;border:1.5px solid #e4e7ec;border-radius:20px;padding:10px 15px;font-size:14px;font-family:inherit;resize:none;outline:none;max-height:120px;}
+.inbar textarea:focus{border-color:#3257d6;}
+.sendbtn{flex-shrink:0;width:44px;height:44px;border-radius:50%;background:#3257d6;color:#fff;border:none;font-size:17px;cursor:pointer;}
+.sendbtn:disabled{opacity:.5;}
+.resolved-note{text-align:center;font-size:12px;color:#6b7280;padding:14px;background:#eef0f3;flex-shrink:0;}
+</style></head>
+<body>
+<div class="topbar"><div class="logo">サポート</div><a class="back" href="/support">← 一覧</a></div>
+<div class="head"><div class="row1"><span class="subj" id="subj">読み込み中...</span><span class="badge open" id="badge">—</span></div><div class="num" id="num"></div><div class="detail" id="detail" style="display:none;"></div></div>
+<div class="chat" id="chat"></div>
+<div id="footer"></div>
+<script>
+var BASE = location.origin;
+var NUMBER = decodeURIComponent((location.pathname.split('/support/')[1] || '').replace(/\\/.*$/, ''));
+var lastCount = -1, resolved = false;
+function esc(s){ return String(s==null?'':s).replace(/[&<>"']/g,function(c){return ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'})[c];}); }
+function fmt(ts){ if(!ts) return ''; var d=new Date(ts); function p(n){return ('0'+n).slice(-2);} return (d.getMonth()+1)+'/'+d.getDate()+' '+p(d.getHours())+':'+p(d.getMinutes()); }
+function load(){
+  fetch(BASE+'/api/support-get?number='+encodeURIComponent(NUMBER)).then(function(r){return r.json();}).then(function(d){
+    if(!d||!d.exists){ document.getElementById('subj').textContent='サポートが見つかりません'; document.getElementById('num').textContent='番号：'+NUMBER; return; }
+    var t=d.ticket; resolved = (t.status==='resolved');
+    document.getElementById('subj').textContent=t.subject;
+    document.getElementById('num').textContent='サポート番号：'+t.number;
+    var dt=document.getElementById('detail'); dt.textContent=t.detail; dt.style.display='block';
+    var bd=document.getElementById('badge'); bd.textContent=resolved?'解決済み':'対応中'; bd.className='badge '+(resolved?'resolved':'open');
+    renderMsgs(t.messages||[]); renderFooter();
+  }).catch(function(){});
+}
+function renderMsgs(msgs){
+  if(msgs.length===lastCount) return; lastCount=msgs.length;
+  var chat=document.getElementById('chat'), html='';
+  for(var i=0;i<msgs.length;i++){ var m=msgs[i]; var who=(m.from==='admin')?'admin':'user';
+    html+='<div class="bw '+who+'"><div class="bubble '+who+'">'+esc(m.text)+'</div><div class="bt">'+(who==='admin'?'サポート ':'あなた ')+fmt(m.ts)+'</div></div>';
+  }
+  if(!msgs.length) html='<div style="text-align:center;color:#9ca3af;font-size:12px;margin-top:20px;">メッセージを送ってサポートを開始してください。</div>';
+  chat.innerHTML=html; chat.scrollTop=chat.scrollHeight;
+}
+function renderFooter(){
+  var f=document.getElementById('footer');
+  if(resolved){ f.innerHTML='<div class="resolved-note">このサポートは解決済みです。追加のご相談は新しいサポートを作成してください。</div>'; return; }
+  if(f.querySelector('textarea')) return;
+  f.innerHTML='<div class="inbar"><textarea id="msg" rows="1" placeholder="メッセージを入力"></textarea><button class="sendbtn" id="send" onclick="send()">&#10148;</button></div>';
+}
+function send(){
+  var ta=document.getElementById('msg'); var text=(ta.value||'').trim(); if(!text) return;
+  var b=document.getElementById('send'); b.disabled=true;
+  fetch(BASE+'/api/support-message',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({number:NUMBER,text:text})})
+   .then(function(r){return r.json();}).then(function(d){ b.disabled=false; if(d&&d.ok){ ta.value=''; lastCount=-1; load(); } else { alert((d&&d.error)||'送信に失敗しました'); } })
+   .catch(function(){ b.disabled=false; alert('通信エラー'); });
+}
+load();
+setInterval(load, 4000);
+</script>
+</body></html>`;
 }
 
 function json(data, status = 200, cors = {}) {
