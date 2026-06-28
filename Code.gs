@@ -446,6 +446,7 @@ function notifyNewSupport() {
           '',
           '日時　　：' + when,
           'サポート番号：' + (s.number || ''),
+          'お名前　：' + (s.name || '（未記入）'),
           '連絡先　：' + (s.contact || '（未記入）'),
           '要件　　：' + (s.subject || ''),
           '',

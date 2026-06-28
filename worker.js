@@ -95,9 +95,10 @@ export default {
     if (path === '/api/support-create')  return handleSupportCreate(request, env, cors);  // 公開：作成 → 6桁番号
     if (path === '/api/support-get')     return handleSupportGet(request, env, cors);     // 公開：番号で取得（チャット）
     if (path === '/api/support-message') return handleSupportMessage(request, env, cors); // 公開：本人がメッセージ追加
+    if (path === '/api/support-delete')  return handleSupportDelete(request, env, cors);  // 公開：本人が削除（番号が鍵）
     if (path === '/api/support-list')    return handleSupportList(request, env, cors);    // 管理者：一覧
     if (path === '/api/support-reply')   return handleSupportReply(request, env, cors);   // 管理者：返信
-    if (path === '/api/support-update')  return handleSupportUpdate(request, env, cors);  // 管理者：状態/通知済み/自動解決
+    if (path === '/api/support-update')  return handleSupportUpdate(request, env, cors);  // 管理者：状態/通知済み/自動解決/削除
 
     return new Response('NFC Order Worker ✓');
   }
@@ -1905,7 +1906,10 @@ tr:hover td{background:#f7f9fb;}
     </div>
     <div id="supContact" style="font-size:12px;color:var(--muted);margin-top:8px;"></div>
     <div id="supDetail" style="font-size:13px;color:var(--ink);background:var(--cream);border-radius:8px;padding:10px;margin-top:8px;white-space:pre-wrap;word-break:break-all;max-height:120px;overflow-y:auto;"></div>
-    <div style="margin-top:10px;"><button class="edit-btn" id="supStatusBtn" onclick="toggleSupStatus()">解決済みにする</button></div>
+    <div style="margin-top:10px;display:flex;gap:8px;flex-wrap:wrap;">
+      <button class="edit-btn" id="supStatusBtn" onclick="toggleSupStatus()">解決済みにする</button>
+      <button class="del-btn" onclick="deleteSupport()">🗑 削除</button>
+    </div>
     <div id="supChat" style="flex:1;overflow-y:auto;margin-top:12px;border-top:1px solid var(--cream);padding-top:12px;display:flex;flex-direction:column;gap:4px;min-height:160px;"></div>
     <div id="supReplyBar" style="display:flex;gap:8px;margin-top:10px;">
       <textarea id="supReply" rows="2" placeholder="返信を入力" style="flex:1;border:1.5px solid var(--border);border-radius:9px;padding:9px;font-family:inherit;font-size:14px;resize:none;outline:none;"></textarea>
@@ -2795,7 +2799,7 @@ function renderSupport() {
     html += '<div class="sup-row" onclick="openSupport(\\'' + esc(t.number) + '\\')">';
     html += '<div class="sup-row-top"><span class="sup-row-subj">' + esc(t.subject) + '</span>';
     html += '<span class="badge ' + (resolved ? 'resolved' : 'open') + '">' + (resolved ? '解決済み' : '対応中') + '</span></div>';
-    html += '<div class="sup-row-sub">番号 ' + esc(t.number) + ' ・ ' + fmtDate(t.updatedAt || t.createdAt) + (t.contact ? (' ・ 連絡先：' + esc(t.contact)) : '') + '</div>';
+    html += '<div class="sup-row-sub">' + (t.name ? ('👤 ' + esc(t.name) + ' ・ ') : '') + '番号 ' + esc(t.number) + ' ・ ' + fmtDate(t.updatedAt || t.createdAt) + (t.contact ? (' ・ 連絡先：' + esc(t.contact)) : '') + '</div>';
     html += '</div>';
   }
   box.innerHTML = html;
@@ -2806,7 +2810,7 @@ function openSupport(number) {
   var t = findSup(number) || {};
   document.getElementById('supTitle').textContent   = t.subject || '';
   document.getElementById('supNum').textContent     = 'サポート番号：' + number;
-  document.getElementById('supContact').textContent = t.contact ? ('連絡先：' + t.contact) : '連絡先：（未記入）';
+  document.getElementById('supContact').textContent = 'お名前：' + (t.name || '（未記入）') + '　／　連絡先：' + (t.contact || '（未記入）');
   document.getElementById('supDetail').textContent  = t.detail || '';
   document.getElementById('supChat').innerHTML = '';
   document.getElementById('supReply').value = '';
@@ -2854,6 +2858,14 @@ function toggleSupStatus() {
   fetch(BASE + '/api/support-update', { method: 'POST', headers: { 'Content-Type': 'application/json', Authorization: 'Bearer ' + PW }, body: JSON.stringify({ number: SUP_CUR, status: next }) })
     .then(function (r) { return r.json(); })
     .then(function (d) { if (d && d.ok) { SUP_RESOLVED = (next === 'resolved'); document.getElementById('supStatusBtn').textContent = SUP_RESOLVED ? '対応中に戻す' : '解決済みにする'; toast(SUP_RESOLVED ? '解決済みにしました' : '対応中に戻しました'); } })
+    .catch(function () { toast('通信エラー'); });
+}
+function deleteSupport() {
+  if (!SUP_CUR) return;
+  if (!confirm('サポート番号 ' + SUP_CUR + ' を削除しますか？\\n（チャット内容もすべて消え、元に戻せません）')) return;
+  fetch(BASE + '/api/support-update', { method: 'POST', headers: { 'Content-Type': 'application/json', Authorization: 'Bearer ' + PW }, body: JSON.stringify({ number: SUP_CUR, delete: true }) })
+    .then(function (r) { return r.json(); })
+    .then(function (d) { if (d && d.ok) { toast('削除しました'); closeSupport(); } else { toast((d && d.error) || '削除に失敗しました'); } })
     .catch(function () { toast('通信エラー'); });
 }
 
@@ -3280,24 +3292,26 @@ function autoResolveIfStale(r) {
 // お客さん（番号を知る人）に返す内容。連絡先は含めない（総当たり対策）。
 function publicTicket(r) {
   return {
-    number: r.number, subject: r.subject, detail: r.detail,
+    number: r.number, name: r.name || '', subject: r.subject, detail: r.detail,
     status: r.status, createdAt: r.createdAt, messages: r.messages || [],
   };
 }
 
-// 公開：サポート作成 { subject, detail, contact? } → { number }
+// 公開：サポート作成 { name, subject, detail, contact? } → { number }
 async function handleSupportCreate(request, env, cors) {
   if (request.method !== 'POST') return json({ error: 'POST必須' }, 405, cors);
   let body; try { body = await request.json(); } catch (e) { return json({ error: 'JSON不正' }, 400, cors); }
+  const name    = String(body.name    || '').slice(0, 60).trim();
   const subject = String(body.subject || '').slice(0, 100).trim();
   const detail  = String(body.detail  || '').slice(0, 4000).trim();
   const contact = String(body.contact || '').slice(0, 200).trim();
+  if (!name)    return json({ error: 'お名前（ニックネーム可）を入力してください' }, 400, cors);
   if (!subject) return json({ error: '要件を入力してください' }, 400, cors);
   if (!detail)  return json({ error: '要件の詳細を入力してください' }, 400, cors);
   const number = await genSupportNumber(env);
   const now = new Date().toISOString();
   const rec = {
-    number, subject, detail, contact,
+    number, name, subject, detail, contact,
     status: 'open', createdAt: now, updatedAt: now,
     emailed: false, autoResolved: false, lastAdminReplyAt: null, messages: [],
   };
@@ -3417,43 +3431,116 @@ async function handleSupportUpdate(request, env, cors) {
   return json({ ok: true }, 200, cors);
 }
 
+// 公開：本人がサポートを削除 { number }（番号を知る本人のみ。元に戻せない）
+async function handleSupportDelete(request, env, cors) {
+  if (request.method !== 'POST') return json({ error: 'POST必須' }, 405, cors);
+  let body; try { body = await request.json(); } catch (e) { return json({ error: 'JSON不正' }, 400, cors); }
+  const number = String(body.number || '').trim();
+  if (!number) return json({ error: 'number必須' }, 400, cors);
+  await env.NFC_URLS.delete('SUP:' + number);
+  return json({ ok: true }, 200, cors);
+}
+
 
 // ============================================================
 // サポート：お客さん向けページ（Worker配信）
 // ============================================================
 
 // 一覧ページ（この端末で作成した分。localStorage に番号を保存）
+// 共通テーマCSS（注文ページ・マイページと同じコーラル/クリーム配色＋ナイトモード）
+function supportThemeCSS() {
+  return `@import url('https://fonts.googleapis.com/css2?family=Mochiy+Pop+One&family=Noto+Sans+JP:wght@300;400;500;700&display=swap');
+*,*::before,*::after{box-sizing:border-box;margin:0;padding:0;}
+:root{--ink:#2c2740;--paper:#fffdf7;--cream:#fff4ea;--accent:#ff7a59;--accent-press:#e85f3f;--accent2:#f2b134;--muted:#8a8398;--border:#f0e3d6;--pop:'Mochiy Pop One',sans-serif;--surface:#fff;--sel:#fff8f5;}
+body{font-family:'Noto Sans JP',sans-serif;background:var(--paper);color:var(--ink);min-height:100vh;overflow-x:hidden;}
+body::before{content:'';position:fixed;inset:0;background-image:radial-gradient(rgba(255,122,89,.10) 2px,transparent 2px);background-size:28px 28px;pointer-events:none;z-index:0;}
+:root[data-theme="night"]{--ink:#ece9f3;--paper:#13111a;--cream:rgba(255,255,255,.06);--accent:#ff8358;--accent-press:#c75a3a;--muted:#9b93ac;--border:rgba(255,255,255,.12);--surface:rgba(255,255,255,.05);--sel:rgba(255,131,88,.12);--accent2:#ffcf7a;}
+:root[data-theme="night"] body{background:radial-gradient(140% 100% at 85% -8%,rgba(232,64,156,.42),transparent 62%),radial-gradient(140% 100% at -12% 108%,rgba(124,86,240,.40),transparent 62%),linear-gradient(160deg,#1c1228,#110d19 58%,#160f20);background-attachment:fixed;}
+:root[data-theme="night"] body::before{background-image:radial-gradient(rgba(255,255,255,.05) 1.5px,transparent 1.5px);}
+.float-cluster{position:fixed;top:14px;right:14px;z-index:1000;display:flex;gap:8px;align-items:center;}
+.theme-toggle,.nav-toggle{display:inline-flex;align-items:center;justify-content:center;width:38px;height:38px;border-radius:50%;border:1.5px solid rgba(44,39,64,.16);background:var(--surface);color:var(--accent);cursor:pointer;padding:0;box-shadow:0 4px 14px -5px rgba(0,0,0,.25);transition:transform .12s;}
+.theme-toggle:hover,.nav-toggle:hover{transform:scale(1.08);}
+.theme-toggle svg,.nav-toggle svg{width:18px;height:18px;display:block;}
+.theme-toggle .ic-sun{display:none;}
+:root[data-theme="night"] .theme-toggle .ic-sun{display:block;}
+:root[data-theme="night"] .theme-toggle .ic-moon{display:none;}
+:root[data-theme="night"] .theme-toggle,:root[data-theme="night"] .nav-toggle{background:rgba(255,255,255,.08);color:#ffce9e;box-shadow:0 0 16px -4px rgba(255,131,88,.45);}
+.nav-overlay{position:fixed;inset:0;background:rgba(10,8,16,.45);opacity:0;pointer-events:none;transition:opacity .25s;z-index:1999;}
+.nav-overlay.open{opacity:1;pointer-events:auto;}
+.nav-drawer{position:fixed;top:0;right:0;height:100%;width:min(84vw,330px);background:#fff;color:var(--ink);box-shadow:-12px 0 40px -12px rgba(0,0,0,.4);transform:translateX(102%);transition:transform .28s cubic-bezier(.4,0,.2,1);z-index:2000;display:flex;flex-direction:column;overflow-y:auto;}
+.nav-drawer.open{transform:translateX(0);}
+:root[data-theme="night"] .nav-drawer{background:#1b1726;box-shadow:-12px 0 50px -10px rgba(0,0,0,.7);}
+.nav-dhead{display:flex;align-items:center;justify-content:space-between;padding:18px 18px 14px;border-bottom:1px solid var(--border);}
+.nav-dtitle{font-family:var(--pop);font-size:16px;color:var(--ink);}
+.nav-close{width:34px;height:34px;border:none;background:transparent;color:var(--muted);cursor:pointer;display:flex;align-items:center;justify-content:center;border-radius:50%;}
+.nav-close:hover{background:var(--cream);}
+.nav-link{display:flex;align-items:center;gap:12px;padding:15px 20px;color:var(--ink);text-decoration:none;font-size:15px;font-weight:700;border-bottom:1px solid var(--border);transition:background .15s;}
+.nav-link:hover{background:var(--cream);}
+.nav-link.cur{color:var(--accent);background:var(--sel);}
+.nav-ic{font-size:18px;width:24px;text-align:center;}`;
+}
+// テーマ切替スクリプト（localStorageで記憶。OS設定に追従）
+function supportThemeScript() {
+  return `<script>
+(function(){var K='bukiTheme',mq=window.matchMedia('(prefers-color-scheme: dark)');
+function eff(){var s=null;try{s=localStorage.getItem(K)}catch(e){}return(s==='light'||s==='night')?s:(mq.matches?'night':'light');}
+function set(t){document.documentElement.setAttribute('data-theme',t);}
+set(eff());
+function om(){var s=null;try{s=localStorage.getItem(K)}catch(e){}if(s!=='light'&&s!=='night')set(mq.matches?'night':'light');}
+if(mq.addEventListener)mq.addEventListener('change',om);else if(mq.addListener)mq.addListener(om);
+function w(){var b=document.getElementById('themeToggle');if(!b)return;b.addEventListener('click',function(){var c=document.documentElement.getAttribute('data-theme')||eff();var n=(c==='night')?'light':'night';try{localStorage.setItem(K,n)}catch(e){}set(n);});}
+if(document.readyState!=='loading')w();else document.addEventListener('DOMContentLoaded',w);})();
+<\/script>`;
+}
+// 右上のテーマ切替・ハンバーガー＋メニュードロワー
+function supportNav() {
+  return `<div class="float-cluster"><button id="themeToggle" class="theme-toggle" type="button" aria-label="ライト/ダーク表示を切り替え"><svg class="ic-moon" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M21 12.8A9 9 0 1 1 11.2 3a7 7 0 0 0 9.8 9.8Z"/></svg><svg class="ic-sun" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><circle cx="12" cy="12" r="4"/><path d="M12 3v1.5M12 19.5V21M3 12h1.5M19.5 12H21M5.6 5.6l1 1M17.4 17.4l1 1M18.4 5.6l-1 1M6.6 17.4l-1 1"/></svg></button><button id="navToggle" class="nav-toggle" type="button" aria-label="メニューを開く"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><path d="M3 6h18M3 12h18M3 18h18"/></svg></button></div>
+<div class="nav-overlay" id="navOverlay"></div><nav class="nav-drawer" id="navDrawer" aria-hidden="true"><div class="nav-dhead"><span class="nav-dtitle">メニュー</span><button class="nav-close" id="navClose" type="button" aria-label="閉じる"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><path d="M6 6l12 12M18 6L6 18"/></svg></button></div><a class="nav-link" href="https://kiki9110.github.io/nfc-order-site/home.html"><span class="nav-ic">🏠</span>ホーム</a><a class="nav-link" href="https://kiki9110.github.io/nfc-order-site/page1.html"><span class="nav-ic">📝</span>注文ページ</a><a class="nav-link" href="/portal"><span class="nav-ic">🔗</span>URL変更（マイページ）</a><a class="nav-link" href="https://kiki9110.github.io/nfc-order-site/page4.html"><span class="nav-ic">⚙️</span>オプション割り当て</a><a class="nav-link" href="https://kiki9110.github.io/nfc-order-site/message.html"><span class="nav-ic">✉️</span>お問い合わせ</a><a class="nav-link cur" href="/support"><span class="nav-ic">🎫</span>サポート</a></nav>
+<script>(function(){var t=document.getElementById('navToggle'),d=document.getElementById('navDrawer'),o=document.getElementById('navOverlay'),c=document.getElementById('navClose');if(!t||!d)return;function op(){d.classList.add('open');if(o)o.classList.add('open');}function cl(){d.classList.remove('open');if(o)o.classList.remove('open');}t.addEventListener('click',op);if(c)c.addEventListener('click',cl);if(o)o.addEventListener('click',cl);document.addEventListener('keydown',function(e){if(e.key==='Escape')cl();});})();<\/script>`;
+}
+
 function supportListHTML(origin) {
   return `<!DOCTYPE html>
 <html lang="ja"><head>
 <meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1">
 <title>サポート — BUKI BOOTH</title>
 <style>
-*{box-sizing:border-box;margin:0;padding:0;}
-body{font-family:'Noto Sans JP',system-ui,sans-serif;background:#f6f7f9;color:#1a1d23;min-height:100vh;}
-.topbar{display:flex;align-items:center;justify-content:space-between;gap:10px;padding:14px 18px;background:#1a1d23;color:#fff;}
-.logo{font-weight:700;font-size:16px;}
-.newbtn{background:#3257d6;color:#fff;border:none;border-radius:8px;padding:9px 16px;font-size:13px;font-weight:700;cursor:pointer;font-family:inherit;text-decoration:none;display:inline-block;}
-.newbtn:hover{background:#2543b0;}
-.wrap{max-width:680px;margin:0 auto;padding:22px 16px;}
-.page-title{font-size:18px;font-weight:700;margin-bottom:4px;}
-.page-sub{font-size:12px;color:#6b7280;margin-bottom:18px;line-height:1.7;}
-.sup-card{display:block;text-decoration:none;color:inherit;background:#fff;border:1.5px solid #e4e7ec;border-radius:10px;padding:14px 16px;margin-bottom:10px;transition:border-color .15s;}
-.sup-card:hover{border-color:#1a1d23;}
+${supportThemeCSS()}
+.wrap{position:relative;z-index:1;max-width:680px;margin:0 auto;padding:62px 18px 48px;}
+.s-head{display:flex;align-items:center;justify-content:space-between;gap:12px;flex-wrap:wrap;margin-bottom:6px;}
+.s-logo{font-family:var(--pop);font-size:22px;color:var(--ink);}
+.s-newbtn{display:inline-block;text-decoration:none;background:var(--accent);color:#fff;font-family:var(--pop);font-size:13px;padding:12px 18px;border-radius:14px;box-shadow:0 4px 0 var(--accent-press);transition:filter .15s,transform .1s;}
+.s-newbtn:hover{filter:brightness(1.05);} .s-newbtn:active{transform:translateY(3px);box-shadow:0 1px 0 var(--accent-press);}
+.s-sub{font-size:12px;color:var(--muted);line-height:1.7;margin-bottom:22px;}
+.sup-card{display:block;color:inherit;background:var(--surface);border:1.5px solid var(--border);border-radius:18px;padding:16px 18px;margin-bottom:12px;box-shadow:0 5px 0 rgba(124,107,219,.07);transition:transform .1s;cursor:pointer;}
+.sup-card:hover{transform:translateY(-2px);}
+:root[data-theme="night"] .sup-card{-webkit-backdrop-filter:blur(12px);backdrop-filter:blur(12px);box-shadow:0 16px 40px -24px rgba(0,0,0,.7);}
 .sup-top{display:flex;align-items:center;justify-content:space-between;gap:10px;margin-bottom:6px;}
 .sup-subj{font-size:15px;font-weight:700;word-break:break-all;}
-.sup-num{font-family:monospace;font-size:12px;color:#6b7280;}
-.badge{font-size:11px;font-weight:700;padding:2px 9px;border-radius:10px;white-space:nowrap;}
-.badge.open{background:#eef2fe;color:#3257d6;}
-.badge.resolved{background:#e7f6ec;color:#15803d;}
-.empty{text-align:center;color:#9ca3af;font-size:13px;padding:40px 16px;line-height:1.9;}
-@media(max-width:520px){.topbar{flex-direction:column;align-items:stretch;}.newbtn{text-align:center;}}
-</style></head>
+.sup-num{font-family:monospace;font-size:12px;color:var(--muted);}
+.sup-foot{display:flex;align-items:center;justify-content:space-between;gap:10px;margin-top:10px;padding-top:10px;border-top:1px solid var(--cream);}
+.sup-open{font-size:12px;font-weight:700;color:var(--accent);display:flex;align-items:center;gap:5px;}
+.sup-del{font-size:11px;color:var(--muted);background:var(--surface);border:1.5px solid var(--border);border-radius:9px;padding:6px 13px;cursor:pointer;font-family:'Noto Sans JP',sans-serif;}
+.sup-del:hover{border-color:#e0392b;color:#e0392b;}
+.badge{font-size:11px;font-weight:700;padding:3px 11px;border-radius:20px;white-space:nowrap;}
+.badge.open{background:var(--sel);color:var(--accent);}
+.badge.resolved{background:rgba(70,193,120,.16);color:#2e9c5a;}
+:root[data-theme="night"] .badge.resolved{color:#5fd394;}
+.s-listlabel{font-family:var(--pop);font-size:14px;color:var(--ink);margin:4px 0 12px;}
+.empty{text-align:center;color:var(--muted);font-size:13px;line-height:1.9;padding:36px 22px;background:var(--surface);border:1.6px dashed var(--border);border-radius:20px;}
+.empty .empty-ic{font-size:36px;display:block;margin-bottom:10px;}
+.empty .empty-cta{display:inline-block;margin-top:16px;text-decoration:none;background:var(--accent);color:#fff;font-family:var(--pop);font-size:12.5px;padding:11px 20px;border-radius:13px;box-shadow:0 3px 0 var(--accent-press);}
+:root[data-theme="night"] .empty{-webkit-backdrop-filter:blur(10px);backdrop-filter:blur(10px);}
+@media(max-width:520px){.s-newbtn{flex:1;text-align:center;}}
+</style>
+${supportThemeScript()}
+</head>
 <body>
-<div class="topbar"><div class="logo">BUKI BOOTH サポート</div><a class="newbtn" href="/support/new">＋ 新規サポート作成</a></div>
+${supportNav()}
 <div class="wrap">
-  <div class="page-title">あなたのサポート</div>
-  <div class="page-sub">この端末から作成したサポートの一覧です。別の端末では表示されません。サポート番号があればチャットを開けます。</div>
+  <div class="s-head"><div class="s-logo">🎫 サポート</div><a class="s-newbtn" href="/support/new">＋ 新規作成</a></div>
+  <p class="s-sub">この端末から作成したサポートの一覧です。別の端末では表示されません。サポート番号があればチャットを開けます。</p>
+  <div class="s-listlabel">あなたのサポート一覧</div>
   <div id="listArea"><div class="empty">読み込み中...</div></div>
 </div>
 <script>
@@ -3462,7 +3549,7 @@ function getNums(){ try { return JSON.parse(localStorage.getItem(LS) || '[]'); }
 function esc(s){ return String(s==null?'':s).replace(/[&<>"']/g,function(c){return ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'})[c];}); }
 function render(){
   var nums = getNums(), area = document.getElementById('listArea');
-  if (!nums.length){ area.innerHTML = '<div class="empty">まだサポートはありません。<br>右上（スマホは上）の「＋ 新規サポート作成」から作成できます。</div>'; return; }
+  if (!nums.length){ area.innerHTML = '<div class="empty"><span class="empty-ic">🎫</span>まだサポートはありません。<br>下のボタンからサポートを作成すると、ここに一覧で表示されます。<br><a class="empty-cta" href="/support/new">＋ 新規サポートを作成</a></div>'; return; }
   Promise.all(nums.map(function(n){
     return fetch(BASE + '/api/support-get?number=' + encodeURIComponent(n)).then(function(r){return r.json();}).then(function(d){ return (d && d.exists) ? d.ticket : null; }).catch(function(){ return null; });
   })).then(function(tickets){
@@ -3470,13 +3557,30 @@ function render(){
     for (var i=0;i<tickets.length;i++){
       var t = tickets[i]; if (!t) continue;
       var resolved = t.status === 'resolved';
-      html += '<a class="sup-card" href="/support/' + encodeURIComponent(t.number) + '">';
+      html += '<div class="sup-card" onclick="openChat(\\'' + esc(t.number) + '\\')">';
       html += '<div class="sup-top"><span class="sup-subj">' + esc(t.subject) + '</span>';
       html += '<span class="badge ' + (resolved?'resolved':'open') + '">' + (resolved?'解決済み':'対応中') + '</span></div>';
-      html += '<div class="sup-num">サポート番号：' + esc(t.number) + '</div></a>';
+      html += '<div class="sup-num">サポート番号：' + esc(t.number) + '</div>';
+      html += '<div class="sup-foot"><span class="sup-open">チャットを開く <span aria-hidden="true">→</span></span>';
+      html += '<button class="sup-del" onclick="delSupport(event,\\'' + esc(t.number) + '\\')">削除</button></div>';
+      html += '</div>';
     }
-    area.innerHTML = html || '<div class="empty">表示できるサポートがありません。</div>';
+    area.innerHTML = html || '<div class="empty"><span class="empty-ic">🔍</span>表示できるサポートが見つかりませんでした。<br>削除済みか、別の端末で作成された可能性があります。</div>';
   });
+}
+function openChat(n){ location.href = '/support/' + encodeURIComponent(n); }
+function delSupport(ev, n){
+  ev.stopPropagation();
+  if(!confirm('サポート番号 ' + n + ' を削除しますか？\\nチャット内容もすべて消え、元に戻せません。')) return;
+  fetch(BASE + '/api/support-delete', {method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify({number:n})})
+   .then(function(r){return r.json();})
+   .then(function(){
+     var a; try { a = JSON.parse(localStorage.getItem(LS) || '[]'); } catch(e){ a = []; }
+     a = a.filter(function(x){ return x !== n; });
+     localStorage.setItem(LS, JSON.stringify(a));
+     render();
+   })
+   .catch(function(){ alert('通信エラー'); });
 }
 render();
 </script>
@@ -3490,37 +3594,49 @@ function supportNewHTML(origin) {
 <meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1">
 <title>サポート作成 — BUKI BOOTH</title>
 <style>
-*{box-sizing:border-box;margin:0;padding:0;}
-body{font-family:'Noto Sans JP',system-ui,sans-serif;background:#f6f7f9;color:#1a1d23;min-height:100vh;}
-.topbar{display:flex;align-items:center;justify-content:space-between;gap:10px;padding:14px 18px;background:#1a1d23;color:#fff;}
-.logo{font-weight:700;font-size:16px;} .back{color:rgba(255,255,255,.85);font-size:13px;text-decoration:none;}
-.wrap{max-width:620px;margin:0 auto;padding:22px 16px;}
-.page-title{font-size:18px;font-weight:700;margin-bottom:4px;}
-.page-sub{font-size:12px;color:#6b7280;margin-bottom:20px;line-height:1.7;}
+${supportThemeCSS()}
+.wrap{position:relative;z-index:1;max-width:560px;margin:0 auto;padding:58px 18px 48px;}
+.s-back{display:inline-block;color:var(--muted);font-size:13px;text-decoration:none;margin-bottom:14px;}
+.s-back:hover{color:var(--accent);}
+.card{background:var(--surface);border:1.5px solid var(--border);border-radius:24px;padding:30px 26px;box-shadow:0 5px 0 rgba(124,107,219,.07);}
+:root[data-theme="night"] .card{-webkit-backdrop-filter:blur(16px);backdrop-filter:blur(16px);box-shadow:0 16px 40px -22px rgba(0,0,0,.7);}
+.card-title{font-family:var(--pop);font-size:20px;margin-bottom:8px;color:var(--ink);}
+.card-desc{font-size:12px;color:var(--muted);line-height:1.7;margin-bottom:22px;}
 .field{margin-bottom:16px;}
-.field label{display:block;font-size:13px;font-weight:700;margin-bottom:6px;}
-.req{color:#dc2626;font-size:11px;margin-left:6px;} .opt{color:#9ca3af;font-size:11px;margin-left:6px;}
-input,textarea{width:100%;padding:11px 13px;border:1.5px solid #e4e7ec;border-radius:9px;font-size:14px;font-family:inherit;outline:none;background:#fff;}
-input:focus,textarea:focus{border-color:#3257d6;}
-textarea{min-height:150px;resize:vertical;}
-.hint{font-size:11px;color:#9ca3af;margin-top:5px;line-height:1.6;}
-.submit{width:100%;padding:14px;background:#3257d6;color:#fff;border:none;border-radius:10px;font-size:15px;font-weight:700;cursor:pointer;font-family:inherit;}
-.submit:hover{background:#2543b0;} .submit:disabled{opacity:.6;cursor:default;}
-.toast{position:fixed;left:50%;bottom:24px;transform:translateX(-50%);background:#1a1d23;color:#fff;padding:10px 18px;border-radius:8px;font-size:13px;opacity:0;pointer-events:none;transition:opacity .2s;}
-</style></head>
+.field label{display:block;font-size:11px;font-weight:700;letter-spacing:.08em;color:var(--muted);margin-bottom:8px;}
+.req{color:var(--accent);font-size:11px;margin-left:6px;} .opt{color:var(--muted);font-size:11px;margin-left:6px;font-weight:400;}
+input,textarea{width:100%;padding:13px 15px;border:2px solid var(--border);border-radius:14px;font-size:15px;font-family:'Noto Sans JP',sans-serif;color:var(--ink);background:var(--surface);outline:none;transition:border-color .2s,box-shadow .2s;}
+input::placeholder,textarea::placeholder{color:#c9c2bd;}
+:root[data-theme="night"] input,:root[data-theme="night"] textarea{background:rgba(0,0,0,.26);}
+:root[data-theme="night"] input::placeholder,:root[data-theme="night"] textarea::placeholder{color:#6f6880;}
+input:focus,textarea:focus{border-color:var(--accent);box-shadow:0 0 0 4px rgba(255,122,89,.18);}
+textarea{min-height:150px;resize:vertical;line-height:1.7;}
+.hint{font-size:11px;color:var(--muted);margin-top:6px;line-height:1.6;}
+.submit{width:100%;margin-top:8px;padding:16px;background:var(--accent);color:#fff;border:none;border-radius:14px;font-family:var(--pop);font-size:14px;cursor:pointer;box-shadow:0 4px 0 var(--accent-press);transition:filter .15s,transform .1s;}
+.submit:hover{filter:brightness(1.05);} .submit:active{transform:translateY(3px);box-shadow:0 1px 0 var(--accent-press);} .submit:disabled{opacity:.6;}
+.toast{position:fixed;left:50%;bottom:24px;transform:translateX(-50%);background:var(--ink);color:var(--paper);padding:11px 20px;border-radius:12px;font-size:13px;opacity:0;pointer-events:none;transition:opacity .2s;z-index:3000;}
+</style>
+${supportThemeScript()}
+</head>
 <body>
-<div class="topbar"><div class="logo">サポート作成</div><a class="back" href="/support">← 一覧</a></div>
+${supportNav()}
 <div class="wrap">
-  <div class="page-title">新しいサポートを作成</div>
-  <div class="page-sub">内容を入力して送信してください。送信するとサポート番号が発行され、チャットでやり取りできます。</div>
-  <div class="field"><label>要件<span class="req">必須</span></label>
-    <input type="text" id="subject" placeholder="例：NFCタグが反応しません" maxlength="100"></div>
-  <div class="field"><label>要件の詳細<span class="req">必須</span></label>
-    <textarea id="detail" placeholder="状況をできるだけ詳しく教えてください。" maxlength="4000"></textarea></div>
-  <div class="field"><label>連絡先（メールアドレスなど）<span class="opt">任意</span></label>
-    <input type="text" id="contact" placeholder="無くてもOK" maxlength="200">
-    <div class="hint">未入力でも構いません。このサポートページ上でやり取りします。</div></div>
-  <button class="submit" id="sb" onclick="submitSupport()">送信する</button>
+  <a class="s-back" href="/support">← サポート一覧へ</a>
+  <div class="card">
+    <div class="card-title">新しいサポートを作成</div>
+    <div class="card-desc">内容を入力して送信してください。送信するとサポート番号が発行され、チャットでやり取りできます。</div>
+    <div class="field"><label>お名前<span class="req">必須</span></label>
+      <input type="text" id="name" placeholder="例：ぶきお（ニックネームでもOK）" maxlength="60">
+      <div class="hint">本名でもニックネームでも構いません。</div></div>
+    <div class="field"><label>要件<span class="req">必須</span></label>
+      <input type="text" id="subject" placeholder="例：NFCタグが反応しません" maxlength="100"></div>
+    <div class="field"><label>要件の詳細<span class="req">必須</span></label>
+      <textarea id="detail" placeholder="状況をできるだけ詳しく教えてください。" maxlength="4000"></textarea></div>
+    <div class="field"><label>連絡先（メールアドレスなど）<span class="opt">任意</span></label>
+      <input type="text" id="contact" placeholder="無くてもOK" maxlength="200">
+      <div class="hint">未入力でも構いません。このサポートページ上でやり取りします。</div></div>
+    <button class="submit" id="sb" onclick="submitSupport()">送信する</button>
+  </div>
 </div>
 <div class="toast" id="toast"></div>
 <script>
@@ -3528,13 +3644,15 @@ var BASE = location.origin, LS = 'buki_support_numbers';
 function toast(m){ var t=document.getElementById('toast'); t.textContent=m; t.style.opacity='1'; setTimeout(function(){t.style.opacity='0';},2400); }
 function addNum(n){ var a; try{a=JSON.parse(localStorage.getItem(LS)||'[]');}catch(e){a=[];} if(a.indexOf(n)<0){a.unshift(n);localStorage.setItem(LS,JSON.stringify(a));} }
 function submitSupport(){
+  var name=document.getElementById('name').value.trim();
   var subject=document.getElementById('subject').value.trim();
   var detail=document.getElementById('detail').value.trim();
   var contact=document.getElementById('contact').value.trim();
+  if(!name){ toast('お名前（ニックネーム可）を入力してください'); return; }
   if(!subject){ toast('要件を入力してください'); return; }
   if(!detail){ toast('要件の詳細を入力してください'); return; }
   var b=document.getElementById('sb'); b.disabled=true; b.textContent='送信中...';
-  fetch(BASE+'/api/support-create',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({subject:subject,detail:detail,contact:contact})})
+  fetch(BASE+'/api/support-create',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({name:name,subject:subject,detail:detail,contact:contact})})
    .then(function(r){return r.json();})
    .then(function(d){ if(d&&d.ok&&d.number){ addNum(d.number); location.href='/support/'+encodeURIComponent(d.number); } else { toast('送信に失敗：'+((d&&d.error)||'不明')); b.disabled=false; b.textContent='送信する'; } })
    .catch(function(){ toast('通信エラー'); b.disabled=false; b.textContent='送信する'; });
@@ -3550,35 +3668,47 @@ function supportChatHTML(origin) {
 <meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1">
 <title>サポートチャット — BUKI BOOTH</title>
 <style>
-*{box-sizing:border-box;margin:0;padding:0;}
+${supportThemeCSS()}
 html,body{height:100%;}
-body{font-family:'Noto Sans JP',system-ui,sans-serif;background:#f6f7f9;color:#1a1d23;display:flex;flex-direction:column;height:100vh;}
-.topbar{display:flex;align-items:center;justify-content:space-between;gap:10px;padding:12px 16px;background:#1a1d23;color:#fff;flex-shrink:0;}
-.logo{font-weight:700;font-size:15px;} .back{color:rgba(255,255,255,.85);font-size:13px;text-decoration:none;}
-.head{background:#fff;border-bottom:1px solid #e4e7ec;padding:14px 16px;flex-shrink:0;}
-.head .row1{display:flex;align-items:center;justify-content:space-between;gap:10px;margin-bottom:4px;}
-.head .subj{font-size:16px;font-weight:700;word-break:break-all;}
-.head .num{font-family:monospace;font-size:12px;color:#6b7280;}
-.head .detail{font-size:13px;color:#374151;line-height:1.7;white-space:pre-wrap;word-break:break-all;margin-top:8px;background:#f6f7f9;border-radius:8px;padding:9px 11px;}
-.badge{font-size:11px;font-weight:700;padding:2px 9px;border-radius:10px;white-space:nowrap;}
-.badge.open{background:#eef2fe;color:#3257d6;} .badge.resolved{background:#e7f6ec;color:#15803d;}
-.chat{flex:1;overflow-y:auto;padding:16px;display:flex;flex-direction:column;gap:4px;}
-.bw{display:flex;flex-direction:column;max-width:82%;margin-bottom:6px;}
+body{display:flex;flex-direction:column;height:100vh;}
+.c-head{position:relative;z-index:1;background:var(--surface);border-bottom:1.5px solid var(--border);padding:12px 16px 14px;flex-shrink:0;}
+:root[data-theme="night"] .c-head{-webkit-backdrop-filter:blur(14px);backdrop-filter:blur(14px);background:rgba(20,18,27,.55);}
+.s-back{display:inline-block;color:var(--muted);font-size:13px;text-decoration:none;margin-bottom:8px;}
+.s-back:hover{color:var(--accent);}
+.subj{font-family:var(--pop);font-size:17px;color:var(--ink);word-break:break-all;}
+.c-meta{display:flex;align-items:center;gap:10px;margin-top:6px;flex-wrap:wrap;}
+.num{font-family:monospace;font-size:12px;color:var(--muted);}
+.badge{font-size:11px;font-weight:700;padding:3px 11px;border-radius:20px;white-space:nowrap;}
+.badge.open{background:var(--sel);color:var(--accent);} .badge.resolved{background:rgba(70,193,120,.16);color:#2e9c5a;}
+:root[data-theme="night"] .badge.resolved{color:#5fd394;}
+.detail{font-size:13px;color:var(--ink);line-height:1.7;white-space:pre-wrap;word-break:break-all;margin-top:10px;background:var(--cream);border-radius:12px;padding:10px 12px;}
+.chat{position:relative;z-index:1;flex:1;overflow-y:auto;padding:16px;display:flex;flex-direction:column;gap:2px;}
+.bw{display:flex;flex-direction:column;max-width:82%;margin-bottom:8px;}
 .bw.user{align-self:flex-end;align-items:flex-end;} .bw.admin{align-self:flex-start;align-items:flex-start;}
-.bubble{padding:9px 13px;border-radius:14px;font-size:14px;line-height:1.6;word-break:break-all;white-space:pre-wrap;}
-.bubble.user{background:#3257d6;color:#fff;border-bottom-right-radius:4px;}
-.bubble.admin{background:#fff;border:1px solid #e4e7ec;border-bottom-left-radius:4px;}
-.bt{font-size:10px;color:#9ca3af;margin:2px 4px 0;}
-.inbar{flex-shrink:0;display:flex;gap:8px;padding:10px 12px;background:#fff;border-top:1px solid #e4e7ec;}
-.inbar textarea{flex:1;border:1.5px solid #e4e7ec;border-radius:20px;padding:10px 15px;font-size:14px;font-family:inherit;resize:none;outline:none;max-height:120px;}
-.inbar textarea:focus{border-color:#3257d6;}
-.sendbtn{flex-shrink:0;width:44px;height:44px;border-radius:50%;background:#3257d6;color:#fff;border:none;font-size:17px;cursor:pointer;}
+.bubble{padding:10px 14px;border-radius:16px;font-size:14px;line-height:1.6;word-break:break-all;white-space:pre-wrap;}
+.bubble.user{background:var(--accent);color:#fff;border-bottom-right-radius:5px;}
+.bubble.admin{background:var(--surface);border:1.5px solid var(--border);color:var(--ink);border-bottom-left-radius:5px;}
+.bt{font-size:10px;color:var(--muted);margin:3px 5px 0;}
+.inbar{position:relative;z-index:1;flex-shrink:0;display:flex;gap:8px;padding:10px 12px;background:var(--surface);border-top:1.5px solid var(--border);}
+:root[data-theme="night"] .inbar{background:rgba(20,18,27,.55);-webkit-backdrop-filter:blur(14px);backdrop-filter:blur(14px);}
+.inbar textarea{flex:1;border:2px solid var(--border);border-radius:22px;padding:11px 16px;font-size:14px;font-family:'Noto Sans JP',sans-serif;color:var(--ink);background:var(--surface);resize:none;outline:none;max-height:120px;}
+:root[data-theme="night"] .inbar textarea{background:rgba(0,0,0,.26);}
+.inbar textarea:focus{border-color:var(--accent);}
+.sendbtn{flex-shrink:0;width:46px;height:46px;border-radius:50%;background:var(--accent);color:#fff;border:none;font-size:17px;cursor:pointer;box-shadow:0 3px 0 var(--accent-press);}
+.sendbtn:active{transform:translateY(2px);box-shadow:0 1px 0 var(--accent-press);}
 .sendbtn:disabled{opacity:.5;}
-.resolved-note{text-align:center;font-size:12px;color:#6b7280;padding:14px;background:#eef0f3;flex-shrink:0;}
-</style></head>
+.resolved-note{position:relative;z-index:1;text-align:center;font-size:12px;color:var(--muted);padding:14px;background:var(--cream);flex-shrink:0;}
+</style>
+${supportThemeScript()}
+</head>
 <body>
-<div class="topbar"><div class="logo">サポート</div><a class="back" href="/support">← 一覧</a></div>
-<div class="head"><div class="row1"><span class="subj" id="subj">読み込み中...</span><span class="badge open" id="badge">—</span></div><div class="num" id="num"></div><div class="detail" id="detail" style="display:none;"></div></div>
+${supportNav()}
+<div class="c-head">
+  <a class="s-back" href="/support">← 一覧</a>
+  <div class="subj" id="subj">読み込み中...</div>
+  <div class="c-meta"><span class="num" id="num"></span><span class="badge open" id="badge">—</span></div>
+  <div class="detail" id="detail" style="display:none;"></div>
+</div>
 <div class="chat" id="chat"></div>
 <div id="footer"></div>
 <script>
