@@ -529,6 +529,10 @@ if(document.readyState!=='loading')w();else document.addEventListener('DOMConten
       <span class="att-mode inside" id="attModeBadge">本体内</span>
       <span>X:<span id="attX">50</span>% Y:<span id="attY">10</span>%</span>
     </div>
+    <label id="tabImgRow" style="display:flex;align-items:center;gap:9px;margin-top:12px;font-size:12.5px;color:var(--ink);cursor:pointer;line-height:1.5;">
+      <input type="checkbox" id="tabImageToggle" onchange="setTabImage(this.checked)" style="width:17px;height:17px;cursor:pointer;accent-color:var(--accent);flex-shrink:0;">
+      <span>外側のツメ（持ち手）にも画像のはみ出した部分を載せる</span>
+    </label>
   </div>
 </div>
 
@@ -761,6 +765,7 @@ const S = {
   holeCm:     0.5,     // 穴の直径(cm) ＝ 5mm 固定
   borderCm:   0.3,     // ダイカットの縁の厚さ(cm)
   attMode:    'inside', // 'inside'(本体に穴) / 'outside'(外付けツメ)
+  tabImage:   false,    // 外付けツメに本体画像のはみ出し部分を載せるか
   attachView: 'front',
   // 購入済みオプション（読み込み時に customer-get から取得）。
   // ここが false のオプションは page2 上でロックされ、押すと alert を出す。
@@ -1624,7 +1629,7 @@ function applyCrop() {
   } else {
     url = cv.toDataURL('image/png');
   }
-  const savedState = { scale:C.scale, rot:C.rot, x:C.x, y:C.y, fitScale:C.fitScale, imgW:C.imgW, imgH:C.imgH, die:dieOuter, dieHoles:dieHoles, frameSrc:frameSrc, drawX:drawX, drawY:drawY };
+  const savedState = { scale:C.scale, rot:C.rot, x:C.x, y:C.y, fitScale:C.fitScale, imgW:C.imgW, imgH:C.imgH, die:dieOuter, dieHoles:dieHoles, frameSrc:frameSrc, frameSrcW:frameSrcW, frameSrcH:frameSrcH, drawX:drawX, drawY:drawY };
   if (cropTarget === 'back') {
     S.imgBack = url; S.cropStateBack = savedState; S.dieBack = dieOuter; S.dieHolesBack = dieHoles;
     drawPreview('back');
@@ -1679,6 +1684,8 @@ function drawPreview(target) {
 // ═══════════════════════════════════════════════════════
 // QR
 // ═══════════════════════════════════════════════════════
+// 外付けツメに本体画像を載せるかの切替
+function setTabImage(v) { S.tabImage = v; if (window._redrawAttach) window._redrawAttach(); }
 function setQR(val) {
   S.qr = val;
   document.getElementById('qr-yes').classList.toggle('sel', val);
@@ -2134,6 +2141,8 @@ function setAttachView(side) {
   const WRAP_BG = '#16161a';
 
   let imgFrontEl = null, imgBackEl = null, lastFrontSrc = null, lastBackSrc = null;
+  // 元画像（切り抜き前）。外付けツメに「本体の縁からはみ出した部分」を描くために使う。
+  let origFrontEl = null, origBackEl = null, lastOrigFront = null, lastOrigBack = null;
 
   function bodyGeom(aw, ah){
     const margin = 16;
@@ -2244,7 +2253,7 @@ function setAttachView(side) {
 
   // 穴まわりの補強。withNeck=true:首付きツメ（外付け）／false:丸い膨らみのみ（本体内・縁近く）
   let _tabCv = null;
-  function buildTab(aw, ah, g, hx, hy, holeR, acryl, lugR, withNeck){
+  function buildTab(aw, ah, g, hx, hy, holeR, acryl, lugR, withNeck, imgEl, origImg, cropState){
     const a    = edgeAnchor(hx, hy, g);
     const ang  = a.ang;                       // 最近点→穴の向き（辺に直角に接続）
     const neckW = lugR * 2;   // 首の太さ＝ディスク直径（縮小後lugR×2＝従来の首と同じ太さ）
@@ -2259,6 +2268,48 @@ function setAttachView(side) {
     tctx.fillStyle = BORDER; tctx.beginPath(); tctx.arc(hx, hy, lugR+1.5, 0, Math.PI*2); tctx.fill();
     if (withNeck) { tctx.strokeStyle = acryl; tctx.lineWidth = neckW; tctx.beginPath(); tctx.moveTo(rootX, rootY); tctx.lineTo(hx, hy); tctx.stroke(); }
     tctx.fillStyle = acryl; tctx.beginPath(); tctx.arc(hx, hy, lugR, 0, Math.PI*2); tctx.fill();
+    // ツメに本体画像を延長（source-atopでツメ形状内のみ）
+    // 丸・四角・自由四角は「切り抜きで捨てた本体の縁の外側」を見せたいので、
+    // 切り抜き済み画像(imgEl)ではなく元画像(origImg)を切り抜き時と同じ変換で描く。
+    // → 本体の縁からはみ出した部分が、つなげる首やツメの上にもそのまま現れる。
+    if (S.tabImage && imgEl) {
+      tctx.globalCompositeOperation = 'source-atop';
+      const cs = cropState;
+      // 切り抜き枠の元画像px幅・高さ。新しい切り抜きには保存済み。
+      // 古い切り抜きデータには無いので、保存済みの fitScale/scale/imgW/imgH から再計算する。
+      let fsw = cs && cs.frameSrcW, fsh = cs && cs.frameSrcH;
+      if (cs && (!(fsw > 0) || !(fsh > 0)) && cs.fitScale > 0 && cs.scale > 0 && cs.imgW > 0 && cs.imgH > 0) {
+        const ar = g.w / g.h;                                   // フレーム＝本体の縦横比
+        const fh = cs.fitScale / Math.min(ar / cs.imgW, 1 / cs.imgH);
+        const fw = ar * fh;
+        fsw = fw / cs.scale; fsh = fh / cs.scale;
+      }
+      const canOverflow = origImg && cs && fsw > 0 && fsh > 0 && S.shape !== 'diecut';
+      if (canOverflow) {
+        // applyCrop と同じマッピング：元画像全体を本体ボックス g(w×h) に重ねて描く。
+        // 切り抜き枠の外（=はみ出し）はボックスからあふれて、ツメ形状内だけ残る。
+        const sx = g.w / fsw, sy = g.h / fsh;
+        tctx.save();
+        tctx.translate(g.x + g.w / 2, g.y + g.h / 2);
+        tctx.rotate((cs.rot || 0) * Math.PI / 180);
+        tctx.drawImage(origImg, cs.drawX * sx, cs.drawY * sy, cs.imgW * sx, cs.imgH * sy);
+        tctx.restore();
+      } else if (S.shape === 'diecut') {
+        const sz = g.size, ir = imgEl.naturalWidth / imgEl.naturalHeight;
+        let dw, dh, dx, dy;
+        if (ir >= 1) { dh = sz; dw = sz * ir; dx = g.x - (dw - sz) / 2; dy = g.y; }
+        else         { dw = sz; dh = sz / ir; dy = g.y - (dh - sz) / 2; dx = g.x; }
+        tctx.drawImage(imgEl, dx, dy, dw, dh);
+      } else {
+        // 元画像が無い古いデータ向けフォールバック（従来どおり切り抜き済み画像）
+        const ir = imgEl.naturalWidth / imgEl.naturalHeight, br = g.w / g.h;
+        let dw, dh, dx, dy;
+        if (ir > br) { dh = g.h; dw = dh * ir; dx = g.x - (dw - g.w) / 2; dy = g.y; }
+        else         { dw = g.w; dh = dw / ir; dy = g.y - (dh - g.h) / 2; dx = g.x; }
+        tctx.drawImage(imgEl, dx, dy, dw, dh);
+      }
+      tctx.globalCompositeOperation = 'source-over';
+    }
     // 丸・四角のみ本体形状をくり抜く（ダイカットはアルファ本体を上に重ねるため、くり抜くと輪郭ズレで透明帯ができる）
     if (S.shape !== 'diecut') {
       tctx.globalCompositeOperation = 'destination-out'; tctx.fillStyle = '#000';
@@ -2280,6 +2331,11 @@ function setAttachView(side) {
     if (!S.imgFront) { imgFrontEl=null; lastFrontSrc=null; }
     if (S.imgBack  && S.imgBack  !== lastBackSrc)  { lastBackSrc  = S.imgBack;  const im=new Image(); im.onload=()=>{imgBackEl=im; redraw();}; im.src=S.imgBack; }
     if (!S.imgBack)  { imgBackEl=null;  lastBackSrc=null; }
+    // 元画像（切り抜き前）も同様にキャッシュ
+    if (S.imgFrontSrc && S.imgFrontSrc !== lastOrigFront) { lastOrigFront = S.imgFrontSrc; const im=new Image(); im.onload=()=>{origFrontEl=im; redraw();}; im.src=S.imgFrontSrc; }
+    if (!S.imgFrontSrc) { origFrontEl=null; lastOrigFront=null; }
+    if (S.imgBackSrc  && S.imgBackSrc  !== lastOrigBack)  { lastOrigBack  = S.imgBackSrc;  const im=new Image(); im.onload=()=>{origBackEl=im;  redraw();}; im.src=S.imgBackSrc; }
+    if (!S.imgBackSrc)  { origBackEl=null;  lastOrigBack=null; }
 
     const dpr = Math.min(devicePixelRatio||1, 2);
     cv.width = aw*dpr; cv.height = ah*dpr;
@@ -2297,16 +2353,23 @@ function setAttachView(side) {
     S.attMode = inside ? 'inside' : 'outside';
     const acryl = S.colorHex || '#d9d4c7';
     const backView = (S.attachView === 'back');
+    // ツメに載せる本体画像（裏面・画像なしならnull）
+    const _tbNoImg = (S.attachView === 'back' && !S.imgBack);
+    const tabImg = _tbNoImg ? null : (S.attachView === 'back' ? (imgBackEl || imgFrontEl) : imgFrontEl);
+    // はみ出し描画用の元画像（切り抜き前）と切り抜き状態。裏面に画像があれば裏、無ければ表を流用。
+    const _useBack = (S.attachView === 'back' && S.imgBack);
+    const tabOrig  = _tbNoImg ? null : (_useBack ? (origBackEl || origFrontEl) : origFrontEl);
+    const tabCrop  = _tbNoImg ? null : (_useBack ? (S.cropStateBack || S.cropStateFront) : S.cropStateFront);
 
     ctx.save();
     if (backView) { ctx.translate(aw, 0); ctx.scale(-1, 1); }
 
     // 補強：外付け（中心が本体外）は首付きツメ／本体内でも縁ギリギリなら丸い膨らみのみ（穴の外側が欠けないように）
     if (!isInsideBody(hx, hy, g)) {
-      const tab = buildTab(aw, ah, g, hx, hy, holeR, acryl, lugR, true);
+      const tab = buildTab(aw, ah, g, hx, hy, holeR, acryl, lugR, true, tabImg, tabOrig, tabCrop);
       ctx.drawImage(tab, 0, 0, aw, ah);
     } else if (!lugFullyInside(hx, hy, g, lugR)) {
-      const tab = buildTab(aw, ah, g, hx, hy, holeR, acryl, lugR, false);
+      const tab = buildTab(aw, ah, g, hx, hy, holeR, acryl, lugR, false, tabImg, tabOrig, tabCrop);
       ctx.drawImage(tab, 0, 0, aw, ah);
     }
     drawBody(g);

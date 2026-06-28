@@ -1,0 +1,7 @@
+# Claude Code local settings (per-machine; not for sharing)
+.claude/
+
+# OS / editor cruft
+.DS_Store
+Thumbs.db
+*.swp
