@@ -3,7 +3,17 @@
 // Cloudflare ダッシュボード → Edit code → 全文貼り付け
 // ============================================================
 
-const ADMIN_PASSWORD = 'your-secret-password-here'; // ★変更してください★
+// 管理者パスワードは Cloudflare の環境変数（シークレット）ADMIN_PASSWORD から読み込む。
+// ★設定方法：Cloudflare ダッシュボード → Workers & Pages → 対象Worker → Settings →
+//   Variables and Secrets → Add →  Type: Secret / Name: ADMIN_PASSWORD / Value: 任意の長い文字列。
+//   （ローカル開発で wrangler を使う場合は .dev.vars に ADMIN_PASSWORD=... を置く）
+// ※ Code.gs 側の CONFIG.ADMIN_PASSWORD と同じ文字列にすること。
+//
+// 値が未設定のときは「絶対に一致しないトークン」を返し、全リクエストを拒否する
+// （シークレットの設定漏れで無認証のまま開いてしまう事故を防ぐため）。
+function adminBearer(env) {
+  return (env && env.ADMIN_PASSWORD) ? 'Bearer ' + env.ADMIN_PASSWORD : '\x00disabled';
+}
 
 export default {
   async fetch(request, env) {
@@ -186,7 +196,7 @@ async function handleSelfOptGet(request, env, cors) {
 // 自己登録のデフォルトオプション設定を保存（管理者のみ）
 async function handleSelfOptSet(request, env, cors) {
   const auth = request.headers.get('Authorization');
-  if (auth !== `Bearer ${ADMIN_PASSWORD}`) return json({ error: '認証エラー' }, 401, cors);
+  if (auth !== adminBearer(env)) return json({ error: '認証エラー' }, 401, cors);
   const body = await request.json();
   const opt = { nfc: !!body.nfc, double: !!body.double };
   await env.NFC_URLS.put('SELF_OPT', JSON.stringify(opt));
@@ -273,7 +283,7 @@ async function handleCustomerSetQR(request, env, cors) {
 // NFC URL を登録・更新
 async function handleSet(request, env, cors) {
   const auth = request.headers.get('Authorization');
-  if (auth !== `Bearer ${ADMIN_PASSWORD}`) return json({ error: '認証エラー' }, 401, cors);
+  if (auth !== adminBearer(env)) return json({ error: '認証エラー' }, 401, cors);
 
   const body = await request.json();
   if (!body.orderId) return json({ error: 'orderId が必要です' }, 400, cors);
@@ -298,7 +308,7 @@ async function handleSet(request, env, cors) {
 // NFC / QR / メモをまとめて更新（管理画面の編集モーダルから）
 async function handleSetAll(request, env, cors) {
   const auth = request.headers.get('Authorization');
-  if (auth !== `Bearer ${ADMIN_PASSWORD}`) return json({ error: '認証エラー' }, 401, cors);
+  if (auth !== adminBearer(env)) return json({ error: '認証エラー' }, 401, cors);
 
   const body    = await request.json();
   const orderId = (body.orderId || '').trim();
@@ -348,7 +358,7 @@ async function handleSetAll(request, env, cors) {
 // QR URL を登録・更新（単体）
 async function handleSetQR(request, env, cors) {
   const auth = request.headers.get('Authorization');
-  if (auth !== `Bearer ${ADMIN_PASSWORD}`) return json({ error: '認証エラー' }, 401, cors);
+  if (auth !== adminBearer(env)) return json({ error: '認証エラー' }, 401, cors);
 
   const body = await request.json();
   if (!body.orderId) return json({ error: 'orderId が必要です' }, 400, cors);
@@ -372,7 +382,7 @@ async function handleSetQR(request, env, cors) {
 // NFC 一覧を取得（旧エンドポイント・後方互換）
 async function handleGet(request, env, cors) {
   const auth = request.headers.get('Authorization');
-  if (auth !== `Bearer ${ADMIN_PASSWORD}`) return json({ error: '認証エラー' }, 401, cors);
+  if (auth !== adminBearer(env)) return json({ error: '認証エラー' }, 401, cors);
 
   const list    = await env.NFC_URLS.list();
   const nfcKeys = list.keys.filter(k => !k.name.startsWith('QR:') && !k.name.startsWith('ORDER:') && !k.name.startsWith('OPT:') && k.name !== 'INVENTORY');
@@ -388,7 +398,7 @@ async function handleGet(request, env, cors) {
 // NFC・QR・注文をまとめた一覧を取得（管理画面の新しい一覧用）
 async function handleGetAll(request, env, cors) {
   const auth = request.headers.get('Authorization');
-  if (auth !== `Bearer ${ADMIN_PASSWORD}`) return json({ error: '認証エラー' }, 401, cors);
+  if (auth !== adminBearer(env)) return json({ error: '認証エラー' }, 401, cors);
 
   const allKeys = await listAllKeys(env);
   const nfcKeys = allKeys.filter(k => !k.name.startsWith('QR:') && !k.name.startsWith('ORDER:') && !k.name.startsWith('OPT:') && k.name !== 'INVENTORY');
@@ -434,7 +444,7 @@ async function handleGetAll(request, env, cors) {
 // QR URL を単体取得（後方互換）
 async function handleGetQRUrl(request, env, cors) {
   const auth = request.headers.get('Authorization');
-  if (auth !== `Bearer ${ADMIN_PASSWORD}`) return json({ error: '認証エラー' }, 401, cors);
+  if (auth !== adminBearer(env)) return json({ error: '認証エラー' }, 401, cors);
 
   const url     = new URL(request.url);
   const orderId = url.searchParams.get('orderId');
@@ -448,7 +458,7 @@ async function handleGetQRUrl(request, env, cors) {
 // 削除（NFC・QR・注文データをまとめて削除）
 async function handleDelete(request, env, cors) {
   const auth = request.headers.get('Authorization');
-  if (auth !== `Bearer ${ADMIN_PASSWORD}`) return json({ error: '認証エラー' }, 401, cors);
+  if (auth !== adminBearer(env)) return json({ error: '認証エラー' }, 401, cors);
 
   const { orderId } = await request.json();
   if (!orderId) return json({ error: 'orderId が必要です' }, 400, cors);
@@ -461,7 +471,7 @@ async function handleDelete(request, env, cors) {
 // Apps Script から注文送信時に自動登録
 async function handleRegister(request, env, cors) {
   const auth = request.headers.get('Authorization');
-  if (auth !== `Bearer ${ADMIN_PASSWORD}`) return json({ error: '認証エラー' }, 401, cors);
+  if (auth !== adminBearer(env)) return json({ error: '認証エラー' }, 401, cors);
 
   const body = await request.json();
   if (!body.orderId) return json({ error: 'orderId が必要です' }, 400, cors);
@@ -516,7 +526,7 @@ async function handleSaveOrder(request, env, cors) {
 
     // 管理者（パスワード認証あり）かどうかを判定
     const auth    = request.headers.get('Authorization');
-    const isAdmin = auth === `Bearer ${ADMIN_PASSWORD}`;
+    const isAdmin = auth === adminBearer(env);
 
     // お客さん（認証なし）の場合は、すでに KV に登録済みの注文番号だけを許可する。
     // 登録済みの番号（管理者登録や自動登録で作られたもの）なら桁数は問わない。
@@ -556,7 +566,7 @@ async function handleSaveOrder(request, env, cors) {
 // オプション在庫を登録（管理者：Code.gs から呼ばれる）
 async function handleOptRegister(request, env, cors) {
   const auth = request.headers.get('Authorization');
-  if (auth !== `Bearer ${ADMIN_PASSWORD}`) return json({ error: '認証エラー' }, 401, cors);
+  if (auth !== adminBearer(env)) return json({ error: '認証エラー' }, 401, cors);
 
   const body = await request.json();
   if (!body.orderId) return json({ error: 'orderId が必要です' }, 400, cors);
@@ -669,7 +679,7 @@ async function handleOptApply(request, env, cors) {
 // オプション在庫の一覧を取得（管理者）
 async function handleOptList(request, env, cors) {
   const auth = request.headers.get('Authorization');
-  if (auth !== `Bearer ${ADMIN_PASSWORD}`) return json({ error: '認証エラー' }, 401, cors);
+  if (auth !== adminBearer(env)) return json({ error: '認証エラー' }, 401, cors);
 
   const list = await env.NFC_URLS.list({ prefix: 'OPT:' });
   const items = [];
@@ -695,7 +705,7 @@ async function handleOptList(request, env, cors) {
 // オプション在庫の使用済み/未使用を手動で切り替え（管理者）
 async function handleOptSetUsed(request, env, cors) {
   const auth = request.headers.get('Authorization');
-  if (auth !== `Bearer ${ADMIN_PASSWORD}`) return json({ error: '認証エラー' }, 401, cors);
+  if (auth !== adminBearer(env)) return json({ error: '認証エラー' }, 401, cors);
 
   const body    = await request.json();
   const orderId = (body.orderId || '').trim();
@@ -720,7 +730,7 @@ async function handleOptSetUsed(request, env, cors) {
 // 注文データを取得（管理画面・注文詳細ページ用）
 async function handleGetOrder(request, env, cors) {
   const auth = request.headers.get('Authorization');
-  if (auth !== `Bearer ${ADMIN_PASSWORD}`) return json({ error: '認証エラー' }, 401, cors);
+  if (auth !== adminBearer(env)) return json({ error: '認証エラー' }, 401, cors);
 
   const url     = new URL(request.url);
   const orderId = url.searchParams.get('orderId');
@@ -736,7 +746,7 @@ async function handleGetOrder(request, env, cors) {
 //   { maintenance: bool, maintenanceMsg: string, colors: { "カラー名": { soldOut: bool, hidden: bool } } }
 async function handleInventory(request, env, cors) {
   const auth = request.headers.get('Authorization');
-  if (auth !== `Bearer ${ADMIN_PASSWORD}`) return json({ error: '認証エラー' }, 401, cors);
+  if (auth !== adminBearer(env)) return json({ error: '認証エラー' }, 401, cors);
 
   const body    = await request.json();
   const stored  = await env.NFC_URLS.get('INVENTORY');
@@ -757,7 +767,7 @@ async function handleGetInventory(request, env, cors) {
 // 全データをエクスポート（バックアップ書き出し）
 async function handleExport(request, env, cors) {
   const auth = request.headers.get('Authorization');
-  if (auth !== `Bearer ${ADMIN_PASSWORD}`) return json({ error: '認証エラー' }, 401, cors);
+  if (auth !== adminBearer(env)) return json({ error: '認証エラー' }, 401, cors);
 
   const allKeys = await listAllKeys(env);
   const data    = {};
@@ -778,7 +788,7 @@ async function handleExport(request, env, cors) {
 // バックアップをインポートして KV へ書き戻す
 async function handleImport(request, env, cors) {
   const auth = request.headers.get('Authorization');
-  if (auth !== `Bearer ${ADMIN_PASSWORD}`) return json({ error: '認証エラー' }, 401, cors);
+  if (auth !== adminBearer(env)) return json({ error: '認証エラー' }, 401, cors);
 
   let body;
   try { body = await request.json(); }
@@ -805,7 +815,7 @@ async function handleImport(request, env, cors) {
 async function handleOrderDetail(path, request, env, origin) {
   const url = new URL(request.url);
   const pw  = url.searchParams.get('pw');
-  if (pw !== ADMIN_PASSWORD) {
+  if (!env.ADMIN_PASSWORD || pw !== env.ADMIN_PASSWORD) {
     return new Response(orderAuthHTML(path), { headers: { 'Content-Type': 'text/html;charset=UTF-8' } });
   }
 
@@ -942,29 +952,6 @@ body{font-family:'Noto Sans JP',sans-serif;background:#f6f7f9;color:#1a1d23;padd
     <div class="order-date">送信日時: ${fmtDate(order.submittedAt || order.savedAt)}</div>
   </div>
 
-  <!-- OPP袋用QRコード -->
-  <div class="card">
-    <div class="card-head">📦 OPP袋用QRコード</div>
-    <div class="card-body" style="text-align:center;padding:20px;">
-      <div id="setupQr" style="display:inline-block;background:#fff;padding:10px;border-radius:8px;line-height:0;"></div>
-      <div id="setupQrUrl" style="font-size:11px;color:#9ca3af;margin-top:10px;word-break:break-all;"></div>
-      <div style="font-size:12px;color:#6b7280;margin:10px 0 12px;line-height:1.7;">このQRを袋に貼り付けてください。お客様が読み込むとURL変更ページが開き、<br>この注文番号が自動で追加されます。</div>
-      <button id="dlSetupQr" class="dl-btn" style="cursor:pointer;border:none;">⬇ QRコードを保存</button>
-    </div>
-  </div>
-
-  <!-- 商品本体用QRコード（QRオプションあり時） -->
-  ${order.qr ? `
-  <div class="card">
-    <div class="card-head">📲 商品本体用QRコード</div>
-    <div class="card-body" style="text-align:center;padding:20px;">
-      <div id="productQr" style="display:inline-block;background:#fff;padding:10px;border-radius:8px;line-height:0;"></div>
-      <div id="productQrUrl" style="font-size:11px;color:#9ca3af;margin-top:10px;word-break:break-all;"></div>
-      <div style="font-size:12px;color:#6b7280;margin:10px 0 12px;line-height:1.7;">商品に印刷・貼り付けるQRです。お客様が読み込むと<br>登録されたURLが開きます（マイページで変更可能）。</div>
-      <button id="dlProductQr" class="dl-btn" style="cursor:pointer;border:none;">⬇ QRコードを保存</button>
-    </div>
-  </div>` : ''}
-
   <!-- 基本情報 -->
   <div class="card">
     <div class="card-head">📋 基本情報</div>
@@ -1100,37 +1087,7 @@ body{font-family:'Noto Sans JP',sans-serif;background:#f6f7f9;color:#1a1d23;padd
 <script>
 const ORDER = ${JSON.stringify(order)};
 
-// OPP袋用QRコードを生成
-(function(){
-  var box = document.getElementById('setupQr');
-  var setupUrl = location.origin + '/setup/' + ORDER.orderId;
-  if (box && window.QRCode) {
-    new QRCode(box, { text: setupUrl, width: 170, height: 170, correctLevel: QRCode.CorrectLevel.M });
-  }
-  var u = document.getElementById('setupQrUrl'); if (u) u.textContent = setupUrl;
-  var dl = document.getElementById('dlSetupQr');
-  if (dl) dl.onclick = function(){
-    var im = box.querySelector('img') || box.querySelector('canvas'); if (!im) return;
-    var src = (im.tagName === 'IMG') ? im.src : im.toDataURL('image/png');
-    var a = document.createElement('a'); a.href = src; a.download = 'setup_qr_' + ORDER.orderId + '.png';
-    document.body.appendChild(a); a.click(); a.remove();
-  };
-})();
-
-// 商品本体用QRコードを生成（QRオプションあり時のみ）
-(function(){
-  var box = document.getElementById('productQr'); if (!box) return;
-  var qrUrl = location.origin + '/qr/' + ORDER.orderId;
-  if (window.QRCode) new QRCode(box, { text: qrUrl, width: 170, height: 170, correctLevel: QRCode.CorrectLevel.M });
-  var u = document.getElementById('productQrUrl'); if (u) u.textContent = qrUrl;
-  var dl = document.getElementById('dlProductQr');
-  if (dl) dl.onclick = function(){
-    var im = box.querySelector('img') || box.querySelector('canvas'); if (!im) return;
-    var src = (im.tagName === 'IMG') ? im.src : im.toDataURL('image/png');
-    var a = document.createElement('a'); a.href = src; a.download = 'product_qr_' + ORDER.orderId + '.png';
-    document.body.appendChild(a); a.click(); a.remove();
-  };
-})();
+// （QRコードの生成・ダウンロードは管理一覧の「URL一覧」ボタンに集約したため、ここでは行わない）
 
 // ダウンロードリンクにhrefをセット
 const dlF = document.getElementById('dlFront');
@@ -1503,6 +1460,14 @@ tr:hover td{background:#f7f9fb;}
 .nfc-link a{color:var(--accent);}
 .copy-btn{font-size:11px;padding:2px 8px;border:1px solid var(--border);border-radius:4px;background:#fff;cursor:pointer;margin-left:4px;}
 .copy-btn:hover{background:var(--cream);}
+
+/* ── URL一覧モーダル ── */
+.ul-row{padding:10px 0;border-bottom:1px solid var(--cream);}
+.ul-row:last-child{border-bottom:none;}
+.ul-label{font-size:12px;font-weight:600;color:var(--ink);margin-bottom:3px;}
+.ul-url{font-size:11px;color:var(--muted);word-break:break-all;margin-bottom:6px;font-family:monospace;}
+.ul-actions{display:flex;gap:6px;flex-wrap:wrap;}
+.ul-actions .copy-btn{margin-left:0;}
 
 /* ── 編集モーダル ── */
 .modal-bg{display:none;position:fixed;inset:0;background:rgba(0,0,0,.6);z-index:100;align-items:center;justify-content:center;padding:20px;}
@@ -1937,6 +1902,32 @@ tr:hover td{background:#f7f9fb;}
   </div>
 </div>
 
+<!-- ===== URL一覧モーダル ===== -->
+<div class="modal-bg" id="urlListModal">
+  <div class="modal">
+    <h3 id="urlListTitle">URL一覧</h3>
+    <div id="urlListRows"></div>
+
+    <div style="display:flex;gap:16px;flex-wrap:wrap;justify-content:center;margin-top:18px;">
+      <div style="text-align:center;">
+        <div style="font-size:12px;font-weight:600;margin-bottom:6px;">📦 自動登録QR（OPP袋用）</div>
+        <div id="ulSetupQr" style="display:inline-block;background:#fff;padding:8px;border:1px solid var(--border);border-radius:8px;line-height:0;"></div>
+        <div><button class="copy-btn" style="margin-top:8px;margin-left:0;" onclick="dlUlQr('ulSetupQr','setup')">⬇ 保存</button></div>
+      </div>
+      <div style="text-align:center;">
+        <div style="font-size:12px;font-weight:600;margin-bottom:6px;">📲 注文のQR（商品本体用）</div>
+        <div id="ulProductQr" style="display:inline-block;background:#fff;padding:8px;border:1px solid var(--border);border-radius:8px;line-height:0;"></div>
+        <div><button class="copy-btn" style="margin-top:8px;margin-left:0;" onclick="dlUlQr('ulProductQr','product')">⬇ 保存</button></div>
+      </div>
+    </div>
+
+    <div class="modal-foot">
+      <button class="modal-cancel" onclick="closeUrlList()">閉じる</button>
+      <button class="modal-save" onclick="dlUrlListTxt()">⬇ URL一覧をテキスト保存</button>
+    </div>
+  </div>
+</div>
+
 <div class="toast" id="toast"></div>
 
 <script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"></script>
@@ -2209,9 +2200,6 @@ function renderList() {
     html += '<tr>';
     html += '<td>';
     html +=   '<span class="order-id">' + esc(oid) + '</span>';
-    html +=   '<div class="nfc-link" style="margin-top:4px;">📡 NFC: <a href="' + nfcTagUrl + '" target="_blank">タグURL</a><button class="copy-btn" onclick="copyText(\\'' + nfcTagUrl + '\\')">コピー</button></div>';
-    html +=   '<div class="nfc-link">📷 QR: <a href="' + qrTagUrl + '" target="_blank">QRのURL</a><button class="copy-btn" onclick="copyText(\\'' + qrTagUrl + '\\')">コピー</button></div>';
-    html +=   '<div class="nfc-link" style="margin-top:4px;">お客さん用: <button class="copy-btn" onclick="copyText(\\'' + portalUrl + '\\')">変更ページURLコピー</button></div>';
     html += '</td>';
     html += '<td class="url-cell">' + (nfcDest ? '<a href="' + esc(nfcDest) + '" target="_blank">' + esc(shortNfc) + '</a>' : '<span style="color:var(--muted);">未設定</span>') + '</td>';
     html += '<td class="url-cell">' + (qrDest  ? '<a href="' + esc(qrDest)  + '" target="_blank">' + esc(shortQr)  + '</a>' : '<span style="color:var(--muted);">未設定</span>') + '</td>';
@@ -2221,7 +2209,8 @@ function renderList() {
     html += '<td style="white-space:nowrap;">';
     html +=   '<button class="edit-btn" onclick="openEdit(\\'' + esc(oid) + '\\')">編集</button> ';
     html +=   '<button class="del-btn"  onclick="deleteEntry(\\'' + esc(oid) + '\\')">削除</button> ';
-    html +=   '<button class="edit-btn" style="background:var(--blue-bg);border-color:#b8d9f0;color:var(--blue);" onclick="window.open(\\'/order/' + oidEnc + '?pw=\\'+encodeURIComponent(PW),\\'_blank\\')">詳細</button>';
+    html +=   '<button class="edit-btn" style="background:var(--blue-bg);border-color:#b8d9f0;color:var(--blue);" onclick="window.open(\\'/order/' + oidEnc + '?pw=\\'+encodeURIComponent(PW),\\'_blank\\')">詳細</button> ';
+    html +=   '<button class="edit-btn" style="background:#eef9f0;border-color:#bfe3c6;color:var(--green);" onclick="openUrlList(\\'' + esc(oid) + '\\')">URL一覧</button>';
     html += '</td>';
     html += '</tr>';
   }
@@ -2554,6 +2543,78 @@ function fmtDate(iso) {
     return d.getFullYear()+'/'+('0'+(d.getMonth()+1)).slice(-2)+'/'+('0'+d.getDate()).slice(-2)+' '+('0'+d.getHours()).slice(-2)+':'+('0'+d.getMinutes()).slice(-2);
   } catch(e) { return iso; }
 }
+// ─── URL一覧モーダル（各注文のURL・QRをまとめて表示／ダウンロード）───
+var URLLIST_ID = '';
+var URLLIST_TXT = '';
+function openUrlList(orderId) {
+  var item = null;
+  for (var i = 0; i < ALL_ITEMS.length; i++) { if (ALL_ITEMS[i].orderId === orderId) { item = ALL_ITEMS[i]; break; } }
+  var enc = encodeURIComponent(orderId);
+  var nfcUrl   = BASE + '/nfc/' + enc;        // NFCタグが指す（リダイレクト）URL
+  var qrUrl    = BASE + '/qr/'  + enc;        // 商品本体QRが指すURL
+  var portal   = BASE + '/portal?add=' + enc; // お客さん用の変更ページ
+  var setupUrl = BASE + '/setup/' + enc;      // 自動登録QR（OPP袋）が指す先
+  var strip = function (u) { return u.replace('https://', '').replace('http://', ''); };
+
+  URLLIST_ID = orderId;
+  document.getElementById('urlListTitle').textContent = '注文番号 ' + orderId + ' の URL一覧';
+
+  function row(label, url, withNoScheme) {
+    var h = '<div class="ul-row"><div class="ul-label">' + label + '</div>';
+    h += '<div class="ul-url">' + url + '</div><div class="ul-actions">';
+    h += '<button class="copy-btn" onclick="copyText(\\'' + url + '\\')">コピー</button>';
+    if (withNoScheme) h += '<button class="copy-btn" onclick="copyText(\\'' + strip(url) + '\\')">https://なしでコピー</button>';
+    h += '</div></div>';
+    return h;
+  }
+  var rows = '';
+  rows += row('📡 NFC タグURL', nfcUrl, true);
+  rows += row('📷 QR タグURL', qrUrl, true);
+  rows += row('🔗 変更ページURL（お客さん用）', portal, false);
+  document.getElementById('urlListRows').innerHTML = rows;
+
+  // QR生成（自動登録=OPP袋 / 注文=商品本体）
+  var qb1 = document.getElementById('ulSetupQr');   qb1.innerHTML = '';
+  var qb2 = document.getElementById('ulProductQr'); qb2.innerHTML = '';
+  if (window.QRCode) {
+    new QRCode(qb1, { text: setupUrl, width: 150, height: 150, correctLevel: QRCode.CorrectLevel.M });
+    new QRCode(qb2, { text: qrUrl,    width: 150, height: 150, correctLevel: QRCode.CorrectLevel.M });
+  }
+
+  // テキスト一覧の組み立て
+  var lines = [];
+  lines.push('注文番号: ' + orderId);
+  lines.push('');
+  lines.push('[NFC タグURL] ' + nfcUrl);
+  lines.push('[QR タグURL] ' + qrUrl);
+  lines.push('[変更ページURL] ' + portal);
+  lines.push('[自動登録QR(OPP袋)の中身] ' + setupUrl);
+  if (item) {
+    lines.push('');
+    lines.push('現在のリダイレクト先:');
+    lines.push('  NFC → ' + (item.nfcUrl || '未設定'));
+    lines.push('  QR  → ' + (item.qrUrl || '未設定'));
+  }
+  URLLIST_TXT = lines.join('\\n');
+
+  document.getElementById('urlListModal').classList.add('open');
+}
+function closeUrlList() { document.getElementById('urlListModal').classList.remove('open'); }
+function dlUlQr(boxId, kind) {
+  var box = document.getElementById(boxId);
+  var im = box.querySelector('img') || box.querySelector('canvas'); if (!im) return;
+  var src = (im.tagName === 'IMG') ? im.src : im.toDataURL('image/png');
+  var a = document.createElement('a'); a.href = src; a.download = kind + '_qr_' + URLLIST_ID + '.png';
+  document.body.appendChild(a); a.click(); a.remove();
+}
+function dlUrlListTxt() {
+  var blob = new Blob([URLLIST_TXT], { type: 'text/plain;charset=utf-8' });
+  var url  = URL.createObjectURL(blob);
+  var a = document.createElement('a'); a.href = url; a.download = 'urls_' + URLLIST_ID + '.txt';
+  document.body.appendChild(a); a.click(); a.remove();
+  setTimeout(function () { URL.revokeObjectURL(url); }, 1000);
+}
+
 function copyText(t) { navigator.clipboard.writeText(t).then(function () { toast('コピーしました'); }); }
 function toast(msg) {
   const el = document.getElementById('toast');
@@ -2895,7 +2956,7 @@ async function handleMessageCreate(request, env, cors) {
 // 管理者：メッセージ一覧を返す。?pending=1 で未通知（emailed=false）だけ返す（Code.gs 用）。
 async function handleMessageList(request, env, cors) {
   const auth = request.headers.get('Authorization');
-  if (auth !== `Bearer ${ADMIN_PASSWORD}`) return json({ error: '認証エラー' }, 401, cors);
+  if (auth !== adminBearer(env)) return json({ error: '認証エラー' }, 401, cors);
   const url = new URL(request.url);
   const pendingOnly = url.searchParams.get('pending') === '1';
   const list = await env.NFC_URLS.list({ prefix: 'MSG:' });
@@ -2914,7 +2975,7 @@ async function handleMessageList(request, env, cors) {
 // 管理者：既読/削除（単一） と Gmail通知済みフラグ（バッチ）の更新。
 async function handleMessageUpdate(request, env, cors) {
   const auth = request.headers.get('Authorization');
-  if (auth !== `Bearer ${ADMIN_PASSWORD}`) return json({ error: '認証エラー' }, 401, cors);
+  if (auth !== adminBearer(env)) return json({ error: '認証エラー' }, 401, cors);
   let body;
   try { body = await request.json(); } catch (e) { return json({ error: 'JSON不正' }, 400, cors); }
 
