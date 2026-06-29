@@ -156,6 +156,29 @@ body{font-family:'Noto Sans JP',sans-serif;background:var(--paper);color:var(--i
 .att-mode.inside{background:#1d3a2a;color:#7fe0a8;}
 .att-mode.outside{background:#3a2a1d;color:#e0b27f;}
 
+/* 穴エディタ コントロール（拡大・段階ズーム・十字キー・サイズ集約） */
+.att-ctrl{margin-top:10px;border:1.5px solid var(--border);border-radius:12px;padding:12px;background:var(--surface);}
+.att-ctrl-top{display:flex;align-items:center;justify-content:space-between;gap:10px;flex-wrap:wrap;margin-bottom:12px;}
+.att-zoom{display:flex;align-items:center;gap:8px;}
+.att-zv{font-size:13px;font-weight:700;color:var(--ink);min-width:46px;text-align:center;}
+.att-mid{display:flex;align-items:center;gap:18px;flex-wrap:wrap;justify-content:center;}
+.att-btn{font-family:'Noto Sans JP',sans-serif;font-size:12.5px;font-weight:700;color:var(--ink);background:var(--surface);border:1.5px solid var(--border);border-radius:9px;padding:8px 12px;cursor:pointer;transition:background .15s,transform .1s,border-color .15s;}
+.att-btn:hover{border-color:var(--accent);}
+.att-btn:active{transform:translateY(1px);}
+.att-btn.on{background:var(--accent);border-color:var(--accent);color:#fff;}
+.att-btn.sq{padding:7px 0;width:34px;text-align:center;line-height:1;}
+.att-pad{display:grid;grid-template-columns:repeat(3,38px);grid-template-rows:repeat(3,34px);gap:5px;justify-content:center;}
+.att-btn.pad{width:38px;height:34px;padding:0;display:flex;align-items:center;justify-content:center;}
+.att-btn.pad.pu{grid-area:1/2;} .att-btn.pad.pl{grid-area:2/1;}
+.att-btn.pad.pc{grid-area:2/2;color:var(--accent);} .att-btn.pad.pr{grid-area:2/3;}
+.att-btn.pad.pd{grid-area:3/2;}
+.att-size{display:flex;flex-direction:column;gap:7px;}
+.att-size-row{display:flex;align-items:center;gap:7px;}
+.att-lbl{font-size:12px;color:var(--muted);width:32px;flex-shrink:0;}
+.att-sv{font-size:13px;font-weight:700;color:var(--ink);min-width:52px;text-align:center;}
+.att-hint{font-size:11px;color:var(--muted);line-height:1.6;margin-top:10px;}
+.attach-wrap.att-big{height:min(120vw,680px);}
+
 /* 注文サマリーカード */
 .prev-card{background:var(--surface);border:1.5px solid var(--border);border-radius:var(--radius);overflow:hidden;margin-bottom:12px;margin-top:14px;box-shadow:var(--card-sh);}
 @media(min-width:700px){.prev-card{margin-top:0;}}
@@ -529,6 +552,56 @@ if(document.readyState!=='loading')w();else document.addEventListener('DOMConten
       <span class="att-mode inside" id="attModeBadge">本体内</span>
       <span>X:<span id="attX">50</span>% Y:<span id="attY">10</span>%</span>
     </div>
+
+    <!-- 穴エディタ コントロール（拡大・段階ズーム・十字キー・本体サイズ／縁の集約） -->
+    <div class="att-ctrl">
+      <div class="att-ctrl-top">
+        <button type="button" id="attBigBtn" class="att-btn" onclick="toggleAttBig()">🔍 拡大</button>
+        <div class="att-zoom">
+          <button type="button" class="att-btn sq" onclick="attZoomStep(-0.25)" aria-label="ズームアウト">－</button>
+          <span class="att-zv" id="attZoomVal">100%</span>
+          <button type="button" class="att-btn sq" onclick="attZoomStep(0.25)" aria-label="ズームイン">＋</button>
+        </div>
+      </div>
+      <div class="att-mid">
+        <div class="att-pad">
+          <button type="button" class="att-btn pad pu" onclick="attNudge(0,-1)" aria-label="上へ">▲</button>
+          <button type="button" class="att-btn pad pl" onclick="attNudge(-1,0)" aria-label="左へ">◀</button>
+          <button type="button" class="att-btn pad pc" onclick="attCenter()" aria-label="横中央へ">●</button>
+          <button type="button" class="att-btn pad pr" onclick="attNudge(1,0)" aria-label="右へ">▶</button>
+          <button type="button" class="att-btn pad pd" onclick="attNudge(0,1)" aria-label="下へ">▼</button>
+        </div>
+        <div class="att-size">
+          <div class="att-size-row" id="attSzRow">
+            <span class="att-lbl" id="attSzLbl">長辺</span>
+            <button type="button" class="att-btn sq" onclick="stepSz(-0.5)">－</button>
+            <span class="att-sv" id="attSzVal">5.0cm</span>
+            <button type="button" class="att-btn sq" onclick="stepSz(0.5)">＋</button>
+          </div>
+          <div class="att-size-row" id="attRwRow" style="display:none;">
+            <span class="att-lbl">横</span>
+            <button type="button" class="att-btn sq" onclick="stepRw(-0.5)">－</button>
+            <span class="att-sv" id="attRwVal">5.0cm</span>
+            <button type="button" class="att-btn sq" onclick="stepRw(0.5)">＋</button>
+          </div>
+          <div class="att-size-row" id="attRhRow" style="display:none;">
+            <span class="att-lbl">縦</span>
+            <button type="button" class="att-btn sq" onclick="stepRh(-0.5)">－</button>
+            <span class="att-sv" id="attRhVal">5.0cm</span>
+            <button type="button" class="att-btn sq" onclick="stepRh(0.5)">＋</button>
+          </div>
+          <button type="button" class="att-btn" id="attSwapBtn" onclick="swapWH()" style="display:none;">⇄ 縦横</button>
+          <div class="att-size-row" id="attBdRow" style="display:none;">
+            <span class="att-lbl">縁</span>
+            <button type="button" class="att-btn sq" onclick="stepBd(-1)">－</button>
+            <span class="att-sv" id="attBdVal">3mm</span>
+            <button type="button" class="att-btn sq" onclick="stepBd(1)">＋</button>
+          </div>
+        </div>
+      </div>
+      <div class="att-hint">▲▼◀▶ で穴を細かく移動できます（エディタをクリックするとキーボードの矢印キーも使えます）。＋－で拡大して微調整。</div>
+    </div>
+
     <label id="tabImgRow" style="display:flex;align-items:center;gap:9px;margin-top:12px;font-size:12.5px;color:var(--ink);cursor:pointer;line-height:1.5;">
       <input type="checkbox" id="tabImageToggle" onchange="setTabImage(this.checked)" style="width:17px;height:17px;cursor:pointer;accent-color:var(--accent);flex-shrink:0;">
       <span>外側のツメ（持ち手）にも画像のはみ出した部分を載せる</span>
@@ -767,6 +840,8 @@ const S = {
   attMode:    'inside', // 'inside'(本体に穴) / 'outside'(外付けツメ)
   tabImage:   false,    // 外付けツメに本体画像のはみ出し部分を載せるか
   attachView: 'front',
+  attZoom:    1,        // 穴エディタの段階ズーム（＋－ボタン）。ppc に掛ける
+  attBig:     false,    // 穴エディタの拡大表示（キャンバスを大きくする）
   // 購入済みオプション（読み込み時に customer-get から取得）。
   // ここが false のオプションは page2 上でロックされ、押すと alert を出す。
   // 取得に失敗した場合のフォールバックは「全て true（=ロックしない）」とし、
@@ -2134,6 +2209,57 @@ function setAttachView(side) {
   if (window._redrawAttach) window._redrawAttach();
 }
 
+// ─── 穴エディタ：拡大・段階ズーム・十字キー・サイズ集約 ───
+// 拡大トグル（キャンバスを大きく表示）
+function toggleAttBig() {
+  S.attBig = !S.attBig;
+  const w = document.getElementById('attachWrap');
+  if (w) w.classList.toggle('att-big', S.attBig);
+  if (window._redrawAttach) window._redrawAttach();   // ResizeObserver でも走るが即時反映
+  updateAttachControls();
+}
+// 段階ズーム（＋－）：ppc に掛ける attZoom を増減（100%〜250%）
+function attZoomStep(d) {
+  let z = (S.attZoom || 1) + d;
+  z = Math.max(1, Math.min(2.5, Math.round(z * 100) / 100));
+  S.attZoom = z;
+  if (window._redrawAttach) window._redrawAttach();
+  updateAttachControls();
+}
+// 十字キー（画面のボタン）：穴を一定量ずつ移動。redraw 内で縁から1cm超は自動クランプ
+function attNudge(dx, dy) {
+  const step = 1.5;   // ％単位の微移動
+  S.attX = Math.max(-40, Math.min(140, (S.attX != null ? S.attX : 50) + dx * step));
+  S.attY = Math.max(-40, Math.min(140, (S.attY != null ? S.attY : 10) + dy * step));
+  if (window._redrawAttach) window._redrawAttach();
+}
+// 中央リセット（横方向だけ中央へ。縦位置は維持）
+function attCenter() {
+  S.attX = 50;
+  if (window._redrawAttach) window._redrawAttach();
+}
+// 穴エディタ内のコントロール表示を現在の形状・値に合わせて更新
+function updateAttachControls() {
+  const zv = document.getElementById('attZoomVal');
+  if (zv) zv.textContent = Math.round((S.attZoom || 1) * 100) + '%';
+  const bb = document.getElementById('attBigBtn');
+  if (bb) { bb.classList.toggle('on', !!S.attBig); bb.textContent = S.attBig ? '🔍 縮小' : '🔍 拡大'; }
+  const isRect = S.shape === 'rect';
+  const show = (id, on, disp) => { const e = document.getElementById(id); if (e) e.style.display = on ? (disp || 'flex') : 'none'; };
+  show('attSzRow',   !isRect);
+  show('attRwRow',    isRect);
+  show('attRhRow',    isRect);
+  show('attSwapBtn',  isRect, 'inline-flex');
+  show('attBdRow',    S.shape === 'diecut');
+  const szl = document.getElementById('attSzLbl');
+  if (szl) szl.textContent = S.shape === 'circle' ? '直径' : (S.shape === 'diecut' ? '長辺' : '1辺');
+  const setv = (id, v) => { const e = document.getElementById(id); if (e) e.textContent = v; };
+  setv('attSzVal', (S.sizeCm   || 0).toFixed(1) + 'cm');
+  setv('attRwVal', (S.widthCm  || 0).toFixed(1) + 'cm');
+  setv('attRhVal', (S.heightCm || 0).toFixed(1) + 'cm');
+  setv('attBdVal', Math.round((S.borderCm != null ? S.borderCm : 0.3) * 10) + 'mm');
+}
+
 (function initAttach(){
   const wrap = document.getElementById('attachWrap');
   const cv   = document.getElementById('attachCv');
@@ -2147,7 +2273,7 @@ function setAttachView(side) {
   function bodyGeom(aw, ah){
     const margin = 16;
     const maxBody = Math.min(aw - margin*2, ah - margin*2);
-    const ppc  = maxBody / 12;          // 1cmあたりpx（最大9cm本体＋外付けツメ(縁外1cm)が全方向で枠内に収まる基準）
+    const ppc  = maxBody / 12 * (S.attZoom || 1);  // 1cmあたりpx（最大9cm本体＋外付けツメが枠内に収まる基準）。attZoom で段階ズーム
     // ダイカットはフレームを 1/DIE_FIT 倍にし、中のシルエット(=DIE_FIT)が ppc*sizeCm（丸/四角と同じ見た目の大きさ）になるようにする
     let w, h;
     if (S.shape === 'diecut')    { w = h = ppc * (S.sizeCm || 7) / DIE_FIT; }
@@ -2362,30 +2488,39 @@ function setAttachView(side) {
     const tabCrop  = _tbNoImg ? null : (_useBack ? (S.cropStateBack || S.cropStateFront) : S.cropStateFront);
 
     ctx.save();
-    if (backView) { ctx.translate(aw, 0); ctx.scale(-1, 1); }
+    // ── 裏面の反転不具合の修正 ──
+    // 旧実装は裏面で「キャンバス全体」を ctx.scale(-1,1) で鏡像化していたため、
+    // 本体プリント画像まで左右反転して見えていた。
+    // 修正：画像（本体プリント）は常に正像で描く。丸・四角は左右対称なので
+    // 「穴・ツメの位置だけ」を本体中心で鏡像化し、物理的に正しい裏面（穴が反対側）を表現する。
+    // ダイカットはシルエット＝画像のため鏡像化せず、穴位置も画像に合わせて据え置く。
+    const mirrorGeom = backView && S.shape !== 'diecut';
+    const hxM = mirrorGeom ? (2 * g.cx - hx) : hx;   // 描画用の穴X（裏面の丸・四角だけ本体中心で鏡像）
+    const hyM = hy;
 
     // 補強：外付け（中心が本体外）は首付きツメ／本体内でも縁ギリギリなら丸い膨らみのみ（穴の外側が欠けないように）
+    // ツメは鏡像座標 hxM で生成。buildTab 内の画像延長はキャンバスを反転しないので正像のまま＝本体画像と継ぎ目が揃う。
     if (!isInsideBody(hx, hy, g)) {
-      const tab = buildTab(aw, ah, g, hx, hy, holeR, acryl, lugR, true, tabImg, tabOrig, tabCrop);
+      const tab = buildTab(aw, ah, g, hxM, hyM, holeR, acryl, lugR, true, tabImg, tabOrig, tabCrop);
       ctx.drawImage(tab, 0, 0, aw, ah);
     } else if (!lugFullyInside(hx, hy, g, lugR)) {
-      const tab = buildTab(aw, ah, g, hx, hy, holeR, acryl, lugR, false, tabImg, tabOrig, tabCrop);
+      const tab = buildTab(aw, ah, g, hxM, hyM, holeR, acryl, lugR, false, tabImg, tabOrig, tabCrop);
       ctx.drawImage(tab, 0, 0, aw, ah);
     }
-    drawBody(g);
+    drawBody(g);                          // 本体・画像は常に正像（裏面でも反転させない）
     if (S.shape !== 'diecut') { ctx.strokeStyle = 'rgba(255,255,255,.30)'; ctx.lineWidth = 1.5; bodyPath(g); ctx.stroke(); }
 
-    // 穴を抜く
-    ctx.beginPath(); ctx.arc(hx, hy, holeR, 0, Math.PI*2);
+    // 穴を抜く（鏡像座標）
+    ctx.beginPath(); ctx.arc(hxM, hyM, holeR, 0, Math.PI*2);
     ctx.fillStyle = WRAP_BG; ctx.fill();
     ctx.lineWidth=1.4; ctx.strokeStyle='rgba(0,0,0,.45)';
-    ctx.beginPath(); ctx.arc(hx,hy,holeR,0,Math.PI*2); ctx.stroke();
+    ctx.beginPath(); ctx.arc(hxM,hyM,holeR,0,Math.PI*2); ctx.stroke();
     ctx.lineWidth=1; ctx.strokeStyle='rgba(255,255,255,.22)';
-    ctx.beginPath(); ctx.arc(hx,hy,Math.max(1,holeR-1.4),0,Math.PI*2); ctx.stroke();
+    ctx.beginPath(); ctx.arc(hxM,hyM,Math.max(1,holeR-1.4),0,Math.PI*2); ctx.stroke();
 
-    // 照準リング
+    // 照準リング（鏡像座標）
     ctx.strokeStyle='rgba(255,255,255,.85)'; ctx.lineWidth=1.5; ctx.setLineDash([3,3]);
-    ctx.beginPath(); ctx.arc(hx,hy,holeR+5,0,Math.PI*2); ctx.stroke(); ctx.setLineDash([]);
+    ctx.beginPath(); ctx.arc(hxM,hyM,holeR+5,0,Math.PI*2); ctx.stroke(); ctx.setLineDash([]);
 
     ctx.restore();
 
@@ -2404,17 +2539,35 @@ function setAttachView(side) {
     const badge = document.getElementById('attModeBadge');
     if (badge) { badge.textContent = inside ? '本体内' : '外付けツメ'; badge.className = 'att-mode ' + (inside ? 'inside' : 'outside'); }
     document.getElementById('ss7').textContent = (inside ? '本体内' : '外付け') + ' / X:'+Math.round(S.attX)+'% Y:'+Math.round(S.attY)+'%';
+    if (typeof updateAttachControls === 'function') updateAttachControls();
     done(7); updateProg();
   }
 
   window._redrawAttach = () => redraw();
+
+  // 十字キー（キーボードの矢印）：エディタにフォーカスがある時だけ穴を微移動
+  wrap.tabIndex = 0;
+  wrap.addEventListener('keydown', e => {
+    const k = e.key;
+    if (k==='ArrowUp'||k==='ArrowDown'||k==='ArrowLeft'||k==='ArrowRight') {
+      e.preventDefault();
+      const s = e.shiftKey ? 4 : 1.5;
+      if (k==='ArrowUp')    S.attY -= s;
+      if (k==='ArrowDown')  S.attY += s;
+      if (k==='ArrowLeft')  S.attX -= s;
+      if (k==='ArrowRight') S.attX += s;
+      redraw();
+    }
+  });
 
   let drag = false;
   function setFromPointer(clientX, clientY){
     const r = wrap.getBoundingClientRect();
     const aw = r.width, ah = r.height;
     let rawx = clientX - r.left;
-    if (S.attachView === 'back') rawx = aw - rawx;
+    // 裏面の丸・四角は穴位置を鏡像描画しているので、ポインタ座標も鏡像で受ける（描画と一致させる）。
+    // ダイカットは鏡像化していないのでそのまま。
+    if (S.attachView === 'back' && S.shape !== 'diecut') rawx = aw - rawx;
     let hx = Math.min(aw, Math.max(0, rawx));
     let hy = Math.min(ah, Math.max(0, clientY - r.top));
     const g = bodyGeom(aw, ah);
