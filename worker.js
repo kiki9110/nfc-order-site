@@ -71,6 +71,7 @@ export default {
     if (path === '/admin' || path === '/admin/') return new Response(adminHTML(origin), { headers: htmlHdr });
     if (path === '/api/set')               return handleSet(request, env, cors);
     if (path === '/api/set-all')           return handleSetAll(request, env, cors);
+    if (path === '/api/set-made')          return handleSetMade(request, env, cors);   // 管理者：作成済み(製作完了)フラグ切替
     if (path === '/api/set-qr')            return handleSetQR(request, env, cors);
     if (path === '/api/get')               return handleGet(request, env, cors);
     if (path === '/api/get-all')           return handleGetAll(request, env, cors);
@@ -312,6 +313,8 @@ async function handleSet(request, env, cors) {
     updatedAt:    new Date().toISOString(),
     accessCount:  prev.accessCount  || 0,
     lastAccess:   prev.lastAccess   || null,
+    made:         !!prev.made,
+    madeAt:       prev.madeAt || null,
   };
   await env.NFC_URLS.put(body.orderId, JSON.stringify(record));
   return json({ ok: true, record }, 200, cors);
@@ -365,6 +368,24 @@ async function handleSetAll(request, env, cors) {
   }
 
   return json({ ok: true }, 200, cors);
+}
+
+// 作成済み（製作完了）フラグを切り替え（管理者）。最終更新日時には影響させない。
+async function handleSetMade(request, env, cors) {
+  const auth = request.headers.get('Authorization');
+  if (auth !== adminBearer(env)) return json({ error: '認証エラー' }, 401, cors);
+
+  const body    = await request.json();
+  const orderId = (body.orderId || '').trim();
+  if (!orderId) return json({ error: 'orderId が必要です' }, 400, cors);
+
+  const raw = await env.NFC_URLS.get(orderId);
+  if (!raw) return json({ error: '注文番号が見つかりません' }, 404, cors);
+  const rec = JSON.parse(raw);
+  rec.made   = !!body.made;
+  rec.madeAt = rec.made ? new Date().toISOString() : null;  // updatedAt は触らない（URL更新順を乱さない）
+  await env.NFC_URLS.put(orderId, JSON.stringify(rec));
+  return json({ ok: true, made: rec.made }, 200, cors);
 }
 
 // QR URL を登録・更新（単体）
@@ -443,6 +464,7 @@ async function handleGetAll(request, env, cors) {
       qrHistory:     qr.history       || [],
       qrAccessCount: qr.accessCount   || 0,
       hasOrder:      !!ordRaw,
+      made:          !!nfc.made,           // 製作完了（作成済み）フラグ
       lastUrlUpdate,
       // 購入オプションと追加枚数（管理画面で手動編集できるようにする）
       options:       nfc.options      || {},
@@ -514,6 +536,8 @@ async function handleRegister(request, env, cors) {
     // 再登録時は毎回上書き。ただし body に無い場合は既存値を保持（手動登録などで消えないように）。
     options:      body.options    || (prevNfc ? prevNfc.options    : {}) || {},
     addonCount:   (body.addonCount != null) ? body.addonCount : (prevNfc ? (prevNfc.addonCount || 0) : 0),
+    made:         prevNfc ? !!prevNfc.made   : false,   // 作成済みフラグは再登録でも保持
+    madeAt:       prevNfc ? (prevNfc.madeAt || null) : null,
   }));
 
   // QR レコードを登録（既存があればURL・履歴・アクセス数を保持）
@@ -952,7 +976,7 @@ body{font-family:'Noto Sans JP',sans-serif;background:#f6f7f9;color:#1a1d23;padd
 <body>
 <div class="topbar">
   <div class="logo">NFC ADMIN</div>
-  <a href="/admin" class="back-btn">← 一覧に戻る</a>
+  <a href="/admin#keychains" class="back-btn">← 一覧に戻る</a>
 </div>
 <div class="wrap">
 
@@ -1443,6 +1467,25 @@ body{font-family:'Noto Sans JP',sans-serif;background:var(--paper);color:var(--i
 .reload-btn{padding:10px 14px;border:1.5px solid var(--border);border-radius:10px;background:#fff;cursor:pointer;font-size:12px;color:var(--ink);white-space:nowrap;}
 .reload-btn:hover{border-color:var(--ink);}
 
+/* ── 絞り込みチップ（複数選択・ジャンル別）── */
+.filter-bar{display:flex;flex-wrap:wrap;gap:16px;margin:-4px 0 18px;}
+.filter-group{display:flex;align-items:center;gap:6px;flex-wrap:wrap;}
+.filter-glabel{font-size:11px;font-weight:700;color:var(--muted);margin-right:2px;letter-spacing:.04em;}
+.chip{font-size:12px;padding:6px 13px;border:1.5px solid var(--border);border-radius:20px;background:#fff;color:var(--muted);cursor:pointer;font-family:'Noto Sans JP',sans-serif;transition:all .12s;}
+.chip:hover{border-color:var(--ink);color:var(--ink);}
+.chip.active{background:var(--accent);border-color:var(--accent);color:#fff;}
+
+/* ── 一覧の注文有無マーク・状態バッジ ── */
+.ord-mark{font-size:13px;font-weight:700;margin-right:7px;vertical-align:middle;}
+.ord-mark.yes{color:#16a34a;}
+.ord-mark.no{color:#cbd0d6;}
+.st-badge{display:inline-block;font-size:10px;font-weight:700;padding:2px 9px;border-radius:10px;}
+.st-made{background:#dcfce7;color:#15803d;}
+.st-new{background:var(--blue-bg);color:var(--blue);}
+.st-none{background:#f1f3f6;color:#9ca3af;}
+/* 先頭の状態ボタンは幅を固定して、以降のボタン位置を揃える */
+.st-toggle{display:inline-block;min-width:128px;text-align:center;}
+
 /* ── 手動登録フォーム ── */
 .add-card{background:#fff;border-radius:var(--radius);border:1.5px solid var(--border);padding:18px;margin-bottom:20px;}
 .add-row{display:flex;gap:8px;flex-wrap:wrap;}
@@ -1655,6 +1698,21 @@ tr:hover td{background:#f7f9fb;}
         <option value="upd_asc">更新が古い順</option>
       </select>
       <button class="reload-btn" onclick="loadList()">↺ 更新</button>
+    </div>
+
+    <div class="filter-bar">
+      <div class="filter-group">
+        <span class="filter-glabel">状態でしぼり込み</span>
+        <button class="chip" data-genre="status" data-val="none" onclick="toggleChip(this)">未完成（注文なし）</button>
+        <button class="chip" data-genre="status" data-val="new"  onclick="toggleChip(this)">新しい注文</button>
+        <button class="chip" data-genre="status" data-val="made" onclick="toggleChip(this)">作成済み</button>
+      </div>
+      <div class="filter-group">
+        <span class="filter-glabel">注文番号でしぼり込み</span>
+        <button class="chip" data-genre="digits" data-val="d10"   onclick="toggleChip(this)">10桁の番号</button>
+        <button class="chip" data-genre="digits" data-val="d8"    onclick="toggleChip(this)">8桁の番号</button>
+        <button class="chip" data-genre="digits" data-val="other" onclick="toggleChip(this)">その他の番号</button>
+      </div>
     </div>
 
     <div class="section-title">NFC URL を手動登録</div>
@@ -2309,7 +2367,27 @@ function printLabel(oid) {
   }, 80);
 }
 
-// ─── 一覧描画（検索フィルタ + 並び替え）───
+// ─── 絞り込みチップ・状態判定 ───
+// アクティブなチップの値を取得（ジャンル別）
+function chipVals(genre) {
+  var out = [], els = document.querySelectorAll('.chip.active[data-genre="' + genre + '"]');
+  for (var i = 0; i < els.length; i++) out.push(els[i].getAttribute('data-val'));
+  return out;
+}
+function toggleChip(btn) { btn.classList.toggle('active'); renderList(); }
+// 注文の状態：作成済み / 新しい注文（注文あり・未作成）/ 未完成（注文なし）
+function itemStatus(it) { if (it.made) return 'made'; if (it.hasOrder) return 'new'; return 'none'; }
+// 注文番号の桁数ジャンル：10桁 / 8桁 / その他
+function digitCat(oid) {
+  oid = String(oid || '');
+  var num = oid.length > 0;
+  for (var i = 0; i < oid.length; i++) { var c = oid.charAt(i); if (c < '0' || c > '9') { num = false; break; } }
+  if (num && oid.length === 10) return 'd10';
+  if (num && oid.length === 8)  return 'd8';
+  return 'other';
+}
+
+// ─── 一覧描画（検索 + チップ絞り込み + 並び替え）───
 function renderList() {
   const tbody = document.getElementById('listBody');
   const q     = (document.getElementById('searchInput').value || '').trim().toLowerCase();
@@ -2319,6 +2397,14 @@ function renderList() {
     if (!q) return true;
     return (it.orderId || '').toLowerCase().indexOf(q) >= 0
         || (it.label   || '').toLowerCase().indexOf(q) >= 0;
+  });
+
+  // チップでしぼり込み（同じジャンル内はOR、ジャンル間はAND）
+  var stSel = chipVals('status'), dgSel = chipVals('digits');
+  items = items.filter(function (it) {
+    if (stSel.length && stSel.indexOf(itemStatus(it)) < 0) return false;
+    if (dgSel.length && dgSel.indexOf(digitCat(it.orderId)) < 0) return false;
+    return true;
   });
 
   const t = function (v) { return v ? new Date(v).getTime() : 0; };
@@ -2331,7 +2417,8 @@ function renderList() {
   });
 
   if (!items.length) {
-    tbody.innerHTML = '<tr><td colspan="5" class="empty">' + (q ? '該当する注文がありません' : 'まだ登録がありません') + '</td></tr>';
+    var none = (q || stSel.length || dgSel.length) ? '条件に合う注文がありません' : 'まだ登録がありません';
+    tbody.innerHTML = '<tr><td colspan="5" class="empty">' + none + '</td></tr>';
     return;
   }
 
@@ -2340,24 +2427,51 @@ function renderList() {
     const item   = items[i];
     const oid    = item.orderId;
     const oidEnc = encodeURIComponent(oid);
+    const hasOrder = !!item.hasOrder;
+    const made     = !!item.made;
+    const mark = hasOrder
+      ? '<span class="ord-mark yes" title="注文あり">●</span>'
+      : '<span class="ord-mark no" title="注文なし">✕</span>';
+    const stB = made
+      ? '<span class="st-badge st-made">作成済み</span>'
+      : (hasOrder ? '<span class="st-badge st-new">新しい注文</span>' : '<span class="st-badge st-none">注文なし</span>');
 
     html += '<tr>';
-    html += '<td>';
-    html +=   '<span class="order-id">' + esc(oid) + '</span>';
-    html += '</td>';
+    html += '<td>' + mark + '<span class="order-id">' + esc(oid) + '</span><div style="margin-top:5px;">' + stB + '</div></td>';
     html += '<td style="font-size:12px;color:var(--muted);">' + esc(item.label || '—') + '</td>';
     html += '<td class="date-cell">' + fmtDate(item.lastUrlUpdate) + '</td>';
     html += '<td><span class="count-badge">📡' + (item.accessCount||0) + ' / 📷' + (item.qrAccessCount||0) + '</span></td>';
     html += '<td style="white-space:nowrap;">';
+    if (hasOrder) {
+      html += made
+        ? '<button class="edit-btn st-toggle" onclick="toggleMade(\\'' + esc(oid) + '\\',false)">↩ 未作成に戻す</button> '
+        : '<button class="edit-btn st-toggle" style="background:#dcfce7;border-color:#bbf7d0;color:var(--green);" onclick="toggleMade(\\'' + esc(oid) + '\\',true)">✓ 作成済みにする</button> ';
+    } else {
+      html += '<button class="edit-btn st-toggle" disabled style="background:#f1f3f6;border-color:#e4e7ec;color:#9ca3af;cursor:default;">注文なし</button> ';
+    }
     html +=   '<button class="edit-btn" onclick="openEdit(\\'' + esc(oid) + '\\')">編集</button> ';
     html +=   '<button class="del-btn"  onclick="deleteEntry(\\'' + esc(oid) + '\\')">削除</button> ';
-    html +=   '<button class="edit-btn" style="background:var(--blue-bg);border-color:#b8d9f0;color:var(--blue);" onclick="window.open(\\'/order/' + oidEnc + '?pw=\\'+encodeURIComponent(PW),\\'_blank\\')">詳細</button> ';
+    html +=   '<button class="edit-btn" style="background:var(--blue-bg);border-color:#b8d9f0;color:var(--blue);" onclick="location.href=\\'/order/' + oidEnc + '?pw=\\'+encodeURIComponent(PW)">詳細</button> ';
     html +=   '<button class="edit-btn" onclick="printLabel(\\'' + esc(oid) + '\\')">ラベル保存</button> ';
     html +=   '<button class="edit-btn" style="background:#eef9f0;border-color:#bfe3c6;color:var(--green);" onclick="openUrlList(\\'' + esc(oid) + '\\')">URL一覧</button>';
     html += '</td>';
     html += '</tr>';
   }
   tbody.innerHTML = html;
+}
+// 作成済み（製作完了）フラグの切り替え
+function toggleMade(orderId, made) {
+  fetch(BASE + '/api/set-made', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', Authorization: 'Bearer ' + PW },
+    body: JSON.stringify({ orderId: orderId, made: made }),
+  }).then(function (r) { return r.json(); }).then(function (d) {
+    if (d && d.ok) {
+      for (var i = 0; i < ALL_ITEMS.length; i++) { if (ALL_ITEMS[i].orderId === orderId) { ALL_ITEMS[i].made = made; break; } }
+      toast(made ? '作成済みにしました ✓' : '未作成に戻しました');
+      renderList();
+    } else { toast((d && d.error) || 'エラー'); }
+  }).catch(function () { toast('通信エラー'); });
 }
 
 // ─── 手動登録 ───
