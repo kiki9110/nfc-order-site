@@ -179,6 +179,34 @@ body{font-family:'Noto Sans JP',sans-serif;background:var(--paper);color:var(--i
 .att-hint{font-size:11px;color:var(--muted);line-height:1.6;margin-top:10px;}
 .attach-wrap.att-big{height:min(120vw,680px);}
 
+/* 複数画像（レイヤー）エディタ */
+.layer-ed{margin-top:14px;border:1.5px solid var(--border);border-radius:14px;padding:12px;background:var(--surface);}
+.le-head{display:flex;align-items:center;justify-content:space-between;gap:10px;margin-bottom:10px;flex-wrap:wrap;}
+.le-title{font-size:13px;font-weight:700;color:var(--ink);}
+.le-sides{display:flex;gap:6px;}
+.le-sidebtn{font-family:'Noto Sans JP',sans-serif;font-size:12px;font-weight:700;color:var(--muted);background:var(--surface);border:1.5px solid var(--border);border-radius:8px;padding:6px 12px;cursor:pointer;}
+.le-sidebtn.on{background:var(--accent);border-color:var(--accent);color:#fff;}
+.le-body{display:flex;gap:10px;align-items:flex-start;}
+.le-list{flex:0 0 76px;display:flex;flex-direction:column;gap:8px;max-height:320px;overflow-y:auto;}
+.le-add{font-family:'Noto Sans JP',sans-serif;font-size:12px;font-weight:700;color:var(--accent);background:var(--sel);border:1.5px dashed var(--accent);border-radius:10px;padding:10px 4px;cursor:pointer;flex-shrink:0;}
+.le-thumbs{display:flex;flex-direction:column;gap:8px;}
+.le-thumb{position:relative;width:100%;aspect-ratio:1/1;border:2px solid var(--border);border-radius:10px;overflow:hidden;cursor:pointer;background:#f3f3f3;}
+.le-thumb.sel{border-color:var(--accent);box-shadow:0 0 0 2px rgba(255,122,89,.25);}
+.le-thumb img{width:100%;height:100%;object-fit:contain;display:block;}
+.le-thx{position:absolute;top:2px;right:2px;width:18px;height:18px;border:none;border-radius:50%;background:rgba(0,0,0,.55);color:#fff;font-size:12px;line-height:1;cursor:pointer;display:flex;align-items:center;justify-content:center;padding:0;}
+.le-empty{font-size:10.5px;color:var(--muted);line-height:1.6;text-align:center;padding:8px 2px;border:1.5px dashed var(--border);border-radius:10px;}
+.le-stage-wrap{flex:1;min-width:0;}
+#layerStage{display:block;width:100%;background:#16161a;border-radius:12px;touch-action:none;cursor:move;outline:none;}
+.le-ctrl{margin-top:10px;}
+.le-pad{margin:0 auto;}
+.le-sliders{margin-top:10px;}
+.le-sliders label{display:block;font-size:11px;color:var(--muted);margin:6px 0 3px;}
+.le-sliders input[type=range]{width:100%;}
+.le-zbtns{display:flex;gap:6px;margin-top:10px;flex-wrap:wrap;}
+.le-del{color:#c0392b;border-color:#f5c2c0;}
+.le-hint{font-size:11px;color:var(--muted);line-height:1.6;margin-top:10px;}
+@media(max-width:380px){ .le-list{flex-basis:62px;} }
+
 /* 注文サマリーカード */
 .prev-card{background:var(--surface);border:1.5px solid var(--border);border-radius:var(--radius);overflow:hidden;margin-bottom:12px;margin-top:14px;box-shadow:var(--card-sh);}
 @media(min-width:700px){.prev-card{margin-top:0;}}
@@ -446,6 +474,49 @@ if(document.readyState!=='loading')w();else document.addEventListener('DOMConten
         <button class="retake-btn" style="color:var(--ink);" onclick="reopenCrop('back')">✏ 再調整</button>
       </div>
     </div>
+
+    <!-- 複数画像（レイヤー）エディタ -->
+    <div class="layer-ed" id="layerEd" style="display:none;">
+      <div class="le-head">
+        <span class="le-title">🖼 画像を重ねる（複数配置）</span>
+        <div class="le-sides">
+          <button type="button" id="leSideFront" class="le-sidebtn on" onclick="leSetSide('front')">おもて</button>
+          <button type="button" id="leSideBack" class="le-sidebtn" onclick="leSetSide('back')" style="display:none;">うら</button>
+        </div>
+      </div>
+      <div class="le-body">
+        <div class="le-list">
+          <button type="button" class="le-add" onclick="leAddClick()">＋ 追加</button>
+          <input type="file" id="leFile" accept="image/*" style="display:none;" onchange="leOnFile(event)">
+          <div class="le-thumbs" id="leThumbs"></div>
+        </div>
+        <div class="le-stage-wrap">
+          <canvas id="layerStage" tabindex="0"></canvas>
+          <div class="le-ctrl" id="leCtrl" style="display:none;">
+            <div class="att-pad le-pad">
+              <button type="button" class="att-btn pad pu" onclick="leNudge(0,-1)" aria-label="上へ">▲</button>
+              <button type="button" class="att-btn pad pl" onclick="leNudge(-1,0)" aria-label="左へ">◀</button>
+              <button type="button" class="att-btn pad pc" onclick="leZ(1)" aria-label="前面へ" title="前面へ">⬆</button>
+              <button type="button" class="att-btn pad pr" onclick="leNudge(1,0)" aria-label="右へ">▶</button>
+              <button type="button" class="att-btn pad pd" onclick="leNudge(0,1)" aria-label="下へ">▼</button>
+            </div>
+            <div class="le-sliders">
+              <label>回転 <span id="leRotVal">0°</span></label>
+              <input type="range" id="leRot" min="-180" max="180" value="0" oninput="leSetRot(this.value)">
+              <label>大きさ <span id="leScaleVal">50%</span></label>
+              <input type="range" id="leScale" min="8" max="160" value="50" oninput="leSetScale(this.value)">
+            </div>
+            <div class="le-zbtns">
+              <button type="button" class="att-btn" onclick="leZ(1)">前面へ</button>
+              <button type="button" class="att-btn" onclick="leZ(-1)">背面へ</button>
+              <button type="button" class="att-btn le-del" onclick="leDelete()">🗑 削除</button>
+            </div>
+          </div>
+        </div>
+      </div>
+      <div class="le-hint">追加した画像をプレビュー上でドラッグ、または選択して矢印キー／▲▼◀▶で移動。回転は写真の中心で回ります。一覧で選択・前後の並び替え・削除ができます。</div>
+    </div>
+
   </div>
   <div class="lock-bar" onclick="onLockBarClick()">⚠ <span id="lockMsg">先に「土台カラー」と「形状」を選択してください</span> →</div>
 </div>
@@ -825,6 +896,13 @@ const S = {
   imgFront:   null, imgBack: null,
   imgFrontSrc:null, imgBackSrc: null,   // オリジナルソース（再調整用）
   cropStateFront: null, cropStateBack: null, // 前回のクロップ設定
+  // ── 複数画像（レイヤー）──
+  // baseFront/baseBack = クロップ済みのベース画像（既存の単一画像フローが作る）。
+  // layersFront/layersBack = ベースに重ねる追加画像の配列（各 {id,src,x,y,scale,rot,imgEl}）。
+  // すべてを合成して imgFront/imgBack を作り直す（オーバーレイが0枚ならベースをそのまま使う＝完全後方互換）。
+  baseFront: null, baseBack: null,
+  layersFront: [], layersBack: [],
+  selFront: null, selBack: null,        // 選択中のオーバーレイ id
   dieFront:   null, dieBack: null,       // ダイカットの実シルエット外周（正規化ポリゴン）
   dieHolesFront: [], dieHolesBack: [],   // ダイカットの中抜き穴（折れ防止OFF時に検出される正規化ポリゴンの配列）
   dieReinforce:  false,                  // 折れ防止は廃止：常に false（イラストどおりにすき間・中抜き穴を残す）
@@ -1064,6 +1142,8 @@ function pickShape(sh) {
   done(2);
   document.getElementById('sb2').classList.add('hidden');
   updateLock(); updateProg();
+  // 形状が変わったらレイヤー合成のフレーム比も変わるので作り直す＋エディタ更新
+  if (typeof leShow === 'function') { leShow(); leRecomposeAll(); }
   if (window._redrawAttach) window._redrawAttach();
 }
 
@@ -1148,17 +1228,20 @@ function onFileChange(e, target) {
 
 function resetImg(target) {
   if (target === 'front') {
-    S.imgFront = null;
+    S.imgFront = null; S.baseFront = null; S.layersFront = []; S.selFront = null;
+    if (typeof leBaseImg !== 'undefined') leBaseImg.front = null;
     document.getElementById('pw-front').classList.remove('show');
     document.getElementById('uz-front').style.display = '';
     document.getElementById('img-front').value = '';
   } else {
-    S.imgBack = null;
+    S.imgBack = null; S.baseBack = null; S.layersBack = []; S.selBack = null;
+    if (typeof leBaseImg !== 'undefined') leBaseImg.back = null;
     document.getElementById('pw-back').classList.remove('show');
     document.getElementById('uz-back').style.display = '';
     document.getElementById('img-back').value = '';
   }
   document.getElementById('ss4').textContent = (S.imgFront || S.imgBack) ? '設定済み' : '未設定';
+  if (typeof leShow === 'function') leShow();
   if (window._redrawAttach) window._redrawAttach();
 }
 
@@ -1706,17 +1789,22 @@ function applyCrop() {
   }
   const savedState = { scale:C.scale, rot:C.rot, x:C.x, y:C.y, fitScale:C.fitScale, imgW:C.imgW, imgH:C.imgH, die:dieOuter, dieHoles:dieHoles, frameSrc:frameSrc, frameSrcW:frameSrcW, frameSrcH:frameSrcH, drawX:drawX, drawY:drawY };
   if (cropTarget === 'back') {
-    S.imgBack = url; S.cropStateBack = savedState; S.dieBack = dieOuter; S.dieHolesBack = dieHoles;
+    S.baseBack = url; S.imgBack = url; S.cropStateBack = savedState; S.dieBack = dieOuter; S.dieHolesBack = dieHoles;
+    if (typeof leBaseImg !== 'undefined') leBaseImg.back = null;   // 次の合成でベースを読み直す
     drawPreview('back');
     document.getElementById('uz-back').style.display = 'none';
     document.getElementById('pw-back').classList.add('show');
+    if (typeof leRecompose === 'function') leRecompose('back');    // オーバーレイがあれば合成、無ければベースのまま
   } else {
-    S.imgFront = url; S.cropStateFront = savedState; S.dieFront = dieOuter; S.dieHolesFront = dieHoles;
+    S.baseFront = url; S.imgFront = url; S.cropStateFront = savedState; S.dieFront = dieOuter; S.dieHolesFront = dieHoles;
+    if (typeof leBaseImg !== 'undefined') leBaseImg.front = null;
     if (sh === 'diecut' && S.imgBack) { S.dieBack = dieOuter; S.dieHolesBack = dieHoles; drawPreview('back'); }
     drawPreview('front');
     document.getElementById('uz-front').style.display = 'none';
     document.getElementById('pw-front').classList.add('show');
+    if (typeof leRecompose === 'function') leRecompose('front');
   }
+  if (typeof leShow === 'function') leShow();   // 複数画像エディタを表示／更新
   if (S.qr) { ['front','back'].forEach(s => { const c = document.getElementById('qrBg-'+s); if (c && c.width) drawQRBg(s, c, c.width, c.height); }); }
   document.getElementById('ss4').textContent = '設定済み';
   // ダイカットはシルエットの縦横比が確定したので、長辺の上限・短辺表示を更新
@@ -2135,7 +2223,7 @@ function setNFCRot(r){
 }
 
 function syncQRAll() { ['front','back'].forEach(s => { const w = document.getElementById('qrWrap-'+s); if (w && w.offsetWidth > 0) resyncQR(s); }); if (S.nfc) { const wn=document.getElementById('nfcWrap'); if (wn && wn.offsetWidth>0) resyncNFC(); } }
-function reopenSilent() { /* 縦横入れ替え時は既存画像をそのまま再フィット表示（drawPreview側でcover）。再切り抜きは不要 */ if (window._redrawAttach) window._redrawAttach(); drawPreview('front'); if (S.imgBack) drawPreview('back'); }
+function reopenSilent() { /* 縦横入れ替え時は既存画像をそのまま再フィット表示（drawPreview側でcover）。再切り抜きは不要 */ if (typeof leRecomposeAll === 'function') leRecomposeAll(); if (typeof leStageDraw === 'function') leStageDraw(); if (window._redrawAttach) window._redrawAttach(); drawPreview('front'); if (S.imgBack) drawPreview('back'); }
 
 // サイズのステータス文言（自由四角は横×縦、ダイアは長辺×短辺を表示）
 function applySizeStatus() {
@@ -2648,6 +2736,9 @@ function doSubmit() {
     dieHolesBack:  S.dieHolesBack  || [],
     dieReinforce:  false,                  // 折れ防止は廃止：常に false（page3/worker へ送る注文データも固定）
     borderCm:      S.borderCm != null ? S.borderCm : 0.3,
+    // 複数画像レイヤー（記録用。表示は合成済みの imgFront/imgBack を使う）
+    layersFront:   (typeof leSerialize === 'function') ? leSerialize('front') : [],
+    layersBack:    (typeof leSerialize === 'function') ? leSerialize('back')  : [],
     submittedAt: new Date().toLocaleString('ja-JP'),
   };
 
@@ -2690,8 +2781,9 @@ function submitOrder(orderData) {
   try {
     sessionStorage.setItem('orderData', JSON.stringify(orderData));
   } catch(e) {
-    const lite = { ...orderData, imgFront: '__large__', imgBack: '__large__' };
-    sessionStorage.setItem('orderData', JSON.stringify(lite));
+    // 容量超過時：重い画像データを外す（page3 は合成済み imgFront/imgBack を別キーから読む）
+    const lite = { ...orderData, imgFront: '__large__', imgBack: '__large__', layersFront: [], layersBack: [] };
+    try { sessionStorage.setItem('orderData', JSON.stringify(lite)); } catch(_) {}
     sessionStorage.setItem('orderImgFront', S.imgFront || '');
     sessionStorage.setItem('orderImgBack',  S.imgBack  || '');
   }
@@ -2732,6 +2824,318 @@ function toast(msg, type) {
   el.classList.toggle('alert', type === 'alert');
   el.classList.add('show');
   setTimeout(() => el.classList.remove('show'), 2800);
+}
+</script>
+<script>
+// ════════════════════════════════════════════════════════════
+// 複数画像（レイヤー）エディタ
+// ベース画像（既存クロップ済み imgFront/imgBack）に追加画像を重ね、
+// すべてを合成して imgFront/imgBack を作り直す。オーバーレイ0枚なら
+// ベースをそのまま使う＝既存の単一画像フローと完全後方互換。
+// ════════════════════════════════════════════════════════════
+let leSide = 'front';                       // 編集中の面
+let leIdSeq = 1;                             // レイヤーID採番
+let leDrag = null;                          // ドラッグ中 {l, ox, oy}
+let leStageWH = { W: 0, H: 0 };             // ステージ実寸（ヒットテスト用）
+let leInited = false;                        // ステージのイベント初期化済みか
+let leRecTimer = null;                       // 合成のデバウンス
+const leBaseImg = { front: null, back: null };
+
+function leLayers(side){ return side === 'back' ? S.layersBack : S.layersFront; }
+function leSelId(side){ return side === 'back' ? S.selBack : S.selFront; }
+function leSetSelId(side, id){ if (side === 'back') S.selBack = id; else S.selFront = id; }
+function leBaseSrc(side){ return side === 'back' ? S.baseBack : S.baseFront; }
+
+// 合成フレームの出力サイズ（applyCrop と同じ基準）
+function leFrameWH(){
+  const sh = S.shape || 'circle';
+  if (sh === 'rect'){
+    const ar = (S.widthCm || 7) / (S.heightCm || 7);
+    return ar >= 1 ? { w: 400, h: Math.round(400 / ar) } : { w: Math.round(400 * ar), h: 400 };
+  }
+  return { w: 400, h: 400 };   // 丸・四角・ダイカットは正方フレーム
+}
+
+// ベース＋オーバーレイを ctx(W×H) へ描画。形状でクリップ。
+function lePaint(ctx, W, H, side){
+  const sh = S.shape || 'circle';
+  const base = leBaseImg[side];
+  const layers = leLayers(side);
+  ctx.clearRect(0, 0, W, H);
+  const drawLayer = (c, l) => {
+    const im = l.imgEl; if (!im || !im.complete || !im.naturalWidth) return;
+    const ow = l.scale * W, oh = ow * im.naturalHeight / im.naturalWidth;   // 写真の縦横比を保持
+    c.save();
+    c.translate(l.x * W, l.y * H);
+    c.rotate((l.rot || 0) * Math.PI / 180);    // 写真自身の中心で回転
+    c.drawImage(im, -ow / 2, -oh / 2, ow, oh);
+    c.restore();
+  };
+  if (sh === 'diecut'){
+    // ダイカット：ベースのアルファ（シルエット）が「形」。オーバーレイはベースのアルファでマスク。
+    if (base && base.complete) ctx.drawImage(base, 0, 0, W, H);
+    if (layers.length && base && base.complete){
+      const t = document.createElement('canvas'); t.width = W; t.height = H;
+      const tc = t.getContext('2d'); tc.imageSmoothingEnabled = true; tc.imageSmoothingQuality = 'high';
+      for (const l of layers) drawLayer(tc, l);
+      tc.globalCompositeOperation = 'destination-in'; tc.drawImage(base, 0, 0, W, H);
+      ctx.drawImage(t, 0, 0);
+    }
+    return;
+  }
+  ctx.save();
+  ctx.beginPath();
+  if (sh === 'circle') ctx.arc(W / 2, H / 2, Math.min(W, H) / 2, 0, Math.PI * 2);
+  else rrect(ctx, 0, 0, W, H, Math.min(W, H) * 0.06);
+  ctx.clip();
+  if (base && base.complete) ctx.drawImage(base, 0, 0, W, H);
+  for (const l of layers) drawLayer(ctx, l);
+  ctx.restore();
+}
+
+// 下流（プレビュー・穴エディタ・QR）を更新
+function leAfterCompose(side){
+  const has = side === 'back' ? S.imgBack : S.imgFront;
+  if (has && document.getElementById('cv-' + side)) drawPreview(side);
+  if (window._redrawAttach) window._redrawAttach();
+  if (S.qr){ ['front','back'].forEach(s => { const c = document.getElementById('qrBg-' + s); if (c && c.width) drawQRBg(s, c, c.width, c.height); }); }
+}
+
+// 合成して imgFront/imgBack を作り直す
+function leRecompose(side){
+  const baseSrc = leBaseSrc(side);
+  const layers = leLayers(side);
+  // オーバーレイ0枚 → ベースをそのまま使う（再エンコードしない＝完全後方互換）
+  if (!layers.length){
+    if (side === 'back') S.imgBack = baseSrc || null; else S.imgFront = baseSrc || null;
+    leAfterCompose(side);
+    return;
+  }
+  // ベース未ロードなら読み込んでから再合成
+  const base = leBaseImg[side];
+  if (baseSrc && (!base || base._src !== baseSrc)){
+    const im = new Image(); im._src = baseSrc;
+    im.onload = () => { leBaseImg[side] = im; leRecompose(side); };
+    im.src = baseSrc; return;
+  }
+  const { w, h } = leFrameWH();
+  const cv = document.createElement('canvas'); cv.width = w; cv.height = h;
+  const ctx = cv.getContext('2d'); ctx.imageSmoothingEnabled = true; ctx.imageSmoothingQuality = 'high';
+  lePaint(ctx, w, h, side);
+  const url = cv.toDataURL('image/png');
+  if (side === 'back') S.imgBack = url; else S.imgFront = url;
+  leAfterCompose(side);
+}
+function leScheduleRecompose(side){
+  if (leRecTimer) clearTimeout(leRecTimer);
+  leRecTimer = setTimeout(() => { leRecTimer = null; leRecompose(side); }, 130);
+}
+function leRecomposeAll(){
+  if (S.baseFront || S.layersFront.length) leRecompose('front');
+  if (S.baseBack  || S.layersBack.length)  leRecompose('back');
+}
+
+// ───── ステージ（本体プレビュー上で配置）─────
+function leStageDraw(){
+  const cvEl = document.getElementById('layerStage'); if (!cvEl) return;
+  const host = cvEl.parentElement;
+  const avail = (host && host.clientWidth) ? host.clientWidth : 300;
+  const { w: fw, h: fh } = leFrameWH();
+  const W = Math.max(120, Math.min(320, avail));
+  const H = Math.round(W * fh / fw);
+  const dpr = Math.min(devicePixelRatio || 1, 2);
+  cvEl.style.width = W + 'px'; cvEl.style.height = H + 'px';
+  if (cvEl.width !== W * dpr || cvEl.height !== H * dpr){ cvEl.width = W * dpr; cvEl.height = H * dpr; }
+  const ctx = cvEl.getContext('2d'); ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+  ctx.clearRect(0, 0, W, H);
+  lePaint(ctx, W, H, leSide);
+  // 選択枠
+  const sel = leLayers(leSide).find(l => l.id === leSelId(leSide));
+  if (sel && sel.imgEl && sel.imgEl.complete && sel.imgEl.naturalWidth){
+    const ow = sel.scale * W, oh = ow * sel.imgEl.naturalHeight / sel.imgEl.naturalWidth;
+    ctx.save();
+    ctx.translate(sel.x * W, sel.y * H); ctx.rotate((sel.rot || 0) * Math.PI / 180);
+    ctx.strokeStyle = '#ff7a59'; ctx.lineWidth = 2; ctx.setLineDash([5, 4]);
+    ctx.strokeRect(-ow / 2, -oh / 2, ow, oh); ctx.setLineDash([]);
+    ctx.restore();
+  }
+  leStageWH = { W, H };
+}
+
+// ポインタ → ステージ座標
+function leStagePos(e){
+  const r = document.getElementById('layerStage').getBoundingClientRect();
+  const cx = (e.touches ? e.touches[0].clientX : e.clientX) - r.left;
+  const cy = (e.touches ? e.touches[0].clientY : e.clientY) - r.top;
+  return { x: cx, y: cy };
+}
+// 上のレイヤーから当たり判定（回転を逆変換してローカル矩形内か）
+function leHit(px, py){
+  const { W, H } = leStageWH; const layers = leLayers(leSide);
+  for (let i = layers.length - 1; i >= 0; i--){
+    const l = layers[i], im = l.imgEl; if (!im || !im.complete || !im.naturalWidth) continue;
+    const ow = l.scale * W, oh = ow * im.naturalHeight / im.naturalWidth;
+    const dx = px - l.x * W, dy = py - l.y * H, a = -(l.rot || 0) * Math.PI / 180;
+    const lx = dx * Math.cos(a) - dy * Math.sin(a), ly = dx * Math.sin(a) + dy * Math.cos(a);
+    if (Math.abs(lx) <= ow / 2 && Math.abs(ly) <= oh / 2) return l;
+  }
+  return null;
+}
+function leDown(e){
+  const p = leStagePos(e); const l = leHit(p.x, p.y);
+  if (l){
+    leSetSelId(leSide, l.id);
+    leDrag = { l, ox: p.x - l.x * leStageWH.W, oy: p.y - l.y * leStageWH.H };
+    leSyncCtrl(); leRenderThumbs(); leStageDraw();
+    if (e.cancelable) e.preventDefault();
+  }
+}
+function leMove(e){
+  if (!leDrag) return;
+  const p = leStagePos(e);
+  leDrag.l.x = Math.max(0, Math.min(1, (p.x - leDrag.ox) / leStageWH.W));
+  leDrag.l.y = Math.max(0, Math.min(1, (p.y - leDrag.oy) / leStageWH.H));
+  leStageDraw();
+  if (e.cancelable) e.preventDefault();
+}
+function leUp(){ if (leDrag){ leDrag = null; leRecompose(leSide); } }
+
+// ───── 追加・選択・削除・並び替え ─────
+function leAddClick(){ const f = document.getElementById('leFile'); if (f) f.click(); }
+function leOnFile(e){
+  const f = e.target.files && e.target.files[0]; if (!f) return;
+  const r = new FileReader(); r.onload = ev => leAddSrc(ev.target.result); r.readAsDataURL(f);
+  e.target.value = '';
+}
+function leAddSrc(src){
+  if (!leBaseSrc(leSide)){ toast('先に土台の画像を設定してください'); return; }
+  const im = new Image(); const id = 'L' + (leIdSeq++);
+  const l = { id, src, x: 0.5, y: 0.5, scale: 0.5, rot: 0, imgEl: im };
+  im.onload = () => {
+    leLayers(leSide).push(l); leSetSelId(leSide, id);
+    leRenderThumbs(); leSyncCtrl(); leStageDraw(); leRecompose(leSide);
+  };
+  im.src = src;
+}
+function leSelect(id){ leSetSelId(leSide, id); leSyncCtrl(); leRenderThumbs(); leStageDraw(); }
+function leDeleteId(id){
+  const arr = leLayers(leSide); const i = arr.findIndex(l => l.id === id);
+  if (i < 0) return; arr.splice(i, 1);
+  if (leSelId(leSide) === id) leSetSelId(leSide, arr.length ? arr[arr.length - 1].id : null);
+  leRenderThumbs(); leSyncCtrl(); leStageDraw(); leRecompose(leSide);
+}
+function leDelete(){ const id = leSelId(leSide); if (id) leDeleteId(id); }
+// 並び替え（前後＝z順）：dir +1 で前面へ、-1 で背面へ
+function leZ(dir){
+  const arr = leLayers(leSide); const id = leSelId(leSide);
+  const i = arr.findIndex(l => l.id === id); if (i < 0) return;
+  const j = i + dir; if (j < 0 || j >= arr.length) return;
+  const t = arr[i]; arr[i] = arr[j]; arr[j] = t;
+  leRenderThumbs(); leStageDraw(); leRecompose(leSide);
+}
+// 十字キー・矢印キーで移動
+function leNudge(dx, dy){
+  const l = leLayers(leSide).find(x => x.id === leSelId(leSide)); if (!l) return;
+  const step = 0.02;
+  l.x = Math.max(0, Math.min(1, l.x + dx * step));
+  l.y = Math.max(0, Math.min(1, l.y + dy * step));
+  leStageDraw(); leScheduleRecompose(leSide);
+}
+function leSetRot(v){
+  const l = leLayers(leSide).find(x => x.id === leSelId(leSide)); if (!l) return;
+  l.rot = +v; const o = document.getElementById('leRotVal'); if (o) o.textContent = Math.round(+v) + '°';
+  leStageDraw(); leScheduleRecompose(leSide);
+}
+function leSetScale(v){
+  const l = leLayers(leSide).find(x => x.id === leSelId(leSide)); if (!l) return;
+  l.scale = (+v) / 100; const o = document.getElementById('leScaleVal'); if (o) o.textContent = Math.round(+v) + '%';
+  leStageDraw(); leScheduleRecompose(leSide);
+}
+
+// 選択中レイヤーの操作UIを同期
+function leSyncCtrl(){
+  const ctrl = document.getElementById('leCtrl');
+  const l = leLayers(leSide).find(x => x.id === leSelId(leSide));
+  if (!ctrl) return;
+  ctrl.style.display = l ? 'block' : 'none';
+  if (!l) return;
+  const rot = document.getElementById('leRot'), sc = document.getElementById('leScale');
+  if (rot){ rot.value = l.rot || 0; const o = document.getElementById('leRotVal'); if (o) o.textContent = Math.round(l.rot || 0) + '°'; }
+  if (sc){ sc.value = Math.round(l.scale * 100); const o = document.getElementById('leScaleVal'); if (o) o.textContent = Math.round(l.scale * 100) + '%'; }
+}
+
+// サムネイル一覧（前面のものを上に並べる）
+function leRenderThumbs(){
+  const box = document.getElementById('leThumbs'); if (!box) return;
+  const layers = leLayers(leSide); const selId = leSelId(leSide);
+  if (!layers.length){ box.innerHTML = '<div class="le-empty">「＋ 追加」で画像を重ねられます</div>'; return; }
+  let h = '';
+  for (let i = layers.length - 1; i >= 0; i--){
+    const l = layers[i];
+    h += '<div class="le-thumb' + (l.id === selId ? ' sel' : '') + '" onclick="leSelect(\'' + l.id + '\')">'
+       + '<img src="' + l.src + '" alt="">'
+       + '<button class="le-thx" title="削除" onclick="event.stopPropagation();leDeleteId(\'' + l.id + '\')">×</button>'
+       + '</div>';
+  }
+  box.innerHTML = h;
+}
+
+// 面切替（おもて／うら）
+function leSetSide(side){
+  leSide = side;
+  const bf = document.getElementById('leSideFront'), bb = document.getElementById('leSideBack');
+  if (bf) bf.classList.toggle('on', side === 'front');
+  if (bb) bb.classList.toggle('on', side === 'back');
+  leRenderThumbs(); leSyncCtrl(); leStageDraw();
+}
+
+// エディタの表示・初期化
+function leShow(){
+  const ed = document.getElementById('layerEd'); if (!ed) return;
+  const anyBase = !!(S.baseFront || S.baseBack);
+  ed.style.display = anyBase ? 'block' : 'none';
+  if (!anyBase) return;
+  // うらボタンは裏面印刷ありのときだけ
+  const bb = document.getElementById('leSideBack');
+  if (bb) bb.style.display = (S.backPrint && (S.baseBack || S.imgBack)) ? 'inline-flex' : 'none';
+  // 表示中の面に土台が無ければ、ある方へ切替
+  if (leSide === 'back' && !S.baseBack) leSide = 'front';
+  // ベース画像を先読み
+  ['front','back'].forEach(s => {
+    const src = leBaseSrc(s);
+    if (src && (!leBaseImg[s] || leBaseImg[s]._src !== src)){
+      const im = new Image(); im._src = src; im.onload = () => { leBaseImg[s] = im; if (s === leSide) leStageDraw(); }; im.src = src;
+    }
+  });
+  if (!leInited){
+    leInited = true;
+    const st = document.getElementById('layerStage');
+    if (st){
+      st.addEventListener('mousedown', leDown);
+      window.addEventListener('mousemove', leMove);
+      window.addEventListener('mouseup', leUp);
+      st.addEventListener('touchstart', leDown, { passive: false });
+      st.addEventListener('touchmove', leMove, { passive: false });
+      window.addEventListener('touchend', leUp);
+      st.addEventListener('keydown', e => {
+        const k = e.key;
+        if (k === 'ArrowUp' || k === 'ArrowDown' || k === 'ArrowLeft' || k === 'ArrowRight'){
+          e.preventDefault();
+          const m = e.shiftKey ? 2.5 : 1;
+          if (k === 'ArrowUp') leNudge(0, -m);
+          if (k === 'ArrowDown') leNudge(0, m);
+          if (k === 'ArrowLeft') leNudge(-m, 0);
+          if (k === 'ArrowRight') leNudge(m, 0);
+        } else if (k === 'Delete' || k === 'Backspace'){ e.preventDefault(); leDelete(); }
+      });
+    }
+  }
+  leSetSide(leSide);
+}
+
+// 保存用にレイヤーを軽量シリアライズ（imgEl を除く）
+function leSerialize(side){
+  return leLayers(side).map(l => ({ id: l.id, src: l.src, x: l.x, y: l.y, scale: l.scale, rot: l.rot }));
 }
 </script>
 <script>
