@@ -2097,7 +2097,7 @@ function setW(v, silent) {
   S.widthCm = r.w; S.heightCm = r.h; S.sizeCm = Math.max(r.w, r.h);
   document.getElementById('rwSlider').value = r.w; document.getElementById('rwN').value = r.w;
   document.getElementById('rhSlider').value = r.h; document.getElementById('rhN').value = r.h;
-  if (!silent) { applySizeStatus(); done(6); updateProg(); if (window._redrawAttach) window._redrawAttach(); if (S.qr || S.nfc) syncQRAll(); }
+  if (!silent) { applySizeStatus(); done(6); updateProg(); if (window._redrawAttach) window._redrawAttach(); if (typeof leOnSizeChange === 'function') leOnSizeChange(); if (S.qr || S.nfc) syncQRAll(); }
 }
 // 自由四角：縦(height)
 function setH(v, silent) {
@@ -2105,7 +2105,7 @@ function setH(v, silent) {
   S.widthCm = r.w; S.heightCm = r.h; S.sizeCm = Math.max(r.w, r.h);
   document.getElementById('rwSlider').value = r.w; document.getElementById('rwN').value = r.w;
   document.getElementById('rhSlider').value = r.h; document.getElementById('rhN').value = r.h;
-  if (!silent) { applySizeStatus(); done(6); updateProg(); if (window._redrawAttach) window._redrawAttach(); if (S.qr || S.nfc) syncQRAll(); }
+  if (!silent) { applySizeStatus(); done(6); updateProg(); if (window._redrawAttach) window._redrawAttach(); if (typeof leOnSizeChange === 'function') leOnSizeChange(); if (S.qr || S.nfc) syncQRAll(); }
 }
 function swapWH() {
   const t = S.widthCm; S.widthCm = S.heightCm; S.heightCm = t; S.sizeCm = Math.max(S.widthCm, S.heightCm);
@@ -2113,6 +2113,7 @@ function swapWH() {
   document.getElementById('rhSlider').value = S.heightCm; document.getElementById('rhN').value = S.heightCm;
   applySizeStatus(); done(6); updateProg();
   if (window._redrawAttach) window._redrawAttach();
+  if (typeof leOnSizeChange === 'function') leOnSizeChange();
   if (S.imgFront && S.cropStateFront) { reopenSilent(); } // 画像の縦横比を新しい形へ合わせ直す（必要時）
   if (S.qr || S.nfc) syncQRAll();
 }
@@ -2930,6 +2931,15 @@ function leRecompose(side){
   }
 }
 function leRecomposeAll(){ leRecompose('front'); leRecompose('back'); }
+// サイズのバーを動かしたとき：自由四角はフレームの縦横比が変わるので、
+// ステージを即時に作り直し（見た目の形・大きさを反映）、合成は少し遅らせて更新。
+let leSizeTimer = null;
+function leOnSizeChange(){
+  if ((S.shape || 'circle') !== 'rect') return;   // 縦横比が変わるのは自由四角だけ
+  leStageDraw();
+  if (leSizeTimer) clearTimeout(leSizeTimer);
+  leSizeTimer = setTimeout(function(){ leSizeTimer = null; leRecomposeAll(); }, 150);
+}
 // いまの編集（土台 or プリント）に応じて、必要な面を作り直す
 function leAfterEdit(){
   if (leBaseMode()){
