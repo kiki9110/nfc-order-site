@@ -486,7 +486,7 @@ if(document.readyState!=='loading')w();else document.addEventListener('DOMConten
     <!-- 画像エディタ（丸・四角・自由四角：1枚目から重ねて自由配置）-->
     <div class="layer-ed" id="layerEd" style="display:none;">
       <div class="le-head">
-        <span class="le-title">🖼 画像を配置（複数OK）</span>
+        <span class="le-title" id="leTitle">🖼 画像を配置（複数OK）</span>
         <div class="le-sides">
           <div class="le-zoom">
             <button type="button" class="le-sidebtn sq" onclick="leZoomStep(-0.25)" aria-label="縮小">－</button>
@@ -527,7 +527,7 @@ if(document.readyState!=='loading')w();else document.addEventListener('DOMConten
           </div>
         </div>
       </div>
-      <div class="le-hint">「＋ 追加」で画像を入れ、プレビュー上でドラッグや矢印キー／▲▼◀▶で移動。<strong style="color:var(--ink);">点線が形の縁（切り取り線）</strong>です。回転は写真の中心で回ります。一覧で選択・前後の並び替え・削除ができます。</div>
+      <div class="le-hint" id="leHint">「＋ 追加」で画像を入れ、<strong style="color:var(--ink);">一覧（左）で写真を選んでから</strong>プレビュー上でドラッグや矢印キー／▲▼◀▶で移動。<strong style="color:var(--ink);">点線が形の縁（切り取り線）</strong>です。回転は写真の中心で回ります。一覧で選択・前後の並び替え・削除ができます。</div>
     </div>
 
   </div>
@@ -2850,18 +2850,10 @@ function lePaint(ctx, W, H, side){
   const layers = leLayers(side);
   ctx.clearRect(0, 0, W, H);
   if (sh === 'diecut'){
-    // ダイカット：1枚目（土台）のアルファ（シルエット）が「形」。
-    // 全レイヤーを描いてから、1枚目のアルファでマスク＝その枠の中だけに表示。
+    // ダイカット：置いた画像（複数なら合体した形）のアルファがそのまま「切り抜きの形」。
+    // クリップせず全レイヤーを描く＝そのユニオン（合体シルエット）が形になる。
     if (!layers.length) return;
-    const baseL = layers[0];
-    const t = document.createElement('canvas'); t.width = W; t.height = H;
-    const tc = t.getContext('2d'); tc.imageSmoothingEnabled = true; tc.imageSmoothingQuality = 'high';
-    for (const l of layers) leDrawLayer(tc, l, W, H);
-    const m = document.createElement('canvas'); m.width = W; m.height = H;
-    const mc = m.getContext('2d'); mc.imageSmoothingEnabled = true; mc.imageSmoothingQuality = 'high';
-    leDrawLayer(mc, baseL, W, H);                       // 1枚目だけ＝マスク
-    tc.globalCompositeOperation = 'destination-in'; tc.drawImage(m, 0, 0);
-    ctx.drawImage(t, 0, 0);
+    for (const l of layers) leDrawLayer(ctx, l, W, H);
     return;
   }
   // 丸・四角・自由四角：形でクリップしてレイヤーを重ねる
@@ -2998,13 +2990,13 @@ function leHit(px, py){
   return null;
 }
 function leDown(e){
-  const p = leStagePos(e); const l = leHit(p.x, p.y);
-  if (l){
-    leSetSelId(leSide, l.id);
-    leDrag = { l, ox: p.x - l.x * leStageWH.W, oy: p.y - l.y * leStageWH.H };
-    leSyncCtrl(); leRenderThumbs(); leStageDraw();
-    if (e.cancelable) e.preventDefault();
-  }
+  // 選択は一覧（サムネイル）からのみ。ステージ上ではどこを触っても
+  // 「選択中の写真」だけを動かす（触った写真に選択が移らない＝誤操作防止）。
+  const l = leLayers(leSide).find(x => x.id === leSelId(leSide));
+  if (!l || !l.imgEl || !l.imgEl.complete) return;
+  const p = leStagePos(e);
+  leDrag = { l, ox: p.x - l.x * leStageWH.W, oy: p.y - l.y * leStageWH.H };
+  if (e.cancelable) e.preventDefault();
 }
 function leMove(e){
   if (!leDrag) return;
@@ -3137,6 +3129,14 @@ function leShow(){
   if (leSide === 'back' && !S.backPrint) leSide = 'front';
   // ズーム表示を反映
   const zv = document.getElementById('leZoomVal'); if (zv) zv.textContent = Math.round((S.leZoom || 1) * 100) + '%';
+  // ダイカットは「土台用画像配置」として表示（ここで作った形が切り抜きになる）
+  const diecut = (S.shape === 'diecut');
+  const tt = document.getElementById('leTitle');
+  if (tt) tt.textContent = diecut ? '🪄 ダイカット土台の画像配置（複数OK）' : '🖼 画像を配置（複数OK）';
+  const hn = document.getElementById('leHint');
+  if (hn) hn.innerHTML = diecut
+    ? '<strong style="color:var(--ink);">置いた画像の形（複数なら合体した形）が、そのまま切り抜きの形</strong>になります（透過PNG推奨）。一覧（左）で写真を選んでからドラッグ／矢印キーで移動、＋－で拡大。'
+    : '「＋ 追加」で画像を入れ、<strong style="color:var(--ink);">一覧（左）で写真を選んでから</strong>プレビュー上でドラッグや矢印キー／▲▼◀▶で移動。<strong style="color:var(--ink);">点線が形の縁（切り取り線）</strong>です。回転は写真の中心で回ります。';
   if (!leInited){
     leInited = true;
     const st = document.getElementById('layerStage');
