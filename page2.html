@@ -206,8 +206,9 @@ body{font-family:'Noto Sans JP',sans-serif;background:var(--paper);color:var(--i
 .le-del{color:#c0392b;border-color:#f5c2c0;}
 .le-hint{font-size:11px;color:var(--muted);line-height:1.6;margin-top:10px;}
 @media(max-width:380px){ .le-list{flex-basis:62px;} }
-/* ＋－ズーム */
+/* ＋－ズーム・モード切替 */
 .le-zoom{display:inline-flex;align-items:center;gap:6px;}
+.le-modes{display:inline-flex;gap:4px;}
 .le-zv{font-size:12px;font-weight:700;color:var(--ink);min-width:40px;text-align:center;}
 .le-sidebtn.sq{padding:6px 0;width:30px;text-align:center;}
 
@@ -492,6 +493,10 @@ if(document.readyState!=='loading')w();else document.addEventListener('DOMConten
             <button type="button" class="le-sidebtn sq" onclick="leZoomStep(-0.25)" aria-label="縮小">－</button>
             <span class="le-zv" id="leZoomVal">100%</span>
             <button type="button" class="le-sidebtn sq" onclick="leZoomStep(0.25)" aria-label="拡大">＋</button>
+          </div>
+          <div class="le-modes" id="leModes" style="display:none;">
+            <button type="button" id="leModeBase"  class="le-sidebtn" onclick="leSetMode('base')">形(土台)</button>
+            <button type="button" id="leModePrint" class="le-sidebtn on" onclick="leSetMode('print')">画像</button>
           </div>
           <button type="button" id="leSideFront" class="le-sidebtn on" onclick="leSetSide('front')">おもて</button>
           <button type="button" id="leSideBack" class="le-sidebtn" onclick="leSetSide('back')" style="display:none;">うら</button>
@@ -890,6 +895,10 @@ const S = {
   layersFront: [], layersBack: [],
   selFront: null, selBack: null,        // 選択中のレイヤー id
   leZoom: 1,                             // 画像エディタの段階ズーム（＋－）
+  // ダイカット専用：土台（形を作る画像）と、その形に貼るプリントを分ける
+  dieBase: [],                           // 土台レイヤー（合体形＝切り抜きの形）
+  selDie: null,                          // 土台モードの選択 id
+  leMode: 'print',                       // ダイカットの編集モード 'base'(形) / 'print'(画像)
   dieFront:   null, dieBack: null,       // ダイカットの実シルエット外周（正規化ポリゴン）
   dieHolesFront: [], dieHolesBack: [],   // ダイカットの中抜き穴（折れ防止OFF時に検出される正規化ポリゴンの配列）
   dieReinforce:  false,                  // 折れ防止は廃止：常に false（イラストどおりにすき間・中抜き穴を残す）
@@ -2718,6 +2727,7 @@ function doSubmit() {
     // 複数画像レイヤー（記録用。表示は合成済みの imgFront/imgBack を使う）
     layersFront:   (typeof leSerialize === 'function') ? leSerialize('front') : [],
     layersBack:    (typeof leSerialize === 'function') ? leSerialize('back')  : [],
+    dieBaseLayers: (typeof leSerializeDie === 'function') ? leSerializeDie() : [],
     submittedAt: new Date().toLocaleString('ja-JP'),
   };
 
@@ -2824,6 +2834,12 @@ function leLayers(side){ return side === 'back' ? S.layersBack : S.layersFront; 
 function leSelId(side){ return side === 'back' ? S.selBack : S.selFront; }
 function leSetSelId(side, id){ if (side === 'back') S.selBack = id; else S.selFront = id; }
 function leBaseSrc(side){ return side === 'back' ? S.baseBack : S.baseFront; }
+// 編集コンテキスト（ダイカットは 形(土台)=dieBase / 画像(プリント)=layers を切替）
+function leDiecut(){ return (S.shape || 'circle') === 'diecut'; }
+function leBaseMode(){ return leDiecut() && S.leMode === 'base'; }
+function leEditLayers(){ return leBaseMode() ? S.dieBase : (leSide === 'back' ? S.layersBack : S.layersFront); }
+function leEditSelId(){ return leBaseMode() ? S.selDie : (leSide === 'back' ? S.selBack : S.selFront); }
+function leSetEditSelId(id){ if (leBaseMode()) S.selDie = id; else if (leSide === 'back') S.selBack = id; else S.selFront = id; }
 
 // 合成フレームの出力サイズ（applyCrop と同じ基準）
 function leFrameWH(){
@@ -2845,15 +2861,23 @@ function leDrawLayer(c, l, W, H){
   c.drawImage(im, -ow / 2, -oh / 2, ow, oh);
   c.restore();
 }
-function lePaint(ctx, W, H, side){
+// 1面分の最終合成（出力用）。diecut は「土台のユニオン形」で切り抜く。
+function lePaintSide(ctx, W, H, side){
   const sh = S.shape || 'circle';
-  const layers = leLayers(side);
   ctx.clearRect(0, 0, W, H);
   if (sh === 'diecut'){
-    // ダイカット：置いた画像（複数なら合体した形）のアルファがそのまま「切り抜きの形」。
-    // クリップせず全レイヤーを描く＝そのユニオン（合体シルエット）が形になる。
-    if (!layers.length) return;
-    for (const l of layers) leDrawLayer(ctx, l, W, H);
+    const baseArr  = S.dieBase;
+    const printArr = (side === 'back' ? S.layersBack : S.layersFront);
+    if (!baseArr.length) return;                          // 形が未定義なら何も出ない
+    const t = document.createElement('canvas'); t.width = W; t.height = H;
+    const tc = t.getContext('2d'); tc.imageSmoothingEnabled = true; tc.imageSmoothingQuality = 'high';
+    for (const l of baseArr)  leDrawLayer(tc, l, W, H);   // 土台（下地）
+    for (const l of printArr) leDrawLayer(tc, l, W, H);   // プリントを上に貼る
+    const m = document.createElement('canvas'); m.width = W; m.height = H;
+    const mc = m.getContext('2d'); mc.imageSmoothingEnabled = true; mc.imageSmoothingQuality = 'high';
+    for (const l of baseArr) leDrawLayer(mc, l, W, H);    // 土台ユニオン＝マスク
+    tc.globalCompositeOperation = 'destination-in'; tc.drawImage(m, 0, 0);
+    ctx.drawImage(t, 0, 0);
     return;
   }
   // 丸・四角・自由四角：形でクリップしてレイヤーを重ねる
@@ -2862,7 +2886,7 @@ function lePaint(ctx, W, H, side){
   if (sh === 'circle') ctx.arc(W / 2, H / 2, Math.min(W, H) / 2, 0, Math.PI * 2);
   else rrect(ctx, 0, 0, W, H, Math.min(W, H) * 0.06);
   ctx.clip();
-  for (const l of layers) leDrawLayer(ctx, l, W, H);
+  for (const l of (side === 'back' ? S.layersBack : S.layersFront)) leDrawLayer(ctx, l, W, H);
   ctx.restore();
 }
 
@@ -2880,11 +2904,12 @@ function leAfterCompose(side){
 
 // 合成して imgFront/imgBack を作り直す（全形状レイヤー方式）
 function leRecompose(side){
-  const layers = leLayers(side);
-  // レイヤー0枚 → 画像なし
-  if (!layers.length){
+  const sh = S.shape || 'circle';
+  const empty = (sh === 'diecut') ? !S.dieBase.length
+                                  : !(side === 'back' ? S.layersBack : S.layersFront).length;
+  if (empty){
     if (side === 'back') S.imgBack = null; else S.imgFront = null;
-    if (S.shape === 'diecut'){
+    if (sh === 'diecut'){
       if (side === 'back'){ S.dieBack = null; S.dieHolesBack = []; }
       else                { S.dieFront = null; S.dieHolesFront = []; }
     }
@@ -2894,24 +2919,29 @@ function leRecompose(side){
   const { w, h } = leFrameWH();
   const cv = document.createElement('canvas'); cv.width = w; cv.height = h;
   const ctx = cv.getContext('2d'); ctx.imageSmoothingEnabled = true; ctx.imageSmoothingQuality = 'high';
-  lePaint(ctx, w, h, side);
+  lePaintSide(ctx, w, h, side);
   const url = cv.toDataURL('image/png');
   if (side === 'back') S.imgBack = url; else S.imgFront = url;
-  if (S.shape === 'diecut'){
-    // 1枚目（土台）の形からダイカットのシルエット・穴を再トレース（合成画像のアルファ＝土台の形）
+  if (sh === 'diecut'){
+    // 合成画像のアルファ＝土台ユニオンの形。そこからシルエット・穴を再トレース。
     recomputeDie(side, function(){ leAfterCompose(side); });
   } else {
     leAfterCompose(side);
   }
 }
-function leScheduleRecompose(side){
-  if (leRecTimer) clearTimeout(leRecTimer);
-  leRecTimer = setTimeout(() => { leRecTimer = null; leRecompose(side); }, 130);
+function leRecomposeAll(){ leRecompose('front'); leRecompose('back'); }
+// いまの編集（土台 or プリント）に応じて、必要な面を作り直す
+function leAfterEdit(){
+  if (leBaseMode()){
+    // 形が変わった → 両面の合成を作り直す（プリントが土台形に追従）＋ステージの縁更新
+    leRecompose('front'); leRecompose('back');
+    leStageDraw();
+  } else {
+    leRecompose(leSide);
+  }
 }
-function leRecomposeAll(){
-  if (S.layersFront.length) leRecompose('front'); else { S.imgFront = null; leAfterCompose('front'); }
-  if (S.layersBack.length)  leRecompose('back');
-}
+let leAfterTimer = null;
+function leScheduleAfterEdit(){ if (leAfterTimer) clearTimeout(leAfterTimer); leAfterTimer = setTimeout(function(){ leAfterTimer = null; leAfterEdit(); }, 130); }
 
 // ───── ステージ（本体プレビュー上で配置）─────
 // 形のパスを ctx に作る（diecut は土台レイヤーのシルエット dieFront/dieBack）。作れたら true。
@@ -2937,6 +2967,24 @@ function leStrokeShape(ctx, W, H){
   if (leShapePath(ctx, W, H)){ ctx.lineWidth = 2; ctx.setLineDash([6, 4]); ctx.strokeStyle = 'rgba(255,255,255,.85)'; ctx.stroke(); ctx.setLineDash([]); }
   ctx.restore();
 }
+// ステージ描画（モード別）：土台モードはユニオン形を表示、それ以外は最終合成＋縁
+function leStagePaint(ctx, W, H){
+  if (leBaseMode()){
+    ctx.clearRect(0, 0, W, H);
+    for (const l of S.dieBase) leDrawLayer(ctx, l, W, H);   // 土台＝この合体形が切り抜きになる
+    if (S.dieBase.length){
+      const d = document.createElement('canvas'); d.width = W; d.height = H;
+      const dc = d.getContext('2d');
+      dc.fillStyle = 'rgba(8,8,12,.5)'; dc.fillRect(0, 0, W, H);
+      dc.globalCompositeOperation = 'destination-out';
+      for (const l of S.dieBase) leDrawLayer(dc, l, W, H);  // ユニオンの外側だけ薄暗く
+      ctx.drawImage(d, 0, 0);
+    }
+    return;
+  }
+  lePaintSide(ctx, W, H, leSide);
+  leStrokeShape(ctx, W, H);          // 形の縁（非ダイカット=幾何形 / プリント=土台の輪郭）
+}
 function leStageDraw(){
   const cvEl = document.getElementById('layerStage'); if (!cvEl) return;
   const host = cvEl.parentElement;
@@ -2952,10 +3000,9 @@ function leStageDraw(){
   const z = S.leZoom || 1;
   ctx.save();
   if (z !== 1){ ctx.translate(W / 2, H / 2); ctx.scale(z, z); ctx.translate(-W / 2, -H / 2); }   // 中心基準でズーム（表示のみ）
-  lePaint(ctx, W, H, leSide);
-  leStrokeShape(ctx, W, H);          // 形の縁を表示
-  // 選択枠
-  const sel = leLayers(leSide).find(l => l.id === leSelId(leSide));
+  leStagePaint(ctx, W, H);
+  // 選択枠（編集中コンテキストの選択）
+  const sel = leEditLayers().find(l => l.id === leEditSelId());
   if (sel && sel.imgEl && sel.imgEl.complete && sel.imgEl.naturalWidth){
     const ow = sel.scale * W, oh = ow * sel.imgEl.naturalHeight / sel.imgEl.naturalWidth;
     ctx.save();
@@ -2979,7 +3026,7 @@ function leStagePos(e){
 }
 // 上のレイヤーから当たり判定（回転を逆変換してローカル矩形内か）
 function leHit(px, py){
-  const { W, H } = leStageWH; const layers = leLayers(leSide);
+  const { W, H } = leStageWH; const layers = leEditLayers();
   for (let i = layers.length - 1; i >= 0; i--){
     const l = layers[i], im = l.imgEl; if (!im || !im.complete || !im.naturalWidth) continue;
     const ow = l.scale * W, oh = ow * im.naturalHeight / im.naturalWidth;
@@ -2992,7 +3039,7 @@ function leHit(px, py){
 function leDown(e){
   // 選択は一覧（サムネイル）からのみ。ステージ上ではどこを触っても
   // 「選択中の写真」だけを動かす（触った写真に選択が移らない＝誤操作防止）。
-  const l = leLayers(leSide).find(x => x.id === leSelId(leSide));
+  const l = leEditLayers().find(x => x.id === leEditSelId());
   if (!l || !l.imgEl || !l.imgEl.complete) return;
   const p = leStagePos(e);
   leDrag = { l, ox: p.x - l.x * leStageWH.W, oy: p.y - l.y * leStageWH.H };
@@ -3006,7 +3053,7 @@ function leMove(e){
   leStageDraw();
   if (e.cancelable) e.preventDefault();
 }
-function leUp(){ if (leDrag){ leDrag = null; leRecompose(leSide); } }
+function leUp(){ if (leDrag){ leDrag = null; leAfterEdit(); } }
 
 // ───── 追加・選択・削除・並び替え ─────
 function leAddClick(){ const f = document.getElementById('leFile'); if (f) f.click(); }
@@ -3019,58 +3066,58 @@ function leAddSrc(src){
   const im = new Image(); const id = 'L' + (leIdSeq++);
   const l = { id, src, x: 0.5, y: 0.5, scale: 0.5, rot: 0, imgEl: im };
   im.onload = () => {
-    const arr = leLayers(leSide);
+    const arr = leEditLayers();
     if (arr.length === 0){
-      // 1枚目：丸/四角は枠を覆う（cover）、ダイカットは形が全部見えるように収める（contain）
+      // 1枚目：通常/プリントは枠を覆う（cover）、土台は形が全部見えるよう収める（contain）
       const fr = leFrameWH(); const ar = im.naturalWidth / im.naturalHeight;
-      l.scale = (S.shape === 'diecut')
+      l.scale = leBaseMode()
         ? Math.min(1, (fr.h / fr.w) * ar) * 0.96
         : Math.max(1, (fr.h / fr.w) * ar);
     } else { l.scale = 0.6; }
-    arr.push(l); leSetSelId(leSide, id);
-    leRenderThumbs(); leSyncCtrl(); leStageDraw(); leRecompose(leSide);
+    arr.push(l); leSetEditSelId(id);
+    leRenderThumbs(); leSyncCtrl(); leStageDraw(); leAfterEdit();
   };
   im.src = src;
 }
-function leSelect(id){ leSetSelId(leSide, id); leSyncCtrl(); leRenderThumbs(); leStageDraw(); }
+function leSelect(id){ leSetEditSelId(id); leSyncCtrl(); leRenderThumbs(); leStageDraw(); }
 function leDeleteId(id){
-  const arr = leLayers(leSide); const i = arr.findIndex(l => l.id === id);
+  const arr = leEditLayers(); const i = arr.findIndex(l => l.id === id);
   if (i < 0) return; arr.splice(i, 1);
-  if (leSelId(leSide) === id) leSetSelId(leSide, arr.length ? arr[arr.length - 1].id : null);
-  leRenderThumbs(); leSyncCtrl(); leStageDraw(); leRecompose(leSide);
+  if (leEditSelId() === id) leSetEditSelId(arr.length ? arr[arr.length - 1].id : null);
+  leRenderThumbs(); leSyncCtrl(); leStageDraw(); leAfterEdit();
 }
-function leDelete(){ const id = leSelId(leSide); if (id) leDeleteId(id); }
+function leDelete(){ const id = leEditSelId(); if (id) leDeleteId(id); }
 // 並び替え（前後＝z順）：dir +1 で前面へ、-1 で背面へ
 function leZ(dir){
-  const arr = leLayers(leSide); const id = leSelId(leSide);
+  const arr = leEditLayers(); const id = leEditSelId();
   const i = arr.findIndex(l => l.id === id); if (i < 0) return;
   const j = i + dir; if (j < 0 || j >= arr.length) return;
   const t = arr[i]; arr[i] = arr[j]; arr[j] = t;
-  leRenderThumbs(); leStageDraw(); leRecompose(leSide);
+  leRenderThumbs(); leStageDraw(); leAfterEdit();
 }
 // 十字キー・矢印キーで移動
 function leNudge(dx, dy){
-  const l = leLayers(leSide).find(x => x.id === leSelId(leSide)); if (!l) return;
+  const l = leEditLayers().find(x => x.id === leEditSelId()); if (!l) return;
   const step = 0.02;
   l.x = Math.max(0, Math.min(1, l.x + dx * step));
   l.y = Math.max(0, Math.min(1, l.y + dy * step));
-  leStageDraw(); leScheduleRecompose(leSide);
+  leStageDraw(); leScheduleAfterEdit();
 }
 function leSetRot(v){
-  const l = leLayers(leSide).find(x => x.id === leSelId(leSide)); if (!l) return;
+  const l = leEditLayers().find(x => x.id === leEditSelId()); if (!l) return;
   l.rot = +v; const o = document.getElementById('leRotVal'); if (o) o.textContent = Math.round(+v) + '°';
-  leStageDraw(); leScheduleRecompose(leSide);
+  leStageDraw(); leScheduleAfterEdit();
 }
 function leSetScale(v){
-  const l = leLayers(leSide).find(x => x.id === leSelId(leSide)); if (!l) return;
+  const l = leEditLayers().find(x => x.id === leEditSelId()); if (!l) return;
   l.scale = (+v) / 100; const o = document.getElementById('leScaleVal'); if (o) o.textContent = Math.round(+v) + '%';
-  leStageDraw(); leScheduleRecompose(leSide);
+  leStageDraw(); leScheduleAfterEdit();
 }
 
 // 選択中レイヤーの操作UIを同期
 function leSyncCtrl(){
   const ctrl = document.getElementById('leCtrl');
-  const l = leLayers(leSide).find(x => x.id === leSelId(leSide));
+  const l = leEditLayers().find(x => x.id === leEditSelId());
   if (!ctrl) return;
   ctrl.style.display = l ? 'block' : 'none';
   if (!l) return;
@@ -3082,8 +3129,8 @@ function leSyncCtrl(){
 // サムネイル一覧（前面のものを上に並べる）
 function leRenderThumbs(){
   const box = document.getElementById('leThumbs'); if (!box) return;
-  const layers = leLayers(leSide); const selId = leSelId(leSide);
-  if (!layers.length){ box.innerHTML = '<div class="le-empty">「＋ 追加」で画像を重ねられます</div>'; return; }
+  const layers = leEditLayers(); const selId = leEditSelId();
+  if (!layers.length){ box.innerHTML = '<div class="le-empty">' + (leBaseMode() ? '「＋ 追加」で<br>形を作る画像を入れる' : '「＋ 追加」で<br>画像を入れる') + '</div>'; return; }
   let h = '';
   for (let i = layers.length - 1; i >= 0; i--){
     const l = layers[i];
@@ -3110,6 +3157,11 @@ function applyImageMode(){
   if (dz) dz.style.display = 'none';   // 旧アップロード/クロップUIは使わない
   leShow();
 }
+// ダイカットの編集モード切替：'base'（形/土台） / 'print'（画像/プリント）
+function leSetMode(mode){
+  S.leMode = (mode === 'base') ? 'base' : 'print';
+  leShow();
+}
 // 画像エディタの段階ズーム（＋－）。ステージの表示倍率を上げて微調整しやすくする
 function leZoomStep(d){
   let z = (S.leZoom || 1) + d;
@@ -3123,20 +3175,34 @@ function leZoomStep(d){
 function leShow(){
   const ed = document.getElementById('layerEd'); if (!ed) return;
   ed.style.display = 'block';
-  // うらボタンは裏面印刷ありのときだけ
-  const bb = document.getElementById('leSideBack');
-  if (bb) bb.style.display = S.backPrint ? 'inline-flex' : 'none';
+  const diecut = leDiecut();
+  if (!diecut) S.leMode = 'print';
+  // 土台がまだ無いダイカットは「形(土台)」モードから始める
+  if (diecut && !S.dieBase.length) S.leMode = 'base';
+  const base = leBaseMode();
+  // モード切替（ダイカットのみ表示）
+  const modes = document.getElementById('leModes');
+  if (modes) modes.style.display = diecut ? 'inline-flex' : 'none';
+  const mb = document.getElementById('leModeBase'), mp = document.getElementById('leModePrint');
+  if (mb) mb.classList.toggle('on', base);
+  if (mp) mp.classList.toggle('on', !base);
+  // 面切替（おもて／うら）：土台モードでは形が共通なので隠す
+  const showSide = !base;
+  const bf = document.getElementById('leSideFront'); if (bf) bf.style.display = showSide ? 'inline-flex' : 'none';
+  const bb = document.getElementById('leSideBack');  if (bb) bb.style.display = (showSide && S.backPrint) ? 'inline-flex' : 'none';
   if (leSide === 'back' && !S.backPrint) leSide = 'front';
   // ズーム表示を反映
   const zv = document.getElementById('leZoomVal'); if (zv) zv.textContent = Math.round((S.leZoom || 1) * 100) + '%';
-  // ダイカットは「土台用画像配置」として表示（ここで作った形が切り抜きになる）
-  const diecut = (S.shape === 'diecut');
+  // タイトル・ヒント（モード別）
   const tt = document.getElementById('leTitle');
-  if (tt) tt.textContent = diecut ? '🪄 ダイカット土台の画像配置（複数OK）' : '🖼 画像を配置（複数OK）';
+  if (tt) tt.textContent = base ? '🪄 ダイカット土台（切り抜く形）'
+                                 : (diecut ? '🖼 ダイカットの画像（プリント）' : '🖼 画像を配置（複数OK）');
   const hn = document.getElementById('leHint');
-  if (hn) hn.innerHTML = diecut
-    ? '<strong style="color:var(--ink);">置いた画像の形（複数なら合体した形）が、そのまま切り抜きの形</strong>になります（透過PNG推奨）。一覧（左）で写真を選んでからドラッグ／矢印キーで移動、＋－で拡大。'
-    : '「＋ 追加」で画像を入れ、<strong style="color:var(--ink);">一覧（左）で写真を選んでから</strong>プレビュー上でドラッグや矢印キー／▲▼◀▶で移動。<strong style="color:var(--ink);">点線が形の縁（切り取り線）</strong>です。回転は写真の中心で回ります。';
+  if (hn) hn.innerHTML = base
+    ? '<strong style="color:var(--ink);">置いた画像の形（複数なら合体した形）が、そのまま切り抜きの形</strong>になります（透過PNG推奨）。一覧で選んでドラッグ／矢印キーで移動。形が決まったら「画像」へ。'
+    : (diecut
+      ? '<strong style="color:var(--ink);">「形(土台)」で作った形の中だけ</strong>に印刷されます。一覧で選んでからドラッグ／矢印キーで移動。'
+      : '「＋ 追加」で画像を入れ、<strong style="color:var(--ink);">一覧（左）で写真を選んでから</strong>ドラッグや矢印キー／▲▼◀▶で移動。<strong style="color:var(--ink);">点線が形の縁（切り取り線）</strong>です。');
   if (!leInited){
     leInited = true;
     const st = document.getElementById('layerStage');
@@ -3166,6 +3232,9 @@ function leShow(){
 // 保存用にレイヤーを軽量シリアライズ（imgEl を除く）
 function leSerialize(side){
   return leLayers(side).map(l => ({ id: l.id, src: l.src, x: l.x, y: l.y, scale: l.scale, rot: l.rot }));
+}
+function leSerializeDie(){
+  return S.dieBase.map(l => ({ id: l.id, src: l.src, x: l.x, y: l.y, scale: l.scale, rot: l.rot }));
 }
 </script>
 <script>
