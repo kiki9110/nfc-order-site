@@ -51,6 +51,9 @@ export default {
     if (path === '/api/customer-set-all')  return handleCustomerSetAll(request, env, cors);
     if (path === '/api/customer-set')      return handleCustomerSet(request, env, cors);
     if (path === '/api/customer-set-qr')   return handleCustomerSetQR(request, env, cors);
+    if (path === '/api/customer-order')    return handleCustomerOrder(request, env, cors);  // 公開：注文履歴ページ用に1注文の状態をまとめて返す
+    if (path === '/api/customer-cancel')   return handleCustomerCancel(request, env, cors);  // 公開：お客様が注文をキャンセル
+    if (path === '/api/admin-cancel')      return handleAdminCancel(request, env, cors);     // 管理者：キャンセルの切替（解除/手動キャンセル）
 
     // ── オプション在庫（オプション単体注文の管理）──
     if (path === '/api/opt-get')           return handleOptGet(request, env, cors);      // 公開：状態確認
@@ -175,6 +178,117 @@ async function handleCustomerGet(request, env, cors) {
     options:    { ...(nfc.options || {}), diecut: true }, // ダイカットは標準仕様（誰でも選べる）
     addonCount: nfc.addonCount || 0,
   }, 200, cors);
+}
+
+// ───── 注文履歴・キャンセル（顧客向け）─────
+// キャンセル可能期間：注文（registeredAt）から3日間
+const CANCEL_WINDOW_MS = 3 * 24 * 60 * 60 * 1000;
+function withinCancelWindow(registeredAt) {
+  if (!registeredAt) return false;
+  const t = new Date(registeredAt).getTime();
+  if (isNaN(t)) return false;
+  return (Date.now() - t) < CANCEL_WINDOW_MS;
+}
+
+// 公開：注文履歴ページ用に、1注文の状態をまとめて返す。
+// 返却：exists / hasOrder / order(ORDER:詳細) / made / cancelled / registeredAt /
+//       cancellable（3日未満 && !made && !cancelled）/ phase（cancellable|started|cancelled）
+async function handleCustomerOrder(request, env, cors) {
+  const url     = new URL(request.url);
+  const orderId = (url.searchParams.get('orderId') || '').trim();
+  if (!orderId) return json({ error: 'orderId が必要です' }, 400, cors);
+
+  const nfcRaw = await env.NFC_URLS.get(orderId);
+  if (!nfcRaw) return json({ exists: false }, 200, cors); // 未登録の注文番号
+
+  const nfc    = JSON.parse(nfcRaw);
+  const ordRaw = await env.NFC_URLS.get('ORDER:' + orderId);
+  const order  = ordRaw ? JSON.parse(ordRaw) : null;
+
+  const made         = !!nfc.made;
+  const cancelled    = !!nfc.cancelled;
+  const registeredAt = nfc.registeredAt || null;
+  const cancellable  = withinCancelWindow(registeredAt) && !made && !cancelled;
+  const phase        = cancelled ? 'cancelled' : (cancellable ? 'cancellable' : 'started');
+
+  return json({
+    exists:       true,
+    orderId,
+    label:        nfc.label || '',
+    hasOrder:     !!order,
+    order,
+    made,
+    cancelled,
+    registeredAt,
+    cancelledAt:  nfc.cancelledAt || null,
+    cancellable,
+    phase,
+  }, 200, cors);
+}
+
+// 公開：お客様が自分の注文をキャンセルする。
+// 条件：注文から3日未満 && !made && !cancelled のときのみ許可。
+// 実行：bare レコードに cancelled=true/cancelledAt をセット（番号レコードは消さない）、
+//       ORDER:<orderId> を削除（＝注文内容が消える）。NFC/QR レコードは保持。
+async function handleCustomerCancel(request, env, cors) {
+  let body;
+  try { body = await request.json(); } catch (e) { return json({ error: 'JSON不正' }, 400, cors); }
+  const orderId = (body.orderId || '').trim();
+  if (!orderId) return json({ error: 'orderId が必要です' }, 400, cors);
+
+  const nfcRaw = await env.NFC_URLS.get(orderId);
+  if (!nfcRaw) return json({ error: 'この注文番号は登録されていません。番号をご確認ください。' }, 404, cors);
+  const nfc = JSON.parse(nfcRaw);
+
+  if (nfc.cancelled) return json({ error: 'この注文はすでにキャンセル済みです。', cancelled: true }, 409, cors);
+  if (nfc.made)      return json({ error: 'この注文はすでに作成が始まっているためキャンセルできません。' }, 403, cors);
+  if (!withinCancelWindow(nfc.registeredAt)) {
+    return json({ error: '注文から3日が経過しているためキャンセルできません。すでに作成が始まりました。' }, 403, cors);
+  }
+
+  // キャンセル印を付ける（注文番号レコードは残す）
+  nfc.cancelled   = true;
+  nfc.cancelledAt = new Date().toISOString();
+  await env.NFC_URLS.put(orderId, JSON.stringify(nfc));
+  // 注文内容（ORDER:）を削除
+  await env.NFC_URLS.delete('ORDER:' + orderId);
+
+  // 管理者へメール通知：既存の MSG:（お問い合わせ）キューに積む → Code.gs が中継して送信。
+  try {
+    const ts = Date.now();
+    const id = 'MSG:' + ts + '-' + Math.random().toString(36).slice(2, 8);
+    await env.NFC_URLS.put(id, JSON.stringify({
+      id, ts,
+      order:   orderId,
+      contact: '（自動通知）注文キャンセル',
+      text:    'お客様が注文をキャンセルしました。\n注文番号：' + orderId
+             + '\nキャンセル日時：' + nfc.cancelledAt
+             + '\n\n※注文履歴ページからのキャンセルです。注文内容（ORDER）は削除されました。',
+      emailed: false,
+      read:    false,
+    }));
+  } catch (e) { /* 通知失敗してもキャンセル自体は成功扱い */ }
+
+  return json({ ok: true, cancelled: true, cancelledAt: nfc.cancelledAt }, 200, cors);
+}
+
+// 管理者：キャンセル状態の切替（解除／手動キャンセル）。handleSetMade と同型。
+// ※ ORDER: の削除は行わない（状態フラグのトグルのみ。主用途はキャンセル解除）。
+async function handleAdminCancel(request, env, cors) {
+  const auth = request.headers.get('Authorization');
+  if (auth !== adminBearer(env)) return json({ error: '認証エラー' }, 401, cors);
+
+  const body    = await request.json();
+  const orderId = (body.orderId || '').trim();
+  if (!orderId) return json({ error: 'orderId が必要です' }, 400, cors);
+
+  const raw = await env.NFC_URLS.get(orderId);
+  if (!raw) return json({ error: '注文番号が見つかりません' }, 404, cors);
+  const rec = JSON.parse(raw);
+  rec.cancelled   = !!body.cancelled;
+  rec.cancelledAt = rec.cancelled ? (rec.cancelledAt || new Date().toISOString()) : null;
+  await env.NFC_URLS.put(orderId, JSON.stringify(rec));
+  return json({ ok: true, cancelled: rec.cancelled }, 200, cors);
 }
 
 // ───── 自己登録ページ（友人・知人向け／URLを知る人だけ）─────
@@ -465,6 +579,8 @@ async function handleGetAll(request, env, cors) {
       qrAccessCount: qr.accessCount   || 0,
       hasOrder:      !!ordRaw,
       made:          !!nfc.made,           // 製作完了（作成済み）フラグ
+      cancelled:     !!nfc.cancelled,      // キャンセル済みフラグ
+      cancelledAt:   nfc.cancelledAt || null,
       lastUrlUpdate,
       // 購入オプションと追加枚数（管理画面で手動編集できるようにする）
       options:       nfc.options      || {},
@@ -538,6 +654,9 @@ async function handleRegister(request, env, cors) {
     addonCount:   (body.addonCount != null) ? body.addonCount : (prevNfc ? (prevNfc.addonCount || 0) : 0),
     made:         prevNfc ? !!prevNfc.made   : false,   // 作成済みフラグは再登録でも保持
     madeAt:       prevNfc ? (prevNfc.madeAt || null) : null,
+    // キャンセル状態も再登録で保持（Code.gs の再登録でキャンセルを消さない）
+    cancelled:    prevNfc ? !!prevNfc.cancelled : false,
+    cancelledAt:  prevNfc ? (prevNfc.cancelledAt || null) : null,
   }));
 
   // QR レコードを登録（既存があればURL・履歴・アクセス数を保持）
@@ -1483,6 +1602,7 @@ body{font-family:'Noto Sans JP',sans-serif;background:var(--paper);color:var(--i
 .st-made{background:#dcfce7;color:#15803d;}
 .st-new{background:var(--blue-bg);color:var(--blue);}
 .st-none{background:#f1f3f6;color:#9ca3af;}
+.st-cancelled{background:#fde2e1;color:#c0392b;}
 /* 先頭の状態ボタンは幅を固定して、以降のボタン位置を揃える */
 .st-toggle{display:inline-block;min-width:128px;text-align:center;}
 
@@ -1706,6 +1826,7 @@ tr:hover td{background:#f7f9fb;}
         <button class="chip" data-genre="status" data-val="none" onclick="toggleChip(this)">未完成（注文なし）</button>
         <button class="chip" data-genre="status" data-val="new"  onclick="toggleChip(this)">新しい注文</button>
         <button class="chip" data-genre="status" data-val="made" onclick="toggleChip(this)">作成済み</button>
+        <button class="chip" data-genre="status" data-val="cancelled" onclick="toggleChip(this)">キャンセル済み</button>
       </div>
       <div class="filter-group">
         <span class="filter-glabel">注文番号でしぼり込み</span>
@@ -2376,7 +2497,7 @@ function chipVals(genre) {
 }
 function toggleChip(btn) { btn.classList.toggle('active'); renderList(); }
 // 注文の状態：作成済み / 新しい注文（注文あり・未作成）/ 未完成（注文なし）
-function itemStatus(it) { if (it.made) return 'made'; if (it.hasOrder) return 'new'; return 'none'; }
+function itemStatus(it) { if (it.cancelled) return 'cancelled'; if (it.made) return 'made'; if (it.hasOrder) return 'new'; return 'none'; }
 // 注文番号の桁数ジャンル：10桁 / 8桁 / その他
 function digitCat(oid) {
   oid = String(oid || '');
@@ -2427,14 +2548,17 @@ function renderList() {
     const item   = items[i];
     const oid    = item.orderId;
     const oidEnc = encodeURIComponent(oid);
-    const hasOrder = !!item.hasOrder;
-    const made     = !!item.made;
+    const hasOrder  = !!item.hasOrder;
+    const made      = !!item.made;
+    const cancelled = !!item.cancelled;
     const mark = hasOrder
       ? '<span class="ord-mark yes" title="注文あり">●</span>'
       : '<span class="ord-mark no" title="注文なし">✕</span>';
-    const stB = made
-      ? '<span class="st-badge st-made">作成済み</span>'
-      : (hasOrder ? '<span class="st-badge st-new">新しい注文</span>' : '<span class="st-badge st-none">注文なし</span>');
+    const stB = cancelled
+      ? '<span class="st-badge st-cancelled">キャンセル済み</span>'
+      : (made
+          ? '<span class="st-badge st-made">作成済み</span>'
+          : (hasOrder ? '<span class="st-badge st-new">新しい注文</span>' : '<span class="st-badge st-none">注文なし</span>'));
 
     html += '<tr>';
     html += '<td>' + mark + '<span class="order-id">' + esc(oid) + '</span><div style="margin-top:5px;">' + stB + '</div></td>';
@@ -2442,7 +2566,9 @@ function renderList() {
     html += '<td class="date-cell">' + fmtDate(item.lastUrlUpdate) + '</td>';
     html += '<td><span class="count-badge">📡' + (item.accessCount||0) + ' / 📷' + (item.qrAccessCount||0) + '</span></td>';
     html += '<td style="white-space:nowrap;">';
-    if (hasOrder) {
+    if (cancelled) {
+      html += '<button class="edit-btn st-toggle" style="background:#fde2e1;border-color:#f5c2c0;color:#c0392b;" onclick="toggleCancel(\\'' + esc(oid) + '\\',false)">↩ キャンセル解除</button> ';
+    } else if (hasOrder) {
       html += made
         ? '<button class="edit-btn st-toggle" onclick="toggleMade(\\'' + esc(oid) + '\\',false)">↩ 未作成に戻す</button> '
         : '<button class="edit-btn st-toggle" style="background:#dcfce7;border-color:#bbf7d0;color:var(--green);" onclick="toggleMade(\\'' + esc(oid) + '\\',true)">✓ 作成済みにする</button> ';
@@ -2469,6 +2595,22 @@ function toggleMade(orderId, made) {
     if (d && d.ok) {
       for (var i = 0; i < ALL_ITEMS.length; i++) { if (ALL_ITEMS[i].orderId === orderId) { ALL_ITEMS[i].made = made; break; } }
       toast(made ? '作成済みにしました ✓' : '未作成に戻しました');
+      renderList();
+    } else { toast((d && d.error) || 'エラー'); }
+  }).catch(function () { toast('通信エラー'); });
+}
+
+// キャンセル済みフラグの切り替え（管理者：解除＝キャンセルを取り消す）
+function toggleCancel(orderId, cancelled) {
+  if (!cancelled && !confirm('注文 ' + orderId + ' のキャンセルを解除しますか？\\n（再びお客様がキャンセルできる状態に戻ります）')) return;
+  fetch(BASE + '/api/admin-cancel', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', Authorization: 'Bearer ' + PW },
+    body: JSON.stringify({ orderId: orderId, cancelled: cancelled }),
+  }).then(function (r) { return r.json(); }).then(function (d) {
+    if (d && d.ok) {
+      for (var i = 0; i < ALL_ITEMS.length; i++) { if (ALL_ITEMS[i].orderId === orderId) { ALL_ITEMS[i].cancelled = cancelled; break; } }
+      toast(cancelled ? 'キャンセル済みにしました' : 'キャンセルを解除しました ✓');
       renderList();
     } else { toast((d && d.error) || 'エラー'); }
   }).catch(function () { toast('通信エラー'); });
