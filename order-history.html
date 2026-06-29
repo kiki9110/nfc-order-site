@@ -49,6 +49,8 @@ input[type="text"]:focus{border-color:var(--accent);box-shadow:0 0 0 4px rgba(25
 :root[data-theme="night"] .ph-started{background:rgba(255,207,122,.14);color:#ffcf7a;}
 .ph-cancelled{background:#fde2e1;color:#c0392b;}
 :root[data-theme="night"] .ph-cancelled{background:rgba(255,107,94,.16);color:#ff8c80;}
+.ph-confirmed{background:#e7eefc;color:#2f5fd0;}
+:root[data-theme="night"] .ph-confirmed{background:rgba(120,160,255,.16);color:#9db8ff;}
 .oh-note{font-size:11.5px;color:var(--muted);margin-top:8px;line-height:1.6;}
 .oh-actions{display:flex;gap:8px;flex-wrap:wrap;margin-top:14px;}
 .oh-btn{font-size:12.5px;font-weight:700;padding:10px 16px;border-radius:11px;cursor:pointer;font-family:'Noto Sans JP',sans-serif;border:1.5px solid var(--border);background:var(--surface);color:var(--ink);transition:transform .1s,filter .15s;}
@@ -284,6 +286,9 @@ function cardHTML(orderId, d){
   if (d.phase === 'cancelled'){
     badge = '<span class="oh-badge ph-cancelled">キャンセルされました</span>';
     note  = 'この注文はキャンセルされました。';
+  } else if (d.phase === 'confirmed'){
+    badge = '<span class="oh-badge ph-confirmed">確定済み</span>';
+    note  = '注文を確定したため、キャンセルできません。製作を進めています。';
   } else if (d.phase === 'started'){
     badge = '<span class="oh-badge ph-started">作成が始まりました</span>';
     note  = d.made ? '作成が始まったため、キャンセルできません。' : '注文から3日が過ぎたため、キャンセルできません。';

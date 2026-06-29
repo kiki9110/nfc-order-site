@@ -53,6 +53,7 @@ export default {
     if (path === '/api/customer-set-qr')   return handleCustomerSetQR(request, env, cors);
     if (path === '/api/customer-order')    return handleCustomerOrder(request, env, cors);  // 公開：注文履歴ページ用に1注文の状態をまとめて返す
     if (path === '/api/customer-cancel')   return handleCustomerCancel(request, env, cors);  // 公開：お客様が注文をキャンセル
+    if (path === '/api/customer-confirm')  return handleCustomerConfirm(request, env, cors); // 公開：お客様が注文を確定（以降キャンセル不可）
     if (path === '/api/admin-cancel')      return handleAdminCancel(request, env, cors);     // 管理者：キャンセルの切替（解除/手動キャンセル）
 
     // ── オプション在庫（オプション単体注文の管理）──
@@ -207,9 +208,13 @@ async function handleCustomerOrder(request, env, cors) {
 
   const made         = !!nfc.made;
   const cancelled    = !!nfc.cancelled;
+  const confirmed    = !!nfc.confirmed;
   const registeredAt = nfc.registeredAt || null;
-  const cancellable  = withinCancelWindow(registeredAt) && !made && !cancelled;
-  const phase        = cancelled ? 'cancelled' : (cancellable ? 'cancellable' : 'started');
+  // キャンセル可能：注文から3日以内 && 未作成 && 未キャンセル && 未確定
+  const cancellable  = withinCancelWindow(registeredAt) && !made && !cancelled && !confirmed;
+  const phase        = cancelled ? 'cancelled'
+                     : (cancellable ? 'cancellable'
+                     : (confirmed ? 'confirmed' : 'started'));
 
   return json({
     exists:       true,
@@ -219,8 +224,10 @@ async function handleCustomerOrder(request, env, cors) {
     order,
     made,
     cancelled,
+    confirmed,
     registeredAt,
     cancelledAt:  nfc.cancelledAt || null,
+    confirmedAt:  nfc.confirmedAt || null,
     cancellable,
     phase,
   }, 200, cors);
@@ -241,6 +248,7 @@ async function handleCustomerCancel(request, env, cors) {
   const nfc = JSON.parse(nfcRaw);
 
   if (nfc.cancelled) return json({ error: 'この注文はすでにキャンセル済みです。', cancelled: true }, 409, cors);
+  if (nfc.confirmed) return json({ error: 'この注文は確定済みのためキャンセルできません。' }, 403, cors);
   if (nfc.made)      return json({ error: 'この注文はすでに作成が始まっているためキャンセルできません。' }, 403, cors);
   if (!withinCancelWindow(nfc.registeredAt)) {
     return json({ error: '注文から3日が経過しているためキャンセルできません。すでに作成が始まりました。' }, 403, cors);
@@ -270,6 +278,27 @@ async function handleCustomerCancel(request, env, cors) {
   } catch (e) { /* 通知失敗してもキャンセル自体は成功扱い */ }
 
   return json({ ok: true, cancelled: true, cancelledAt: nfc.cancelledAt }, 200, cors);
+}
+
+// 公開：お客様が注文を「確定」する。確定すると以降はキャンセル不可（作成を早く始められる）。
+// 冪等：すでに確定済みなら何もせず ok を返す。キャンセル済みは確定できない。
+async function handleCustomerConfirm(request, env, cors) {
+  let body;
+  try { body = await request.json(); } catch (e) { return json({ error: 'JSON不正' }, 400, cors); }
+  const orderId = (body.orderId || '').trim();
+  if (!orderId) return json({ error: 'orderId が必要です' }, 400, cors);
+
+  const raw = await env.NFC_URLS.get(orderId);
+  if (!raw) return json({ error: 'この注文番号は登録されていません。番号をご確認ください。' }, 404, cors);
+  const rec = JSON.parse(raw);
+
+  if (rec.cancelled) return json({ error: 'この注文はキャンセル済みのため確定できません。' }, 409, cors);
+  if (!rec.confirmed) {
+    rec.confirmed   = true;
+    rec.confirmedAt = new Date().toISOString();
+    await env.NFC_URLS.put(orderId, JSON.stringify(rec));
+  }
+  return json({ ok: true, confirmed: true, confirmedAt: rec.confirmedAt }, 200, cors);
 }
 
 // 管理者：キャンセル状態の切替（解除／手動キャンセル）。handleSetMade と同型。
@@ -581,6 +610,8 @@ async function handleGetAll(request, env, cors) {
       made:          !!nfc.made,           // 製作完了（作成済み）フラグ
       cancelled:     !!nfc.cancelled,      // キャンセル済みフラグ
       cancelledAt:   nfc.cancelledAt || null,
+      confirmed:     !!nfc.confirmed,      // お客様が注文を確定（キャンセル不可ロック）
+      confirmedAt:   nfc.confirmedAt || null,
       lastUrlUpdate,
       // 購入オプションと追加枚数（管理画面で手動編集できるようにする）
       options:       nfc.options      || {},
@@ -657,6 +688,9 @@ async function handleRegister(request, env, cors) {
     // キャンセル状態も再登録で保持（Code.gs の再登録でキャンセルを消さない）
     cancelled:    prevNfc ? !!prevNfc.cancelled : false,
     cancelledAt:  prevNfc ? (prevNfc.cancelledAt || null) : null,
+    // お客様の「注文確定」状態も保持（確定後は再登録でも確定のまま＝キャンセル不可を維持）
+    confirmed:    prevNfc ? !!prevNfc.confirmed : false,
+    confirmedAt:  prevNfc ? (prevNfc.confirmedAt || null) : null,
   }));
 
   // QR レコードを登録（既存があればURL・履歴・アクセス数を保持）
@@ -1603,6 +1637,7 @@ body{font-family:'Noto Sans JP',sans-serif;background:var(--paper);color:var(--i
 .st-new{background:var(--blue-bg);color:var(--blue);}
 .st-none{background:#f1f3f6;color:#9ca3af;}
 .st-cancelled{background:#fde2e1;color:#c0392b;}
+.st-confirmed{background:#e7eefc;color:#2f5fd0;margin-left:5px;}
 /* 先頭の状態ボタンは幅を固定して、以降のボタン位置を揃える */
 .st-toggle{display:inline-block;min-width:128px;text-align:center;}
 
@@ -2551,6 +2586,7 @@ function renderList() {
     const hasOrder  = !!item.hasOrder;
     const made      = !!item.made;
     const cancelled = !!item.cancelled;
+    const confirmed = !!item.confirmed;
     const mark = hasOrder
       ? '<span class="ord-mark yes" title="注文あり">●</span>'
       : '<span class="ord-mark no" title="注文なし">✕</span>';
@@ -2561,7 +2597,8 @@ function renderList() {
           : (hasOrder ? '<span class="st-badge st-new">新しい注文</span>' : '<span class="st-badge st-none">注文なし</span>'));
 
     html += '<tr>';
-    html += '<td>' + mark + '<span class="order-id">' + esc(oid) + '</span><div style="margin-top:5px;">' + stB + '</div></td>';
+    const confB = (confirmed && !cancelled) ? '<span class="st-badge st-confirmed">🔒 確定済み</span>' : '';
+    html += '<td>' + mark + '<span class="order-id">' + esc(oid) + '</span><div style="margin-top:5px;">' + stB + confB + '</div></td>';
     html += '<td style="font-size:12px;color:var(--muted);">' + esc(item.label || '—') + '</td>';
     html += '<td class="date-cell">' + fmtDate(item.lastUrlUpdate) + '</td>';
     html += '<td><span class="count-badge">📡' + (item.accessCount||0) + ' / 📷' + (item.qrAccessCount||0) + '</span></td>';

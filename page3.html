@@ -187,8 +187,20 @@ body{font-family:'Noto Sans JP',sans-serif;background:var(--paper);color:var(--i
   font-size:11px;color:var(--muted);
   text-align:center;margin-top:12px;line-height:1.6;
 }
+/* 注文確定・キャンセル案内カード */
+.confirm-card{background:var(--surface);border:1.5px solid var(--border);border-radius:var(--radius);padding:18px;margin-top:20px;box-shadow:var(--card-sh);}
+.cc-title{font-family:var(--pop);font-size:15px;margin-bottom:8px;color:var(--ink);}
+.cc-note{font-size:12.5px;color:var(--muted);line-height:1.85;margin-bottom:12px;}
+.cc-note strong{color:var(--ink);}
+.cc-fast{font-size:12.5px;color:var(--ink);line-height:1.85;background:rgba(242,177,52,.13);border:1.5px solid rgba(242,177,52,.38);border-radius:12px;padding:11px 13px;margin-bottom:14px;}
+.cc-fast strong{color:var(--accent-press);}
+.cc-warn{display:inline-block;margin-top:4px;color:#c0392b;font-size:11.5px;}
+.cc-done{font-size:12.5px;color:#2f5fd0;line-height:1.85;background:#e7eefc;border:1.5px solid #c3d4f7;border-radius:12px;padding:12px 14px;}
+.cc-cancelled{font-size:12.5px;color:#c0392b;line-height:1.85;background:#fde2e1;border:1.5px solid #f5c2c0;border-radius:12px;padding:12px 14px;}
+:root[data-theme="night"] .cc-done{background:rgba(120,160,255,.14);border-color:rgba(120,160,255,.3);color:#9db8ff;}
+:root[data-theme="night"] .cc-cancelled{background:rgba(255,107,94,.14);border-color:rgba(255,107,94,.3);color:#ff8c80;}
 @media print{
-  .topbar,.actions,.print-hint{display:none;}
+  .topbar,.actions,.print-hint,.confirm-card{display:none;}
   .success-banner{background:#f0f0f0!important;-webkit-print-color-adjust:exact;}
 }
 
@@ -370,6 +382,16 @@ if(document.readyState!=='loading')w();else document.addEventListener('DOMConten
     </div>
   </div>
 
+  <!-- 注文確定・キャンセル案内 -->
+  <div class="confirm-card" id="confirmCard">
+    <div class="cc-title">🛡 キャンセル・確定について</div>
+    <div class="cc-note">この注文は <strong>送信から3日間</strong> までキャンセルできます。キャンセルは「注文履歴」ページからいつでも行えます。</div>
+    <div class="cc-fast">⚡ 内容に問題がなければ <strong>注文を確定</strong> してください。確定すると製作をすぐ始められるので、<strong>より早くお届け</strong>できます。<br><span class="cc-warn">※ 確定するとキャンセルできなくなります。</span></div>
+    <button class="btn btn-primary" id="confirmBtn" onclick="confirmOrder()">✅ 注文を確定する</button>
+    <div class="cc-done" id="confirmDone" style="display:none;">🔒 注文を確定しました。製作を進めます。これ以降はキャンセルできません。</div>
+    <div class="cc-cancelled" id="confirmCancelled" style="display:none;">この注文はキャンセルされています。</div>
+  </div>
+
   <!-- ACTIONS -->
   <div class="actions">
     <button class="btn btn-primary" onclick="window.print()">🖨 この内容を印刷・保存</button>
@@ -396,6 +418,38 @@ if (!O) {
 // 画像が分割保存されていた場合
 if (O.imgFront === '__large__') O.imgFront = sessionStorage.getItem('orderImgFront') || null;
 if (O.imgBack  === '__large__') O.imgBack  = sessionStorage.getItem('orderImgBack')  || null;
+
+// ─── 注文確定・キャンセル案内 ───
+const WORKER_ORIGIN = sessionStorage.getItem('workerOrigin') || 'https://buki-booth.com';
+function _ccShow(id){ var e = document.getElementById(id); if (e) e.style.display = 'block'; }
+function _ccHide(id){ var e = document.getElementById(id); if (e) e.style.display = 'none'; }
+function markConfirmed(){ _ccHide('confirmBtn'); _ccHide('confirmCancelled'); _ccShow('confirmDone'); }
+async function confirmOrder(){
+  if (!O || !O.orderId) return;
+  if (!confirm('注文を確定すると、これ以降はキャンセルできなくなります。\n（確定すると製作を早く始められ、より早くお届けできます）\n\n確定してよろしいですか？')) return;
+  var btn = document.getElementById('confirmBtn'); var t = btn.textContent;
+  btn.disabled = true; btn.textContent = '確定中...';
+  try {
+    var r = await fetch(WORKER_ORIGIN + '/api/customer-confirm', {
+      method: 'POST', headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ orderId: O.orderId }),
+    });
+    var d = await r.json();
+    if (d && d.ok) { markConfirmed(); }
+    else { alert((d && d.error) || '確定できませんでした。'); btn.disabled = false; btn.textContent = t; }
+  } catch (e) { alert('通信エラーが発生しました。もう一度お試しください。'); btn.disabled = false; btn.textContent = t; }
+}
+// 読み込み時：現在の状態を反映（確定済み／キャンセル済みならボタンを切り替える）
+(function initConfirmState(){
+  if (!O || !O.orderId) return;
+  fetch(WORKER_ORIGIN + '/api/customer-order?orderId=' + encodeURIComponent(O.orderId))
+    .then(function(r){ return r.json(); })
+    .then(function(d){
+      if (!d || !d.exists) return;
+      if (d.cancelled) { _ccHide('confirmBtn'); _ccShow('confirmCancelled'); }
+      else if (d.confirmed) { markConfirmed(); }
+    }).catch(function(){});
+})();
 
 // ─── 基本情報 ───
 document.getElementById('dispOrderId').textContent = O.orderId || '—';
