@@ -421,6 +421,14 @@ if (O.imgBack  === '__large__') O.imgBack  = sessionStorage.getItem('orderImgBac
 
 // ─── 注文確定・キャンセル案内 ───
 const WORKER_ORIGIN = sessionStorage.getItem('workerOrigin') || 'https://buki-booth.com';
+// この注文番号を端末の「注文履歴」に自動登録（order-history.html と同じキー）
+(function(){ try {
+  if (O && O.orderId) {
+    var LS = 'buki_order_numbers';
+    var a = JSON.parse(localStorage.getItem(LS) || '[]');
+    if (a.indexOf(O.orderId) < 0) { a.unshift(O.orderId); localStorage.setItem(LS, JSON.stringify(a)); }
+  }
+} catch (e) {} })();
 function _ccShow(id){ var e = document.getElementById(id); if (e) e.style.display = 'block'; }
 function _ccHide(id){ var e = document.getElementById(id); if (e) e.style.display = 'none'; }
 function markConfirmed(){ _ccHide('confirmBtn'); _ccHide('confirmCancelled'); _ccShow('confirmDone'); }

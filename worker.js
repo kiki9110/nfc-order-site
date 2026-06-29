@@ -326,11 +326,23 @@ async function handleAdminCancel(request, env, cors) {
 // → 後から管理画面で設定を変えても、すでに登録済みの番号のオプションは変わらない。
 async function handleSelfRegister(request, env, cors) {
   const body    = await request.json();
-  const orderId = (body.orderId || '').trim();
+  let   orderId = (body.orderId || '').trim();
   const name    = (body.name    || '').trim();
-  if (!/^[0-9]{10}$/.test(orderId)) return json({ error: 'invalid', message: '10桁の数字で入力してください' }, 400, cors);
-  const exist = await env.NFC_URLS.get(orderId);
-  if (exist) return json({ error: 'used', message: 'この番号はもう使われています' }, 409, cors);
+
+  if (!orderId) {
+    // 番号未指定 → 重複しない10桁番号をサーバー側で自動採番（先頭0を避ける）。
+    // 既存キー（NFC/QR/ORDER/OPT/SELF/SUP/MSG など）と衝突しないものを探す。
+    for (let i = 0; i < 40; i++) {
+      const cand = String(Math.floor(1000000000 + Math.random() * 9000000000));
+      if (!(await env.NFC_URLS.get(cand))) { orderId = cand; break; }
+    }
+    if (!orderId) return json({ error: 'busy', message: '番号の発行に失敗しました。もう一度お試しください。' }, 503, cors);
+  } else {
+    // 番号指定あり（後方互換）：10桁チェック＋重複チェック
+    if (!/^[0-9]{10}$/.test(orderId)) return json({ error: 'invalid', message: '10桁の数字で入力してください' }, 400, cors);
+    const exist = await env.NFC_URLS.get(orderId);
+    if (exist) return json({ error: 'used', message: 'この番号はもう使われています' }, 409, cors);
+  }
   // 登録時点のデフォルトオプションを読み取って焼き付け
   const optRaw = await env.NFC_URLS.get('SELF_OPT');
   const defOpt = optRaw ? JSON.parse(optRaw) : { nfc: false, double: false };

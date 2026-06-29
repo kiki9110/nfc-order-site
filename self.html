@@ -142,24 +142,18 @@ if(document.readyState!=='loading')w();else document.addEventListener('DOMConten
 
   <div class="card">
     <div class="card-title">番号を登録</div>
-    <div class="card-desc">好きな10桁の数字を決めて登録してください。登録するとそのままカスタマイズに進めます。</div>
+    <div class="card-desc">お名前を入力して登録すると、10桁の注文番号を<strong>自動で発行</strong>します。登録するとそのままカスタマイズに進めます。</div>
 
-    <label for="orderInput">10桁の番号（数字のみ）</label>
-    <div class="input-wrap">
-      <input type="text" id="orderInput" placeholder="例：1234567890" maxlength="10" inputmode="numeric" autocomplete="off">
-      <span class="input-icon">🔢</span>
-    </div>
-
-    <label for="nameInput" style="margin-top:16px;">お名前</label>
+    <label for="nameInput">お名前</label>
     <div class="input-wrap">
       <input type="text" id="nameInput" placeholder="例：山田さん" maxlength="30" autocomplete="off">
       <span class="input-icon">🙂</span>
     </div>
     <div class="error-msg" id="errorMsg">エラー</div>
-    <div class="input-hint">※ この番号で注文を管理します。お名前はどなたの注文か分かるようにするためです。</div>
+    <div class="input-hint">※ 注文番号は重複しないよう自動で発行されます。発行した番号は「注文履歴」にも自動で登録され、この端末から確認できます。</div>
 
     <button class="btn-next" onclick="register()">
-      登録してカスタマイズへ
+      番号を発行してカスタマイズへ
       <svg viewBox="0 0 16 16" fill="none"><path d="M3 8h10M9 4l4 4-4 4" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/></svg>
     </button>
   </div>
@@ -176,35 +170,43 @@ if(document.readyState!=='loading')w();else document.addEventListener('DOMConten
 <script>
 const WORKER_ORIGIN = sessionStorage.getItem('workerOrigin') || 'https://buki-booth.com';
 function goNext(orderId) { sessionStorage.setItem('orderId', orderId); window.location.href = 'page2.html'; }
+// 注文番号を端末の「注文履歴」に自動登録（order-history.html と同じ localStorage キー）
+function addOrderToHistory(orderId) {
+  try {
+    var LS = 'buki_order_numbers';
+    var a = JSON.parse(localStorage.getItem(LS) || '[]');
+    if (a.indexOf(orderId) < 0) { a.unshift(orderId); localStorage.setItem(LS, JSON.stringify(a)); }
+  } catch (e) {}
+}
 
 async function register() {
-  const input = document.getElementById('orderInput');
   const nameI = document.getElementById('nameInput');
   const btn   = document.querySelector('.btn-next');
   const err   = document.getElementById('errorMsg');
-  const val   = input.value.trim();
   const name  = nameI.value.trim();
-  if (!/^[0-9]{10}$/.test(val)) {
-    err.textContent = '10桁の数字を入力してください'; err.style.display = 'block'; input.style.borderColor = '#e05050'; return;
-  }
   if (!name) {
     err.textContent = 'お名前を入力してください'; err.style.display = 'block'; nameI.style.borderColor = '#e05050'; return;
   }
-  btn.disabled = true; const original = btn.textContent; btn.textContent = '登録中...';
+  btn.disabled = true; const original = btn.textContent; btn.textContent = '番号を発行中...';
   try {
-    const r = await fetch(WORKER_ORIGIN + '/api/self-register', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ orderId: val, name: name }) });
+    // orderId は送らない → サーバーが重複しない10桁番号を自動発行して返す
+    const r = await fetch(WORKER_ORIGIN + '/api/self-register', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ name: name }) });
     const d = await r.json();
-    if (d && d.ok) { err.style.display = 'none'; goNext(val); }
-    else if (d && d.error === 'used') { err.textContent = 'この番号はもう使われています。別の番号にしてください。'; err.style.display = 'block'; input.style.borderColor = '#e05050'; }
-    else { err.textContent = (d && d.message) || '登録に失敗しました。'; err.style.display = 'block'; input.style.borderColor = '#e05050'; }
+    if (d && d.ok && d.orderId) {
+      err.style.display = 'none';
+      addOrderToHistory(d.orderId);   // 注文履歴に自動登録
+      goNext(d.orderId);
+    } else {
+      err.textContent = (d && d.message) || '登録に失敗しました。もう一度お試しください。'; err.style.display = 'block';
+      btn.disabled = false; btn.textContent = original;
+    }
   } catch (e) {
     err.textContent = '通信エラーが発生しました。もう一度お試しください。'; err.style.display = 'block';
-  } finally { btn.disabled = false; btn.textContent = original; }
+    btn.disabled = false; btn.textContent = original;
+  }
 }
-const orderInput = document.getElementById('orderInput');
-orderInput.addEventListener('input', () => { orderInput.value = orderInput.value.replace(/[^0-9]/g, ''); document.getElementById('errorMsg').style.display = 'none'; orderInput.style.borderColor = ''; });
-orderInput.addEventListener('keydown', e => { if (e.key === 'Enter') document.getElementById('nameInput').focus(); });
-document.getElementById('nameInput').addEventListener('keydown', e => { if (e.key === 'Enter') register(); document.getElementById('errorMsg').style.display = 'none'; });
+document.getElementById('nameInput').addEventListener('input', () => { document.getElementById('errorMsg').style.display = 'none'; document.getElementById('nameInput').style.borderColor = ''; });
+document.getElementById('nameInput').addEventListener('keydown', e => { if (e.key === 'Enter') register(); });
 </script>
 <script>
 (function(){var t=document.getElementById('navToggle'),d=document.getElementById('navDrawer'),o=document.getElementById('navOverlay'),c=document.getElementById('navClose');if(!t||!d)return;function op(){d.classList.add('open');if(o)o.classList.add('open');d.setAttribute('aria-hidden','false');}function cl(){d.classList.remove('open');if(o)o.classList.remove('open');d.setAttribute('aria-hidden','true');}t.addEventListener('click',op);if(c)c.addEventListener('click',cl);if(o)o.addEventListener('click',cl);document.addEventListener('keydown',function(e){if(e.key==='Escape')cl();});})();
