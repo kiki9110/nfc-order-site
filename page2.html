@@ -206,12 +206,10 @@ body{font-family:'Noto Sans JP',sans-serif;background:var(--paper);color:var(--i
 .le-del{color:#c0392b;border-color:#f5c2c0;}
 .le-hint{font-size:11px;color:var(--muted);line-height:1.6;margin-top:10px;}
 @media(max-width:380px){ .le-list{flex-basis:62px;} }
-/* 拡大表示：一覧を上に横並びにして、ステージを大きく */
-.layer-ed.le-big .le-body{flex-direction:column;}
-.layer-ed.le-big .le-list{flex-basis:auto;flex-direction:row;flex-wrap:wrap;max-height:none;align-items:flex-start;}
-.layer-ed.le-big .le-thumbs{flex-direction:row;flex-wrap:wrap;}
-.layer-ed.le-big .le-thumb{width:60px;height:60px;}
-.layer-ed.le-big .le-add{padding:9px 14px;}
+/* ＋－ズーム */
+.le-zoom{display:inline-flex;align-items:center;gap:6px;}
+.le-zv{font-size:12px;font-weight:700;color:var(--ink);min-width:40px;text-align:center;}
+.le-sidebtn.sq{padding:6px 0;width:30px;text-align:center;}
 
 /* 注文サマリーカード */
 .prev-card{background:var(--surface);border:1.5px solid var(--border);border-radius:var(--radius);overflow:hidden;margin-bottom:12px;margin-top:14px;box-shadow:var(--card-sh);}
@@ -490,7 +488,11 @@ if(document.readyState!=='loading')w();else document.addEventListener('DOMConten
       <div class="le-head">
         <span class="le-title">🖼 画像を配置（複数OK）</span>
         <div class="le-sides">
-          <button type="button" id="leBigBtn" class="le-sidebtn" onclick="leToggleBig()">🔍 拡大</button>
+          <div class="le-zoom">
+            <button type="button" class="le-sidebtn sq" onclick="leZoomStep(-0.25)" aria-label="縮小">－</button>
+            <span class="le-zv" id="leZoomVal">100%</span>
+            <button type="button" class="le-sidebtn sq" onclick="leZoomStep(0.25)" aria-label="拡大">＋</button>
+          </div>
           <button type="button" id="leSideFront" class="le-sidebtn on" onclick="leSetSide('front')">おもて</button>
           <button type="button" id="leSideBack" class="le-sidebtn" onclick="leSetSide('back')" style="display:none;">うら</button>
         </div>
@@ -887,7 +889,7 @@ const S = {
   baseFront: null, baseBack: null,
   layersFront: [], layersBack: [],
   selFront: null, selBack: null,        // 選択中のレイヤー id
-  leBig: false,                          // 画像エディタの拡大表示
+  leZoom: 1,                             // 画像エディタの段階ズーム（＋－）
   dieFront:   null, dieBack: null,       // ダイカットの実シルエット外周（正規化ポリゴン）
   dieHolesFront: [], dieHolesBack: [],   // ダイカットの中抜き穴（折れ防止OFF時に検出される正規化ポリゴンの配列）
   dieReinforce:  false,                  // 折れ防止は廃止：常に false（イラストどおりにすき間・中抜き穴を残す）
@@ -2948,14 +2950,16 @@ function leStageDraw(){
   const host = cvEl.parentElement;
   const avail = (host && host.clientWidth) ? host.clientWidth : 300;
   const { w: fw, h: fh } = leFrameWH();
-  const cap = S.leBig ? 560 : 320;
-  const W = Math.max(120, Math.min(cap, avail));
+  const W = Math.max(120, Math.min(320, avail));   // 表示はコンテナ幅にフィット
   const H = Math.round(W * fh / fw);
   const dpr = Math.min(devicePixelRatio || 1, 2);
   cvEl.style.width = W + 'px'; cvEl.style.height = H + 'px';
   if (cvEl.width !== W * dpr || cvEl.height !== H * dpr){ cvEl.width = W * dpr; cvEl.height = H * dpr; }
   const ctx = cvEl.getContext('2d'); ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
   ctx.clearRect(0, 0, W, H);
+  const z = S.leZoom || 1;
+  ctx.save();
+  if (z !== 1){ ctx.translate(W / 2, H / 2); ctx.scale(z, z); ctx.translate(-W / 2, -H / 2); }   // 中心基準でズーム（表示のみ）
   lePaint(ctx, W, H, leSide);
   leStrokeShape(ctx, W, H);          // 形の縁を表示
   // 選択枠
@@ -2964,19 +2968,22 @@ function leStageDraw(){
     const ow = sel.scale * W, oh = ow * sel.imgEl.naturalHeight / sel.imgEl.naturalWidth;
     ctx.save();
     ctx.translate(sel.x * W, sel.y * H); ctx.rotate((sel.rot || 0) * Math.PI / 180);
-    ctx.strokeStyle = '#ff7a59'; ctx.lineWidth = 2; ctx.setLineDash([5, 4]);
+    ctx.strokeStyle = '#ff7a59'; ctx.lineWidth = 2 / z; ctx.setLineDash([5 / z, 4 / z]);
     ctx.strokeRect(-ow / 2, -oh / 2, ow, oh); ctx.setLineDash([]);
     ctx.restore();
   }
+  ctx.restore();
   leStageWH = { W, H };
 }
 
-// ポインタ → ステージ座標
+// ポインタ → ステージ内部座標（ズームを逆変換してコンテンツ座標で返す）
 function leStagePos(e){
   const r = document.getElementById('layerStage').getBoundingClientRect();
-  const cx = (e.touches ? e.touches[0].clientX : e.clientX) - r.left;
-  const cy = (e.touches ? e.touches[0].clientY : e.clientY) - r.top;
-  return { x: cx, y: cy };
+  const W = leStageWH.W || r.width, H = leStageWH.H || r.height;
+  let cx = ((e.touches ? e.touches[0].clientX : e.clientX) - r.left) * (W / (r.width  || W));
+  let cy = ((e.touches ? e.touches[0].clientY : e.clientY) - r.top ) * (H / (r.height || H));
+  const z = S.leZoom || 1;
+  return { x: W / 2 + (cx - W / 2) / z, y: H / 2 + (cy - H / 2) / z };   // 表示ズームの逆変換
 }
 // 上のレイヤーから当たり判定（回転を逆変換してローカル矩形内か）
 function leHit(px, py){
@@ -3111,13 +3118,12 @@ function applyImageMode(){
   if (dz) dz.style.display = 'none';   // 旧アップロード/クロップUIは使わない
   leShow();
 }
-// 画像エディタの拡大表示トグル
-function leToggleBig(){
-  S.leBig = !S.leBig;
-  const ed = document.getElementById('layerEd');
-  if (ed) ed.classList.toggle('le-big', S.leBig);
-  const b = document.getElementById('leBigBtn');
-  if (b){ b.classList.toggle('on', S.leBig); b.textContent = S.leBig ? '🔍 縮小' : '🔍 拡大'; }
+// 画像エディタの段階ズーム（＋－）。ステージの表示倍率を上げて微調整しやすくする
+function leZoomStep(d){
+  let z = (S.leZoom || 1) + d;
+  z = Math.max(1, Math.min(3, Math.round(z * 100) / 100));
+  S.leZoom = z;
+  const v = document.getElementById('leZoomVal'); if (v) v.textContent = Math.round(z * 100) + '%';
   leStageDraw();
 }
 
@@ -3129,10 +3135,8 @@ function leShow(){
   const bb = document.getElementById('leSideBack');
   if (bb) bb.style.display = S.backPrint ? 'inline-flex' : 'none';
   if (leSide === 'back' && !S.backPrint) leSide = 'front';
-  // 拡大ボタン状態
-  const bigb = document.getElementById('leBigBtn');
-  if (bigb){ bigb.classList.toggle('on', !!S.leBig); bigb.textContent = S.leBig ? '🔍 縮小' : '🔍 拡大'; }
-  ed.classList.toggle('le-big', !!S.leBig);
+  // ズーム表示を反映
+  const zv = document.getElementById('leZoomVal'); if (zv) zv.textContent = Math.round((S.leZoom || 1) * 100) + '%';
   if (!leInited){
     leInited = true;
     const st = document.getElementById('layerStage');
