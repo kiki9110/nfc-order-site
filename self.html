@@ -179,6 +179,9 @@ function addOrderToHistory(orderId) {
   } catch (e) {}
 }
 
+// 10桁の番号を生成（先頭0を避ける）
+function gen10() { return String(Math.floor(1000000000 + Math.random() * 9000000000)); }
+
 async function register() {
   const nameI = document.getElementById('nameInput');
   const btn   = document.querySelector('.btn-next');
@@ -189,15 +192,24 @@ async function register() {
   }
   btn.disabled = true; const original = btn.textContent; btn.textContent = '番号を発行中...';
   try {
-    // orderId は送らない → サーバーが重複しない10桁番号を自動発行して返す
-    const r = await fetch(WORKER_ORIGIN + '/api/self-register', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ name: name }) });
-    const d = await r.json();
-    if (d && d.ok && d.orderId) {
+    // 端末側で10桁番号を自動生成して送る（旧/新どちらの worker でも動く）。
+    // 重複は worker が 'used' で弾くので、別番号で自動リトライ＝同じ番号は作られない。
+    let orderId = null, msg = '';
+    for (let i = 0; i < 8; i++) {
+      const cand = gen10();
+      const r = await fetch(WORKER_ORIGIN + '/api/self-register', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ orderId: cand, name: name }) });
+      const d = await r.json();
+      if (d && d.ok) { orderId = d.orderId || cand; break; }
+      if (d && d.error === 'used') continue;     // 衝突 → 別番号で再試行
+      msg = (d && d.message) || '';              // その他のエラーは中断
+      break;
+    }
+    if (orderId) {
       err.style.display = 'none';
-      addOrderToHistory(d.orderId);   // 注文履歴に自動登録
-      goNext(d.orderId);
+      addOrderToHistory(orderId);   // 注文履歴に自動登録
+      goNext(orderId);
     } else {
-      err.textContent = (d && d.message) || '登録に失敗しました。もう一度お試しください。'; err.style.display = 'block';
+      err.textContent = msg || '番号の発行に失敗しました。もう一度お試しください。'; err.style.display = 'block';
       btn.disabled = false; btn.textContent = original;
     }
   } catch (e) {
