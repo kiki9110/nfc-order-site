@@ -1131,6 +1131,8 @@ body{font-family:'Noto Sans JP',sans-serif;background:#f6f7f9;color:#1a1d23;padd
 .img-block label{font-size:11px;color:#6b7280;display:block;margin-bottom:8px;text-transform:uppercase;letter-spacing:.05em;}
 .img-block img{width:100%;max-width:200px;border-radius:10px;border:1px solid #e4e7ec;display:block;margin:0 auto 8px;}
 .dl-btn{display:inline-block;padding:8px 16px;background:#1a1d23;color:#fff;border-radius:8px;font-size:12px;text-decoration:none;}
+.img-actions{display:flex;gap:8px;justify-content:center;flex-wrap:wrap;}
+.zoom-btn{padding:8px 14px;border:1.5px solid #ccc8be;border-radius:8px;background:#fff;cursor:pointer;font-family:'Noto Sans JP',sans-serif;font-size:12px;color:#0f0f0d;}
 .minimap-row{display:flex;gap:16px;flex-wrap:wrap;align-items:flex-start;}
 .minimap-block{flex:1;min-width:120px;}
 .minimap-block label{font-size:11px;color:#6b7280;display:block;margin-bottom:8px;text-transform:uppercase;letter-spacing:.05em;}
@@ -1226,13 +1228,19 @@ body{font-family:'Noto Sans JP',sans-serif;background:#f6f7f9;color:#1a1d23;padd
         <div class="img-block">
           ${order.backPrint ? '<label>おもて面</label>' : ''}
           <img src="${order.imgFront}" alt="おもて面">
-          <a class="dl-btn" id="dlFront" download="front_${order.orderId}.png">⬇ ダウンロード</a>
+          <div class="img-actions">
+            <button class="zoom-btn" onclick="openImgZoom(ORDER.imgPrintFront||ORDER.imgFront,'キーホルダー画像（おもて面）')">🔍 拡大</button>
+            <a class="dl-btn" id="dlFront" download="front_${order.orderId}.png">⬇ ダウンロード</a>
+          </div>
         </div>` : '<p style="color:#6b6860;font-size:13px;">画像なし</p>'}
         ${order.backPrint && order.imgBack ? `
         <div class="img-block">
           <label>うら面</label>
           <img src="${order.imgBack}" alt="うら面">
-          <a class="dl-btn" id="dlBack" download="back_${order.orderId}.png">⬇ ダウンロード</a>
+          <div class="img-actions">
+            <button class="zoom-btn" onclick="openImgZoom(ORDER.imgPrintBack||ORDER.imgBack,'キーホルダー画像（うら面）')">🔍 拡大</button>
+            <a class="dl-btn" id="dlBack" download="back_${order.orderId}.png">⬇ ダウンロード</a>
+          </div>
         </div>` : ''}
       </div>
     </div>
@@ -1279,9 +1287,21 @@ body{font-family:'Noto Sans JP',sans-serif;background:#f6f7f9;color:#1a1d23;padd
 <div id="zoomModal" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,.8);z-index:300;align-items:center;justify-content:center;padding:18px;" onclick="closeZoom(event)">
   <div style="background:#fff;border-radius:14px;padding:18px 18px 16px;max-width:94vw;max-height:92vh;overflow:auto;text-align:center;">
     <div id="zoomTitle" style="font-size:14px;font-weight:700;color:#0f0f0d;margin-bottom:12px;"></div>
-    <canvas id="zoomCv" style="border-radius:10px;border:1.5px solid #ccc8be;display:block;margin:0 auto;max-width:86vw;height:auto;"></canvas>
+    <div id="zoomViewport" style="overflow:hidden;touch-action:none;max-width:86vw;max-height:62vh;margin:0 auto;display:flex;align-items:center;justify-content:center;cursor:grab;border-radius:10px;border:1.5px solid #ccc8be;background:#f6f7f9;">
+      <canvas id="zoomCv" style="display:block;max-width:86vw;max-height:62vh;height:auto;transform-origin:center center;"></canvas>
+    </div>
+    <div style="display:flex;gap:8px;justify-content:center;align-items:center;margin-top:12px;flex-wrap:wrap;">
+      <button onclick="zStep(-0.5)" aria-label="縮小" style="width:40px;height:40px;border:1.5px solid #ccc8be;border-radius:9px;background:#fff;cursor:pointer;font-size:20px;line-height:1;color:#0f0f0d;">－</button>
+      <span id="zPct" style="min-width:56px;font-size:13px;color:#6b6860;font-variant-numeric:tabular-nums;">100%</span>
+      <button onclick="zStep(0.5)" aria-label="拡大" style="width:40px;height:40px;border:1.5px solid #ccc8be;border-radius:9px;background:#fff;cursor:pointer;font-size:20px;line-height:1;color:#0f0f0d;">＋</button>
+      <button onclick="zReset()" style="padding:0 14px;height:40px;border:1.5px solid #ccc8be;border-radius:9px;background:#fff;cursor:pointer;font-size:12px;color:#0f0f0d;font-family:'Noto Sans JP',sans-serif;">リセット</button>
+    </div>
+    <div style="font-size:11px;color:#9a968c;margin-top:6px;">ドラッグ／スワイプで移動・＋－で拡大</div>
     <div id="zoomInfo" style="font-size:13px;color:#6b6860;margin-top:12px;line-height:1.9;"></div>
-    <button onclick="closeZoom()" style="margin-top:14px;padding:9px 24px;border:none;border-radius:9px;background:#0f0f0d;color:#fff;font-family:'Noto Sans JP',sans-serif;font-size:13px;cursor:pointer;">閉じる</button>
+    <div style="display:flex;gap:8px;justify-content:center;margin-top:14px;flex-wrap:wrap;">
+      <button id="zoomSaveBtn" onclick="zoomSaveImg()" style="display:none;padding:9px 20px;border:none;border-radius:9px;background:#3257d6;color:#fff;font-family:'Noto Sans JP',sans-serif;font-size:13px;cursor:pointer;">📷 写真に保存</button>
+      <button onclick="closeZoom()" style="padding:9px 24px;border:none;border-radius:9px;background:#0f0f0d;color:#fff;font-family:'Noto Sans JP',sans-serif;font-size:13px;cursor:pointer;">閉じる</button>
+    </div>
   </div>
 </div>
 
@@ -1290,11 +1310,11 @@ const ORDER = ${JSON.stringify(order)};
 
 // （QRコードの生成・ダウンロードは管理一覧の「URL一覧」ボタンに集約したため、ここでは行わない）
 
-// ダウンロードリンクにhrefをセット
+// ダウンロードリンクにhrefをセット（印刷用高解像度 imgPrint* があればそちらを優先）
 const dlF = document.getElementById('dlFront');
-if (dlF && ORDER.imgFront) dlF.href = ORDER.imgFront;
+if (dlF && (ORDER.imgPrintFront || ORDER.imgFront)) dlF.href = ORDER.imgPrintFront || ORDER.imgFront;
 const dlB = document.getElementById('dlBack');
-if (dlB && ORDER.imgBack) dlB.href = ORDER.imgBack;
+if (dlB && (ORDER.imgPrintBack || ORDER.imgBack)) dlB.href = ORDER.imgPrintBack || ORDER.imgBack;
 
 // ── QR ミニマップ描画 ──
 function rrect(ctx,x,y,w,h,r){ctx.moveTo(x+r,y);ctx.lineTo(x+w-r,y);ctx.arcTo(x+w,y,x+w,y+r,r);ctx.lineTo(x+w,y+h-r);ctx.arcTo(x+w,y+h,x+w-r,y+h,r);ctx.lineTo(x+r,y+h);ctx.arcTo(x,y+h,x,y+h-r,r);ctx.lineTo(x,y+r);ctx.arcTo(x,y,x+r,y,r);ctx.closePath();}
@@ -1335,18 +1355,78 @@ function drawDieBodyAlpha(ctx, img, x, y, s, acryl, borderPx, withImage) {
 }
 function dieBorderPx(s) { return (ORDER.sizeCm ? (ORDER.borderCm || 0) / ORDER.sizeCm : 0) * s * DIE_FIT; }
 
-// ── 拡大表示（QR位置・穴位置 共通モーダル）──
+// ── 拡大表示（キーホルダー画像・QR位置・NFC位置・穴位置 共通モーダル）──
 var ZOOM_SCALE = 3, ZOOM_QR = {}, ZOOM_HOLE = null, ZOOM_NFC = null;
+var _zUser = 1, _zTx = 0, _zTy = 0, _zoomSrc = null;   // ユーザー操作のズーム倍率・移動量／画像保存用の元src
+function _zApply(){
+  var cv = document.getElementById('zoomCv'); if(!cv) return;
+  cv.style.transform = 'translate('+_zTx+'px,'+_zTy+'px) scale('+_zUser+')';
+  var p = document.getElementById('zPct'); if(p) p.textContent = Math.round(_zUser*100)+'%';
+}
+function zReset(){ _zUser=1; _zTx=0; _zTy=0; _zApply(); }
+function zStep(d){ _zUser = Math.max(1, Math.min(6, Math.round((_zUser+d)*100)/100)); if(_zUser===1){_zTx=0;_zTy=0;} _zApply(); }
 function openZoom(rec){
   if(!rec) return;
   var cv = document.getElementById('zoomCv');
   document.getElementById('zoomTitle').textContent = rec.label || '拡大表示';
   document.getElementById('zoomInfo').innerHTML = rec.info || '';
+  _zoomSrc = rec.isImg ? (rec.src || null) : null;
+  var sb = document.getElementById('zoomSaveBtn'); if(sb) sb.style.display = _zoomSrc ? 'inline-block' : 'none';
+  zReset();                                  // 開くたびに拡大・位置をリセット
   rec.paint(cv, ZOOM_SCALE);                 // 同じ絵を高解像度で再描画（ぼやけない）
   document.getElementById('zoomModal').style.display = 'flex';
 }
 function closeZoom(e){ if(e && e.target !== e.currentTarget) return; var m=document.getElementById('zoomModal'); if(m) m.style.display='none'; }
 window.addEventListener('keydown', function(e){ if(e.key==='Escape') closeZoom(); });
+
+// ドラッグ／スワイプで移動（PC=マウス長押しドラッグ, スマホ=スワイプ）。Pointer Events で統一
+(function(){
+  var vp = document.getElementById('zoomViewport'); if(!vp) return;
+  var drag = null;
+  vp.addEventListener('pointerdown', function(e){
+    if(_zUser<=1) return;                     // 等倍のときは移動不要
+    drag = { x:e.clientX, y:e.clientY, tx:_zTx, ty:_zTy };
+    vp.style.cursor='grabbing'; try{ vp.setPointerCapture(e.pointerId); }catch(_){}
+  });
+  vp.addEventListener('pointermove', function(e){
+    if(!drag) return;
+    _zTx = drag.tx + (e.clientX-drag.x); _zTy = drag.ty + (e.clientY-drag.y); _zApply();
+  });
+  function end(){ drag=null; vp.style.cursor='grab'; }
+  vp.addEventListener('pointerup', end); vp.addEventListener('pointercancel', end);
+})();
+
+// スマホの「写真に保存」：Web Share（ファイル）が使えれば写真アプリへ、無ければダウンロード
+function zoomSaveImg(){
+  var src = _zoomSrc; if(!src) return;
+  var name = 'keychain_' + (ORDER.orderId||'image') + '.png';
+  fetch(src).then(function(r){ return r.blob(); }).then(function(blob){
+    var file = new File([blob], name, { type: blob.type||'image/png' });
+    if(navigator.canShare && navigator.canShare({ files:[file] })){
+      return navigator.share({ files:[file], title:'キーホルダー画像' });
+    }
+    var a = document.createElement('a'); a.href = URL.createObjectURL(blob); a.download = name;
+    document.body.appendChild(a); a.click(); a.remove(); setTimeout(function(){ URL.revokeObjectURL(a.href); }, 4000);
+  }).catch(function(){
+    var a = document.createElement('a'); a.href = src; a.download = name; document.body.appendChild(a); a.click(); a.remove();
+  });
+}
+
+// キーホルダー画像を拡大表示（元画像をそのまま高解像度で描画）
+function openImgZoom(src, label){
+  if(!src) return;
+  openZoom({ label: label||'キーホルダー画像', info:'', isImg:true, src:src, paint:function(tcv){
+    var img = new Image();
+    img.onload = function(){
+      var maxD = 1800, w = img.naturalWidth||200, h = img.naturalHeight||200;
+      var s = Math.min(1, maxD/Math.max(w,h));
+      tcv.width = Math.round(w*s); tcv.height = Math.round(h*s);
+      var ctx = tcv.getContext('2d'); ctx.imageSmoothingEnabled=true; ctx.imageSmoothingQuality='high';
+      ctx.clearRect(0,0,tcv.width,tcv.height); ctx.drawImage(img,0,0,tcv.width,tcv.height);
+    };
+    img.src = src;
+  }});
+}
 
 // ── QR ミニマップ描画（等倍=1 / 拡大=ZOOM_SCALE、論理サイズ160のまま transform で拡大）──
 // 土台色に応じてQRの視認色（黒/白）を返す
@@ -1400,7 +1480,7 @@ function drawQRMini(containerId, qrData, imgSrc) {
       ctx.restore();
       ctx.strokeStyle='rgba(255,255,255,.30)';ctx.lineWidth=1;khPath();ctx.stroke();  // 暗背景に合わせ白枠
     }
-    var ppCm=(ORDER.shape==='diecut'?DIE_FIT*kw:(ORDER.shape==='rect'&&ORDER.widthCm?kw/ORDER.widthCm:kw/(ORDER.sizeCm||7))), qpx=Math.max(10,qrData.cm*ppCm);
+    var ppCm=(ORDER.shape==='diecut'?DIE_FIT*kw/(ORDER.sizeCm||7):(ORDER.shape==='rect'&&ORDER.widthCm?kw/ORDER.widthCm:kw/(ORDER.sizeCm||7))), qpx=Math.max(10,qrData.cm*ppCm);
     var qx=ox+kw*qrData.x/100-qpx/2, qy=oy+kh*qrData.y/100-qpx/2;
     var ink=qrInk(ORDER.colorHex), halo=(ink==='#ffffff')?'rgba(0,0,0,.5)':'rgba(255,255,255,.8)';
     ctx.setLineDash([]);ctx.lineWidth=2.4;ctx.strokeStyle=halo;ctx.strokeRect(qx,qy,qpx,qpx);                 // ハロー（反対色・実線）
@@ -1456,7 +1536,7 @@ function drawNFCMini(containerId, np, imgSrc) {
       ctx.restore();
       ctx.strokeStyle='rgba(255,255,255,.30)';ctx.lineWidth=1;khPath();ctx.stroke();
     }
-    var ppCm=(ORDER.shape==='diecut'?DIE_FIT*kw:(ORDER.shape==='rect'&&ORDER.widthCm?kw/ORDER.widthCm:kw/(ORDER.sizeCm||7)));
+    var ppCm=(ORDER.shape==='diecut'?DIE_FIT*kw/(ORDER.sizeCm||7):(ORDER.shape==='rect'&&ORDER.widthCm?kw/ORDER.widthCm:kw/(ORDER.sizeCm||7)));
     var bw=Math.max(10,W*ppCm), bh=Math.max(8,H*ppCm);
     var nx=ox+kw*np.x/100-bw/2, ny=oy+kh*np.y/100-bh/2;
     ctx.setLineDash([]);ctx.lineWidth=2.4;ctx.strokeStyle='rgba(255,255,255,.85)';ctx.strokeRect(nx,ny,bw,bh);
@@ -1484,7 +1564,7 @@ function paintHole(tcv, scale, img, blank){
   var attX   = (ORDER.attX!=null ? ORDER.attX : 50);
   var attY   = (ORDER.attY!=null ? ORDER.attY : 10);
   var margin = 20, maxBody = Math.min(aw-margin*2, ah-margin*2);
-  var ppc    = maxBody/15;
+  var ppc    = maxBody/12;   // page2 の穴エディタと同じ縮尺（最大9cm本体＋外付けツメが枠内に収まる基準）
   // 丸/四角=正方形、自由四角=横/縦、ダイア=正方形フレーム(シルエットが ppc*sizeCm になるよう拡大)
   var bw, bh;
   if (ORDER.shape==='diecut')    { bw = bh = ppc*sizeCm/DIE_FIT; }
@@ -3181,6 +3261,7 @@ function toast(msg) {
   setTimeout(function () { el.classList.remove('show'); }, 2500);
 }
 document.getElementById('editModal').addEventListener('click', function (e) { if (e.target === e.currentTarget) closeEdit(); });
+document.getElementById('urlListModal').addEventListener('click', function (e) { if (e.target === e.currentTarget) closeUrlList(); });
 </script>
 </body>
 </html>`;

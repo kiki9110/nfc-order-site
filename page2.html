@@ -519,10 +519,10 @@ if(document.readyState!=='loading')w();else document.addEventListener('DOMConten
               <button type="button" class="att-btn pad pd" onclick="leNudge(0,1)" aria-label="下へ">▼</button>
             </div>
             <div class="le-sliders">
-              <label>回転 <span id="leRotVal">0°</span></label>
+              <label>回転 <input type="number" id="leRotN" min="-180" max="180" step="1" value="0" onchange="leSetRot(this.value)" style="width:60px;padding:3px 6px;border:1.5px solid var(--border);border-radius:6px;background:var(--surface);color:var(--ink);font-family:inherit;font-size:12px;text-align:right;">°</label>
               <input type="range" id="leRot" min="-180" max="180" value="0" oninput="leSetRot(this.value)">
-              <label>大きさ <span id="leScaleVal">50%</span></label>
-              <input type="range" id="leScale" min="8" max="160" value="50" oninput="leSetScale(this.value)">
+              <label>大きさ <input type="number" id="leScaleN" min="30" max="200" step="1" value="50" onchange="leSetScale(this.value)" style="width:60px;padding:3px 6px;border:1.5px solid var(--border);border-radius:6px;background:var(--surface);color:var(--ink);font-family:inherit;font-size:12px;text-align:right;">%</label>
+              <input type="range" id="leScale" min="30" max="200" value="50" oninput="leSetScale(this.value)">
             </div>
             <div class="le-zbtns">
               <button type="button" class="att-btn" onclick="leZ(1)">前面へ</button>
@@ -661,11 +661,11 @@ if(document.readyState!=='loading')w();else document.addEventListener('DOMConten
           <button type="button" class="att-btn pad pd" onclick="attNudge(0,1)" aria-label="下へ">▼</button>
         </div>
       </div>
-      <div class="att-hint">▲▼◀▶ で穴を細かく移動できます（エディタをクリックするとキーボードの矢印キーも使えます）。＋－で拡大して微調整。</div>
+      <div class="att-hint">▲▼◀▶ で穴を細かく移動できます（エディタをクリックするとキーボードの矢印キーも使えます）。拡大はスマホ＝2本指でピンチ・移動／PC＝ホイールで拡大縮小。＋－は25%刻みで動きます。グリッド線はキーホルダー中心が0（0.5cm間隔・1cmごとに濃い線）。</div>
     </div>
 
     <label id="tabImgRow" style="display:flex;align-items:center;gap:9px;margin-top:12px;font-size:12.5px;color:var(--ink);cursor:pointer;line-height:1.5;">
-      <input type="checkbox" id="tabImageToggle" onchange="setTabImage(this.checked)" style="width:17px;height:17px;cursor:pointer;accent-color:var(--accent);flex-shrink:0;">
+      <input type="checkbox" id="tabImageToggle" checked onchange="setTabImage(this.checked)" style="width:17px;height:17px;cursor:pointer;accent-color:var(--accent);flex-shrink:0;">
       <span>外側のツメ（持ち手）にも画像のはみ出した部分を載せる</span>
     </label>
   </div>
@@ -912,9 +912,10 @@ const S = {
   holeCm:     0.5,     // 穴の直径(cm) ＝ 5mm 固定
   borderCm:   0.3,     // ダイカットの縁の厚さ(cm)
   attMode:    'inside', // 'inside'(本体に穴) / 'outside'(外付けツメ)
-  tabImage:   false,    // 外付けツメに本体画像のはみ出し部分を載せるか
+  tabImage:   true,     // 外付けツメに本体画像のはみ出し部分を載せるか（初期ON）
   attachView: 'front',
-  attZoom:    1,        // 穴エディタの段階ズーム（＋－ボタン）。ppc に掛ける
+  attZoom:    1,        // 穴エディタのズーム（＋－/ホイール/ピンチ）。ppc に掛ける
+  attPanX:    0, attPanY: 0,   // 穴エディタの表示パン（2本指移動・保存しない）
   attBig:     false,    // 穴エディタの拡大表示（キャンバスを大きくする）
   // 購入済みオプション（読み込み時に customer-get から取得）。
   // ここが false のオプションは page2 上でロックされ、押すと alert を出す。
@@ -1750,11 +1751,11 @@ function applyCrop() {
   const baseFrame = Math.min(cw,ch)*.78, cx = cw/2, cy = ch/2;
   const sh  = S.shape || 'circle';
   // 自由四角は枠も出力キャンバスも縦横比に合わせた長方形にする
-  let fw = baseFrame, fh = baseFrame, outW = 400, outH = 400;
+  let fw = baseFrame, fh = baseFrame, outW = 1000, outH = 1000;
   if (sh === 'rect') {
     const ar = (S.widthCm||7)/(S.heightCm||7);
-    if (ar >= 1) { fw = baseFrame; fh = baseFrame/ar; outW = 400; outH = Math.round(400/ar); }
-    else         { fh = baseFrame; fw = baseFrame*ar; outH = 400; outW = Math.round(400*ar); }
+    if (ar >= 1) { fw = baseFrame; fh = baseFrame/ar; outW = 1000; outH = Math.round(1000/ar); }
+    else         { fh = baseFrame; fw = baseFrame*ar; outH = 1000; outW = Math.round(1000*ar); }
   }
   const cv = document.createElement('canvas'); cv.width=outW; cv.height=outH;
   const ctx = cv.getContext('2d');
@@ -1775,7 +1776,7 @@ function applyCrop() {
   ctx.restore();
   // ダイカットはシルエットをフレームへ自動フィット（小さく切り取っても同じsizeCmなら同じ大きさに）
   // さらに元画像の解像度を保つため、固定サイズへ縮小済みのcvではなく元画像から高解像度でフィットする
-  const dieOut = 600;                                          // 出力解像度（被写体を鮮明に保つため高め）
+  const dieOut = 1000;                                         // 出力解像度（被写体を鮮明に保つため高め）
   const frameSrc = baseFrame / C.scale;                        // ダイカット用（正方形フレーム）
   let url, dieOuter = null, dieHoles = [];
   if (sh === 'diecut') {
@@ -2309,13 +2310,31 @@ function toggleAttBig() {
   if (window._redrawAttach) window._redrawAttach();   // ResizeObserver でも走るが即時反映
   updateAttachControls();
 }
-// 段階ズーム（＋－）：ppc に掛ける attZoom を増減（100%〜250%）
-function attZoomStep(d) {
-  let z = (S.attZoom || 1) + d;
-  z = Math.max(1, Math.min(2.5, Math.round(z * 100) / 100));
-  S.attZoom = z;
+// ズーム設定（100%〜250%）。fx/fy（キャンバス座標）指定でその点を中心に拡大縮小
+function setAttZoom(z1, fx, fy) {
+  const z0 = S.attZoom || 1;
+  z1 = Math.max(1, Math.min(2.5, Math.round(z1 * 100) / 100));
+  const w = document.getElementById('attachWrap');
+  if (fx != null && w) {
+    const r = w.getBoundingClientRect(), Cx = r.width / 2, Cy = r.height / 2;
+    S.attPanX = fx - Cx - (fx - Cx - (S.attPanX || 0)) * (z1 / z0);
+    S.attPanY = fy - Cy - (fy - Cy - (S.attPanY || 0)) * (z1 / z0);
+  }
+  S.attZoom = z1;
+  if (z1 <= 1) { S.attPanX = 0; S.attPanY = 0; }   // 等倍では中央固定
+  else if (w) {
+    const r = w.getBoundingClientRect(), mx = r.width * z1 / 2, my = r.height * z1 / 2;
+    S.attPanX = Math.max(-mx, Math.min(mx, S.attPanX || 0));
+    S.attPanY = Math.max(-my, Math.min(my, S.attPanY || 0));
+  }
   if (window._redrawAttach) window._redrawAttach();
   updateAttachControls();
+}
+// ＋－ボタン：ピンチ／ホイール後の中途半端な倍率（113%など）でも一番近い25%刻みへ移動
+function attZoomStep(d) {
+  const st = 0.25, n = (S.attZoom || 1) / st, eps = 1e-6;
+  const k = d > 0 ? Math.floor(n + eps) + 1 : Math.ceil(n - eps) - 1;
+  setAttZoom(k * st);
 }
 // 十字キー（画面のボタン）：穴を一定量ずつ移動。redraw 内で縁から1cm超は自動クランプ
 function attNudge(dx, dy) {
@@ -2356,7 +2375,9 @@ function updateAttachControls() {
     if (S.shape === 'diecut')    { w = h = ppc * (S.sizeCm || 7) / DIE_FIT; }
     else if (S.shape === 'rect') { w = ppc * (S.widthCm || 7); h = ppc * (S.heightCm || 7); }
     else                         { w = h = ppc * (S.sizeCm || 7); }
-    return { cx:aw/2, cy:ah/2, w:w, h:h, size:Math.max(w,h), r:Math.min(w,h)/2, x:aw/2-w/2, y:ah/2-h/2, rad:Math.min(w,h)*0.06, ppc:ppc };
+    // 2本指移動／ズーム中心の調整で本体を平行移動（表示のみ）
+    const cx = aw/2 + (S.attPanX || 0), cy = ah/2 + (S.attPanY || 0);
+    return { cx:cx, cy:cy, w:w, h:h, size:Math.max(w,h), r:Math.min(w,h)/2, x:cx-w/2, y:cy-h/2, rad:Math.min(w,h)*0.06, ppc:ppc };
   }
 
   // 本体の縦横の実寸(cm)を寸法線で表示。ダイカットはシルエット外周の外接box、自由四角は本体そのもの。
@@ -2546,6 +2567,26 @@ function updateAttachControls() {
     ctx.clearRect(0,0,aw,ah);
 
     const g     = bodyGeom(aw, ah);
+
+    // グリッド線（キーホルダーの中心を0として0.5cm間隔。1cmごとに濃く、中心線が最も明るい）
+    {
+      const gStep = g.ppc * 0.5;
+      if (gStep > 5) {
+        ctx.save(); ctx.lineWidth = 1;
+        const gLine = (v, vert, kind) => {
+          ctx.strokeStyle = kind === 0 ? 'rgba(255,255,255,.30)' : (kind === 1 ? 'rgba(255,255,255,.12)' : 'rgba(255,255,255,.055)');
+          ctx.beginPath();
+          if (vert) { ctx.moveTo(v, 0); ctx.lineTo(v, ah); } else { ctx.moveTo(0, v); ctx.lineTo(aw, v); }
+          ctx.stroke();
+        };
+        for (let i = Math.ceil(-g.cx / gStep); i * gStep + g.cx <= aw; i++)
+          gLine(g.cx + i * gStep, true,  i === 0 ? 0 : (i % 2 === 0 ? 1 : 2));
+        for (let j = Math.ceil(-g.cy / gStep); j * gStep + g.cy <= ah; j++)
+          gLine(g.cy + j * gStep, false, j === 0 ? 0 : (j % 2 === 0 ? 1 : 2));
+        ctx.restore();
+      }
+    }
+
     let hx = g.x + g.w * S.attX/100, hy = g.y + g.h * S.attY/100;
     // 穴は本体の縁から最大1cm（内側・外側とも）。深い内側はドラッグしても縁から1cm内に制限し、サイズ変更後も常に保証する
     { const _a = edgeAnchor(hx, hy, g), _dx = hx - _a.x, _dy = hy - _a.y, _d = Math.hypot(_dx, _dy);
@@ -2641,13 +2682,13 @@ function updateAttachControls() {
   function setFromPointer(clientX, clientY){
     const r = wrap.getBoundingClientRect();
     const aw = r.width, ah = r.height;
+    const g = bodyGeom(aw, ah);
     let rawx = clientX - r.left;
     // 裏面の丸・四角は穴位置を鏡像描画しているので、ポインタ座標も鏡像で受ける（描画と一致させる）。
-    // ダイカットは鏡像化していないのでそのまま。
-    if (S.attachView === 'back' && S.shape !== 'diecut') rawx = aw - rawx;
+    // 鏡像の軸は本体中心（パンで本体が動いていても一致）。ダイカットは鏡像化していないのでそのまま。
+    if (S.attachView === 'back' && S.shape !== 'diecut') rawx = 2 * g.cx - rawx;
     let hx = Math.min(aw, Math.max(0, rawx));
     let hy = Math.min(ah, Math.max(0, clientY - r.top));
-    const g = bodyGeom(aw, ah);
     const maxOut = g.ppc; // 1cm
     if (!isInsideBody(hx, hy, g)) {
       const a   = edgeAnchor(hx, hy, g);
@@ -2664,9 +2705,53 @@ function updateAttachControls() {
   wrap.addEventListener('mousedown',  e => { drag=true; e.preventDefault(); setFromPointer(e.clientX, e.clientY); });
   window.addEventListener('mousemove', e => { if (drag) setFromPointer(e.clientX, e.clientY); });
   window.addEventListener('mouseup',   () => { drag=false; });
-  wrap.addEventListener('touchstart', e => { drag=true; e.preventDefault(); const t=e.touches[0]; setFromPointer(t.clientX, t.clientY); }, {passive:false});
-  wrap.addEventListener('touchmove',  e => { if(!drag) return; e.preventDefault(); const t=e.touches[0]; setFromPointer(t.clientX, t.clientY); }, {passive:false});
-  window.addEventListener('touchend',  () => { drag=false; });
+  // ホイール（PC）：カーソル位置を中心に拡大縮小。preventDefault でページのスクロールは止める
+  wrap.addEventListener('wheel', e => {
+    e.preventDefault();
+    const r = wrap.getBoundingClientRect();
+    setAttZoom((S.attZoom || 1) * (e.deltaY < 0 ? 1.08 : 1 / 1.08), e.clientX - r.left, e.clientY - r.top);
+  }, { passive: false });
+  // タッチ：1本指＝穴の移動 ／ 2本指＝ピンチ拡大＋表示の移動（穴は動かさない）
+  let pinch = null, prevAtt = null;
+  function pinchInfo(e){
+    const r = wrap.getBoundingClientRect();
+    const t0 = e.touches[0], t1 = e.touches[1];
+    return { d: Math.hypot(t1.clientX - t0.clientX, t1.clientY - t0.clientY) || 1,
+             mx: (t0.clientX + t1.clientX) / 2 - r.left,
+             my: (t0.clientY + t1.clientY) / 2 - r.top,
+             Cx: r.width / 2, Cy: r.height / 2 };
+  }
+  wrap.addEventListener('touchstart', e => {
+    if (e.touches.length >= 2) {
+      e.preventDefault(); drag = false;
+      // 1本目の指が触れた瞬間に動いてしまった穴を元の位置へ戻す
+      if (prevAtt && Date.now() - prevAtt.t < 500) { S.attX = prevAtt.x; S.attY = prevAtt.y; }
+      const p = pinchInfo(e);
+      pinch = { d0: p.d, z0: S.attZoom || 1, mx: p.mx, my: p.my, px: S.attPanX || 0, py: S.attPanY || 0 };
+      redraw(); return;
+    }
+    prevAtt = { x: S.attX, y: S.attY, t: Date.now() };
+    drag = true; e.preventDefault();
+    const t = e.touches[0]; setFromPointer(t.clientX, t.clientY);
+  }, {passive:false});
+  wrap.addEventListener('touchmove', e => {
+    if (pinch && e.touches.length >= 2) {
+      e.preventDefault();
+      const p  = pinchInfo(e);
+      const z1 = Math.max(1, Math.min(2.5, pinch.z0 * (p.d / pinch.d0)));
+      S.attPanX = p.mx - p.Cx - (pinch.mx - p.Cx - pinch.px) * (z1 / pinch.z0);
+      S.attPanY = p.my - p.Cy - (pinch.my - p.Cy - pinch.py) * (z1 / pinch.z0);
+      S.attZoom = Math.round(z1 * 100) / 100;
+      if (S.attZoom <= 1) { S.attPanX = 0; S.attPanY = 0; }
+      redraw(); return;
+    }
+    if (!drag) return; e.preventDefault();
+    const t = e.touches[0]; setFromPointer(t.clientX, t.clientY);
+  }, {passive:false});
+  window.addEventListener('touchend', e => {
+    if (!e.touches || e.touches.length < 2) pinch = null;
+    if (!e.touches || e.touches.length === 0) drag = false;
+  });
   new ResizeObserver(redraw).observe(wrap);
   setTimeout(redraw, 100);
 })();
@@ -2774,34 +2859,49 @@ function submitOrder(orderData) {
     // 容量超過時：重い画像データを外す（page3 は合成済み imgFront/imgBack を別キーから読む）
     const lite = { ...orderData, imgFront: '__large__', imgBack: '__large__', layersFront: [], layersBack: [] };
     try { sessionStorage.setItem('orderData', JSON.stringify(lite)); } catch(_) {}
-    sessionStorage.setItem('orderImgFront', S.imgFront || '');
-    sessionStorage.setItem('orderImgBack',  S.imgBack  || '');
+    try { sessionStorage.setItem('orderImgFront', S.imgFront || ''); } catch(_) {}
+    try { sessionStorage.setItem('orderImgBack',  S.imgBack  || ''); } catch(_) {}
   }
 
   const btn = document.querySelector('.submit-btn');
   if (btn) { btn.textContent = '送信中...'; btn.disabled = true; }
 
-  Promise.race([
-    Promise.all([
-      fetch(WORKER_ORIGIN + '/api/save-order', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(orderData),
-      }).catch(() => {}),
-      fetch(WORKER_ORIGIN + '/api/register', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer Kiki.n0825' },
-        body: JSON.stringify({
-          orderId: orderData.orderId,
-          nfcUrl:  orderData.nfcUrl || '',
-          qrUrl:   orderData.qrUrl  || '',
-        }),
-      }).catch(() => {}),
-    ]),
-    new Promise(r => setTimeout(r, 4000))
-  ]).then(() => {
-    window.location.href = 'page3.html';
-  });
+  // 印刷用高解像度（実寸×1440dpi）の生成は重いので、ボタン表示を更新してから開始する
+  setTimeout(function(){
+    // KVの25MB制限に収まるよう、超える場合は印刷用を段階的に縮小（それでも無理なら添付なし＝従来どおり）
+    const KV_SAFE = 20 * 1024 * 1024;
+    let body = JSON.stringify(orderData);
+    if (typeof leComposePrint === 'function') {
+      for (const sk of [1, 0.7, 0.5]) {
+        const pf = leComposePrint('front', sk);
+        const pb = S.backPrint ? leComposePrint('back', sk) : null;
+        if (!pf && !pb) break;
+        const b = JSON.stringify({ ...orderData, imgPrintFront: pf, imgPrintBack: pb });
+        if (b.length <= KV_SAFE) { body = b; break; }
+      }
+    }
+    Promise.race([
+      Promise.all([
+        fetch(WORKER_ORIGIN + '/api/save-order', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: body,
+        }).catch(() => {}),
+        fetch(WORKER_ORIGIN + '/api/register', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer Kiki.n0825' },
+          body: JSON.stringify({
+            orderId: orderData.orderId,
+            nfcUrl:  orderData.nfcUrl || '',
+            qrUrl:   orderData.qrUrl  || '',
+          }),
+        }).catch(() => {}),
+      ]),
+      new Promise(r => setTimeout(r, 30000))   // 高解像度画像のアップロードは時間がかかることがある（4秒だと途中で打ち切られる）
+    ]).then(() => {
+      window.location.href = 'page3.html';
+    });
+  }, 30);
 }
 
 // ═══════════════════════════════════════════════════════
@@ -2825,7 +2925,10 @@ function toast(msg, type) {
 // ════════════════════════════════════════════════════════════
 let leSide = 'front';                       // 編集中の面
 let leIdSeq = 1;                             // レイヤーID採番
-let leDrag = null;                          // ドラッグ中 {l, ox, oy}
+let leDrag = null;                          // ドラッグ中 {l, ox, oy, sx, sy}
+let lePinch = null;                         // 2本指ピンチ中 {d0, z0, mx, my, px, py}
+let lePanDrag = null;                       // 表示の移動（PC背景ドラッグ）中 {x0, y0, px, py}
+let leZPanX = 0, leZPanY = 0;               // 表示ズーム時のパン（表示のみ・保存しない）
 let leStageWH = { W: 0, H: 0 };             // ステージ実寸（ヒットテスト用）
 let leInited = false;                        // ステージのイベント初期化済みか
 let leRecTimer = null;                       // 合成のデバウンス
@@ -2843,13 +2946,56 @@ function leEditSelId(){ return leBaseMode() ? S.selDie : (leSide === 'back' ? S.
 function leSetEditSelId(id){ if (leBaseMode()) S.selDie = id; else if (leSide === 'back') S.selBack = id; else S.selFront = id; }
 
 // 合成フレームの出力サイズ（applyCrop と同じ基準）
+// 長辺1000px：保存・確認ページ・印刷用DLに使う最終画像なので、元画像の解像度を落とさないよう高めにする
+const LE_OUT = 1000;
 function leFrameWH(){
   const sh = S.shape || 'circle';
   if (sh === 'rect'){
     const ar = (S.widthCm || 7) / (S.heightCm || 7);
-    return ar >= 1 ? { w: 400, h: Math.round(400 / ar) } : { w: Math.round(400 * ar), h: 400 };
+    return ar >= 1 ? { w: LE_OUT, h: Math.round(LE_OUT / ar) } : { w: Math.round(LE_OUT * ar), h: LE_OUT };
   }
-  return { w: 400, h: 400 };   // 丸・四角・ダイカットは正方フレーム
+  return { w: LE_OUT, h: LE_OUT };   // 丸・四角・ダイカットは正方フレーム
+}
+
+// ───── 印刷用 高解像度書き出し（送信時にだけ生成）─────
+// UVプリンターの最高解像度 1440dpi に合わせ、実寸(cm)から必要ピクセル数を計算して合成する。
+// 編集中のプレビュー用合成（長辺 LE_OUT px）とは別物で、注文送信データにのみ添付する。
+const PRINT_DPI    = 1440;
+const PRINT_MAX_PX = 8192;   // 8K相当の上限（これ以上は端末メモリ・保存容量の危険域）
+// 端末のCanvas上限は機種ごとに違い、超えても例外にならず「静かに」白紙になるので実際に描いて確認する
+function canvasWorks(w, h){
+  try {
+    const c = document.createElement('canvas'); c.width = w; c.height = h;
+    const x = c.getContext('2d'); if (!x) return false;
+    x.fillStyle = '#fff'; x.fillRect(w - 1, h - 1, 1, 1);
+    return x.getImageData(w - 1, h - 1, 1, 1).data[3] === 255;
+  } catch (e) { return false; }
+}
+// 合成フレームの実寸（長辺cm）。ダイカットはシルエット長辺=sizeCm がフレームの DIE_FIT を占める
+function printFrameCm(){
+  const sh = S.shape || 'circle';
+  if (sh === 'rect')   return Math.max(S.widthCm || 7, S.heightCm || 7);
+  if (sh === 'diecut') return (S.sizeCm || 7) / DIE_FIT;
+  return S.sizeCm || 7;
+}
+// shrink=1 で実寸1440dpi。容量オーバー時は 0.7, 0.5 と下げて再生成する
+function leComposePrint(side, shrink){
+  const sh = S.shape || 'circle';
+  const empty = (sh === 'diecut') ? !S.dieBase.length
+                                  : !(side === 'back' ? S.layersBack : S.layersFront).length;
+  if (empty) return null;
+  const fr = leFrameWH();
+  let longPx = Math.min(PRINT_MAX_PX, Math.round(printFrameCm() / 2.54 * PRINT_DPI * (shrink || 1)));
+  if (longPx <= LE_OUT) return null;             // プレビュー版以下の解像度なら添付不要
+  let w, h;
+  if (fr.w >= fr.h) { w = longPx; h = Math.round(longPx * fr.h / fr.w); }
+  else              { h = longPx; w = Math.round(longPx * fr.w / fr.h); }
+  while (!canvasWorks(w, h) && Math.max(w, h) > LE_OUT) { w = Math.round(w * 0.75); h = Math.round(h * 0.75); }   // 端末上限まで自動で下げる
+  if (Math.max(w, h) <= LE_OUT) return null;
+  const cv = document.createElement('canvas'); cv.width = w; cv.height = h;
+  const ctx = cv.getContext('2d'); ctx.imageSmoothingEnabled = true; ctx.imageSmoothingQuality = 'high';
+  lePaintSide(ctx, w, h, side);
+  try { return cv.toDataURL('image/png'); } catch (e) { return null; }
 }
 
 // ベース＋オーバーレイを ctx(W×H) へ描画。形状でクリップ。
@@ -3009,6 +3155,7 @@ function leStageDraw(){
   ctx.clearRect(0, 0, W, H);
   const z = S.leZoom || 1;
   ctx.save();
+  if (leZPanX || leZPanY) ctx.translate(leZPanX, leZPanY);                                       // 2本指／背景ドラッグでのパン
   if (z !== 1){ ctx.translate(W / 2, H / 2); ctx.scale(z, z); ctx.translate(-W / 2, -H / 2); }   // 中心基準でズーム（表示のみ）
   leStagePaint(ctx, W, H);
   // 選択枠（編集中コンテキストの選択）
@@ -3032,7 +3179,7 @@ function leStagePos(e){
   let cx = ((e.touches ? e.touches[0].clientX : e.clientX) - r.left) * (W / (r.width  || W));
   let cy = ((e.touches ? e.touches[0].clientY : e.clientY) - r.top ) * (H / (r.height || H));
   const z = S.leZoom || 1;
-  return { x: W / 2 + (cx - W / 2) / z, y: H / 2 + (cy - H / 2) / z };   // 表示ズームの逆変換
+  return { x: W / 2 + (cx - leZPanX - W / 2) / z, y: H / 2 + (cy - leZPanY - H / 2) / z };   // 表示ズーム＋パンの逆変換
 }
 // 上のレイヤーから当たり判定（回転を逆変換してローカル矩形内か）
 function leHit(px, py){
@@ -3046,16 +3193,70 @@ function leHit(px, py){
   }
   return null;
 }
+// 指定レイヤーの上をポイントしているか（回転を逆変換して判定）
+function leHitLayer(l, px, py){
+  const { W, H } = leStageWH; const im = l && l.imgEl;
+  if (!im || !im.complete || !im.naturalWidth) return false;
+  const ow = l.scale * W, oh = ow * im.naturalHeight / im.naturalWidth;
+  const dx = px - l.x * W, dy = py - l.y * H, a = -(l.rot || 0) * Math.PI / 180;
+  const lx = dx * Math.cos(a) - dy * Math.sin(a), ly = dx * Math.sin(a) + dy * Math.cos(a);
+  return Math.abs(lx) <= ow / 2 && Math.abs(ly) <= oh / 2;
+}
+// 2本指の距離・中点（ステージ座標）
+function lePinchInfo(e){
+  const r = document.getElementById('layerStage').getBoundingClientRect();
+  const sc = (leStageWH.W || r.width) / (r.width || 1);
+  const t0 = e.touches[0], t1 = e.touches[1];
+  return { d: Math.hypot(t1.clientX - t0.clientX, t1.clientY - t0.clientY) || 1,
+           mx: ((t0.clientX + t1.clientX) / 2 - r.left) * sc,
+           my: ((t0.clientY + t1.clientY) / 2 - r.top ) * sc };
+}
 function leDown(e){
-  // 選択は一覧（サムネイル）からのみ。ステージ上ではどこを触っても
-  // 「選択中の写真」だけを動かす（触った写真に選択が移らない＝誤操作防止）。
+  // 2本指：ピンチで拡大縮小＋表示の移動（写真は動かさない＝誤操作防止）
+  if (e.touches && e.touches.length >= 2){
+    if (leDrag){ leDrag.l.x = leDrag.sx; leDrag.l.y = leDrag.sy; leDrag = null; }   // 1本目で動いた分は元に戻す
+    const p = lePinchInfo(e);
+    lePinch = { d0: p.d, z0: S.leZoom || 1, mx: p.mx, my: p.my, px: leZPanX, py: leZPanY };
+    leStageDraw();
+    if (e.cancelable) e.preventDefault();
+    return;
+  }
+  // 選択は一覧（サムネイル）からのみ。1本指（スマホ）はどこを触っても「選択中の写真」を動かす。
   const l = leEditLayers().find(x => x.id === leEditSelId());
-  if (!l || !l.imgEl || !l.imgEl.complete) return;
   const p = leStagePos(e);
-  leDrag = { l, ox: p.x - l.x * leStageWH.W, oy: p.y - l.y * leStageWH.H };
+  // マウス（PC）：選択中の写真の上ならその写真を移動、外側なら表示の移動（パン）
+  if (!e.touches && !(l && leHitLayer(l, p.x, p.y))){
+    lePanDrag = { x0: e.clientX, y0: e.clientY, px: leZPanX, py: leZPanY };
+    if (e.cancelable) e.preventDefault();
+    return;
+  }
+  if (!l || !l.imgEl || !l.imgEl.complete) return;
+  leDrag = { l, ox: p.x - l.x * leStageWH.W, oy: p.y - l.y * leStageWH.H, sx: l.x, sy: l.y };
   if (e.cancelable) e.preventDefault();
 }
 function leMove(e){
+  // 2本指ピンチ：距離で拡大縮小、中点の移動で表示を移動
+  if (lePinch && e.touches && e.touches.length >= 2){
+    const p  = lePinchInfo(e);
+    const z1 = Math.max(0.5, Math.min(3, lePinch.z0 * (p.d / lePinch.d0)));
+    const Cx = leStageWH.W / 2, Cy = leStageWH.H / 2;
+    leZPanX = p.mx - Cx - (lePinch.mx - Cx - lePinch.px) * (z1 / lePinch.z0);
+    leZPanY = p.my - Cy - (lePinch.my - Cy - lePinch.py) * (z1 / lePinch.z0);
+    S.leZoom = Math.round(z1 * 100) / 100;
+    leZoomLabel(); leClampPan(); leStageDraw();
+    if (e.cancelable) e.preventDefault();
+    return;
+  }
+  // PC背景ドラッグ：表示の移動
+  if (lePanDrag){
+    const r  = document.getElementById('layerStage').getBoundingClientRect();
+    const sc = (leStageWH.W || r.width) / (r.width || 1);
+    leZPanX = lePanDrag.px + (e.clientX - lePanDrag.x0) * sc;
+    leZPanY = lePanDrag.py + (e.clientY - lePanDrag.y0) * sc;
+    leClampPan(); leStageDraw();
+    if (e.cancelable) e.preventDefault();
+    return;
+  }
   if (!leDrag) return;
   const p = leStagePos(e);
   leDrag.l.x = Math.max(0, Math.min(1, (p.x - leDrag.ox) / leStageWH.W));
@@ -3063,7 +3264,7 @@ function leMove(e){
   leStageDraw();
   if (e.cancelable) e.preventDefault();
 }
-function leUp(){ if (leDrag){ leDrag = null; leAfterEdit(); } }
+function leUp(){ lePinch = null; lePanDrag = null; if (leDrag){ leDrag = null; leAfterEdit(); } }
 
 // ───── 追加・選択・削除・並び替え ─────
 function leAddClick(){ const f = document.getElementById('leFile'); if (f) f.click(); }
@@ -3115,12 +3316,18 @@ function leNudge(dx, dy){
 }
 function leSetRot(v){
   const l = leEditLayers().find(x => x.id === leEditSelId()); if (!l) return;
-  l.rot = +v; const o = document.getElementById('leRotVal'); if (o) o.textContent = Math.round(+v) + '°';
+  v = Math.max(-180, Math.min(180, Math.round(+v || 0)));
+  l.rot = v;
+  const r = document.getElementById('leRot');  if (r && +r.value !== v) r.value = v;
+  const n = document.getElementById('leRotN'); if (n && document.activeElement !== n) n.value = v;
   leStageDraw(); leScheduleAfterEdit();
 }
 function leSetScale(v){
   const l = leEditLayers().find(x => x.id === leEditSelId()); if (!l) return;
-  l.scale = (+v) / 100; const o = document.getElementById('leScaleVal'); if (o) o.textContent = Math.round(+v) + '%';
+  v = Math.max(30, Math.min(200, Math.round(+v || 0)));
+  l.scale = v / 100;
+  const r = document.getElementById('leScale');  if (r && +r.value !== v) r.value = v;
+  const n = document.getElementById('leScaleN'); if (n && document.activeElement !== n) n.value = v;
   leStageDraw(); leScheduleAfterEdit();
 }
 
@@ -3132,8 +3339,8 @@ function leSyncCtrl(){
   ctrl.style.display = l ? 'block' : 'none';
   if (!l) return;
   const rot = document.getElementById('leRot'), sc = document.getElementById('leScale');
-  if (rot){ rot.value = l.rot || 0; const o = document.getElementById('leRotVal'); if (o) o.textContent = Math.round(l.rot || 0) + '°'; }
-  if (sc){ sc.value = Math.round(l.scale * 100); const o = document.getElementById('leScaleVal'); if (o) o.textContent = Math.round(l.scale * 100) + '%'; }
+  if (rot){ rot.value = l.rot || 0; const n = document.getElementById('leRotN'); if (n) n.value = Math.round(l.rot || 0); }
+  if (sc){ const pv = Math.round(l.scale * 100); sc.value = pv; const n = document.getElementById('leScaleN'); if (n) n.value = pv; }
 }
 
 // サムネイル一覧（前面のものを上に並べる）
@@ -3172,13 +3379,32 @@ function leSetMode(mode){
   S.leMode = (mode === 'base') ? 'base' : 'print';
   leShow();
 }
-// 画像エディタの段階ズーム（＋－）。ステージの表示倍率を上げて微調整しやすくする
+// 画像エディタの表示ズーム（50%〜300%）。＋－は25%刻み、ホイール／ピンチは連続
+function leZoomLabel(){ const v = document.getElementById('leZoomVal'); if (v) v.textContent = Math.round((S.leZoom || 1) * 100) + '%'; }
+function leClampPan(){
+  const z = S.leZoom || 1;
+  if (z <= 1){ leZPanX = 0; leZPanY = 0; return; }   // 等倍以下ではパン不要（中央固定）
+  const mx = (leStageWH.W || 320) * z / 2, my = (leStageWH.H || 320) * z / 2;
+  leZPanX = Math.max(-mx, Math.min(mx, leZPanX));
+  leZPanY = Math.max(-my, Math.min(my, leZPanY));
+}
+// z1 へズーム。fx/fy（ステージ座標）を指定するとその点を中心に拡大縮小する
+function leApplyZoom(z1, fx, fy){
+  const z0 = S.leZoom || 1;
+  z1 = Math.max(0.5, Math.min(3, Math.round(z1 * 100) / 100));
+  if (fx != null && leStageWH.W){
+    const Cx = leStageWH.W / 2, Cy = leStageWH.H / 2;
+    leZPanX = fx - Cx - (fx - Cx - leZPanX) * (z1 / z0);
+    leZPanY = fy - Cy - (fy - Cy - leZPanY) * (z1 / z0);
+  }
+  S.leZoom = z1;
+  leZoomLabel(); leClampPan(); leStageDraw();
+}
+// ＋－ボタン：中途半端な倍率（ピンチ後の113%など）でも一番近い25%刻みへ移動
 function leZoomStep(d){
-  let z = (S.leZoom || 1) + d;
-  z = Math.max(1, Math.min(3, Math.round(z * 100) / 100));
-  S.leZoom = z;
-  const v = document.getElementById('leZoomVal'); if (v) v.textContent = Math.round(z * 100) + '%';
-  leStageDraw();
+  const st = 0.25, n = (S.leZoom || 1) / st, eps = 1e-6;
+  const k = d > 0 ? Math.floor(n + eps) + 1 : Math.ceil(n - eps) - 1;
+  leApplyZoom(k * st);
 }
 
 // エディタの表示・初期化
@@ -3212,7 +3438,7 @@ function leShow(){
     ? '<strong style="color:var(--ink);">置いた画像の形（複数なら合体した形）が、そのまま切り抜きの形</strong>になります（透過PNG推奨）。一覧で選んでドラッグ／矢印キーで移動。形が決まったら「画像」へ。'
     : (diecut
       ? '<strong style="color:var(--ink);">「形(土台)」で作った形の中だけ</strong>に印刷されます。一覧で選んでからドラッグ／矢印キーで移動。'
-      : '「＋ 追加」で画像を入れ、<strong style="color:var(--ink);">一覧（左）で写真を選んでから</strong>ドラッグや矢印キー／▲▼◀▶で移動。<strong style="color:var(--ink);">点線が形の縁（切り取り線）</strong>です。');
+      : '「＋ 追加」で画像を入れ、<strong style="color:var(--ink);">一覧（左）で写真を選んでから</strong>ドラッグや矢印キー／▲▼◀▶で移動。<strong style="color:var(--ink);">点線が形の縁（切り取り線）</strong>です。表示はスマホ＝2本指でピンチ拡大・移動／PC＝ホイールで拡大縮小・写真の外をドラッグで移動できます。');
   if (!leInited){
     leInited = true;
     const st = document.getElementById('layerStage');
@@ -3223,6 +3449,14 @@ function leShow(){
       st.addEventListener('touchstart', leDown, { passive: false });
       st.addEventListener('touchmove', leMove, { passive: false });
       window.addEventListener('touchend', leUp);
+      // ホイール：カーソル位置を中心に拡大縮小。preventDefault でページのスクロールは止める
+      st.addEventListener('wheel', e => {
+        e.preventDefault();
+        const r  = st.getBoundingClientRect();
+        const sc = (leStageWH.W || r.width) / (r.width || 1);
+        leApplyZoom((S.leZoom || 1) * (e.deltaY < 0 ? 1.08 : 1 / 1.08),
+                    (e.clientX - r.left) * sc, (e.clientY - r.top) * sc);
+      }, { passive: false });
       st.addEventListener('keydown', e => {
         const k = e.key;
         if (k === 'ArrowUp' || k === 'ArrowDown' || k === 'ArrowLeft' || k === 'ArrowRight'){

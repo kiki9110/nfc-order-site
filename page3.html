@@ -699,7 +699,7 @@ if (O.qr && O.qrSide) {
       else ctx.rect(ox,oy,kw,kh);
       ctx.stroke();
       // QR枠（実寸の点線＋土台色に追従した視認色）
-      const pxPerCm = (O.shape==='rect' && O.widthCm) ? kw / O.widthCm : kw / (O.sizeCm || 7);
+      const pxPerCm = (O.shape==='diecut') ? 0.82*kw/(O.sizeCm||7) : (O.shape==='rect' && O.widthCm) ? kw / O.widthCm : kw / (O.sizeCm || 7);
       const qpx = Math.max(8, qrData.cm * pxPerCm);
       const qx  = ox + kw * qrData.x/100 - qpx/2;
       const qy  = oy + kh * qrData.y/100 - qpx/2;
@@ -746,12 +746,14 @@ document.getElementById('diAttMode').textContent = (O.attMode === 'outside') ? '
   const attX   = (O.attX != null ? O.attX : 50);
   const attY   = (O.attY != null ? O.attY : 10);
 
-  // 本体ジオメトリ（中央配置・サイズに比例して拡大縮小／最大15cmで枠いっぱい）
+  // 本体ジオメトリ（中央配置・サイズに比例して拡大縮小／page2 の穴エディタと同じ縮尺）
   const margin = 20, maxBody = Math.min(aw-margin*2, ah-margin*2);
-  const ppc = maxBody / 15;
-  // 丸/四角=正方形、自由四角=横/縦、ダイア=正方形フレーム(シルエットが縦横比を持つ)
+  const ppc = maxBody / 12;
+  const DIE_FIT_ = 0.82;
+  // 丸/四角=正方形、自由四角=横/縦、ダイア=正方形フレーム(シルエットが ppc*sizeCm になるよう拡大)
   var bw, bh;
-  if (shape === 'rect') { bw = ppc * (O.widthCm || sizeCm); bh = ppc * (O.heightCm || sizeCm); }
+  if (shape === 'diecut') { bw = bh = ppc * sizeCm / DIE_FIT_; }
+  else if (shape === 'rect') { bw = ppc * (O.widthCm || sizeCm); bh = ppc * (O.heightCm || sizeCm); }
   else { bw = bh = ppc * sizeCm; }
   const g = { cx: aw/2, cy: ah/2, w: bw, h: bh, size: Math.max(bw,bh), r: Math.min(bw,bh)/2, x: aw/2-bw/2, y: ah/2-bh/2, rad: Math.min(bw,bh)*0.06 };
   const pxPerCm = ppc;   // 穴は5mm固定 → 一定サイズ
