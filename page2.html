@@ -2419,7 +2419,7 @@ function attZoomStep(d) {
 }
 // 十字キー（画面のボタン）：穴を一定量ずつ移動。redraw 内で縁から1cm超は自動クランプ
 function attNudge(dx, dy) {
-  const step = 1.5;   // ％単位の微移動
+  const step = 1;   // ％単位の微移動（X・Y とも1%ずつ）
   S.attX = Math.max(-40, Math.min(140, (S.attX != null ? S.attX : 50) + dx * step));
   S.attY = Math.max(-40, Math.min(140, (S.attY != null ? S.attY : 10) + dy * step));
   if (window._redrawAttach) window._redrawAttach();
