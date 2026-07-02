@@ -2815,9 +2815,23 @@ function updateAttachControls() {
     S.attY = (hy - g.y) / g.h * 100;
     redraw();
   }
-  wrap.addEventListener('mousedown',  e => { if (e.button !== 0) return; drag=true; e.preventDefault(); setFromPointer(e.clientX, e.clientY); });
-  window.addEventListener('mousemove', e => { if (drag) setFromPointer(e.clientX, e.clientY); });
-  window.addEventListener('mouseup',   () => { drag=false; });
+  // 中ボタン（ホイール押し込み）で見る位置を移動（パン）。左クリックは穴の移動のまま。
+  let panDrag = null;
+  function clampAttPan(){
+    const r = wrap.getBoundingClientRect(), z = Math.max(S.attZoom || 1, 1);
+    const mx = r.width * z / 2, my = r.height * z / 2;
+    S.attPanX = Math.max(-mx, Math.min(mx, S.attPanX || 0));
+    S.attPanY = Math.max(-my, Math.min(my, S.attPanY || 0));
+  }
+  wrap.addEventListener('mousedown',  e => {
+    if (e.button === 1){ panDrag = { x0:e.clientX, y0:e.clientY, px:S.attPanX||0, py:S.attPanY||0 }; e.preventDefault(); return; }
+    if (e.button !== 0) return; drag=true; e.preventDefault(); setFromPointer(e.clientX, e.clientY);
+  });
+  window.addEventListener('mousemove', e => {
+    if (panDrag){ S.attPanX = panDrag.px + (e.clientX-panDrag.x0); S.attPanY = panDrag.py + (e.clientY-panDrag.y0); clampAttPan(); redraw(); return; }
+    if (drag) setFromPointer(e.clientX, e.clientY);
+  });
+  window.addEventListener('mouseup',   () => { drag=false; panDrag=null; });
   // ホイール（PC）：カーソル位置を中心に拡大縮小。preventDefault でページのスクロールは止める
   wrap.addEventListener('wheel', e => {
     e.preventDefault();
@@ -3341,7 +3355,13 @@ function lePinchInfo(e){
            my: ((t0.clientY + t1.clientY) / 2 - r.top ) * sc };
 }
 function leDown(e){
-  if (e.button != null && e.button !== 0) return;   // マウスは左クリックのみ（右/中クリックは無視）
+  // 中ボタン（ホイール押し込み）＝表示の移動（パン）。写真は動かさない
+  if (e.button === 1){
+    lePanDrag = { x0: e.clientX, y0: e.clientY, px: leZPanX, py: leZPanY };
+    if (e.cancelable) e.preventDefault();
+    return;
+  }
+  if (e.button != null && e.button !== 0) return;   // 右クリック等は無視（左クリックのみ操作）
   // 2本指：ピンチで拡大縮小＋表示の移動（写真は動かさない＝誤操作防止）
   if (e.touches && e.touches.length >= 2){
     if (leDrag){ leDrag.l.x = leDrag.sx; leDrag.l.y = leDrag.sy; leDrag = null; }   // 1本目で動いた分は元に戻す
@@ -3512,8 +3532,7 @@ function leSetMode(mode){
 // 画像エディタの表示ズーム（50%〜300%）。＋－は25%刻み、ホイール／ピンチは連続
 function leZoomLabel(){ const v = document.getElementById('leZoomVal'); if (v) v.textContent = Math.round((S.leZoom || 1) * 100) + '%'; }
 function leClampPan(){
-  const z = S.leZoom || 1;
-  if (z <= 1){ leZPanX = 0; leZPanY = 0; return; }   // 等倍以下ではパン不要（中央固定）
+  const z = Math.max(S.leZoom || 1, 1);   // 等倍でも中ボタンで見る位置を動かせるようにする
   const mx = (leStageWH.W || 320) * z / 2, my = (leStageWH.H || 320) * z / 2;
   leZPanX = Math.max(-mx, Math.min(mx, leZPanX));
   leZPanY = Math.max(-my, Math.min(my, leZPanY));
