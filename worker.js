@@ -1481,12 +1481,14 @@ function drawQRMini(containerId, qrData, imgSrc) {
       ctx.strokeStyle='rgba(255,255,255,.30)';ctx.lineWidth=1;khPath();ctx.stroke();  // 暗背景に合わせ白枠
     }
     var ppCm=(ORDER.shape==='diecut'?DIE_FIT*kw/(ORDER.sizeCm||7):(ORDER.shape==='rect'&&ORDER.widthCm?kw/ORDER.widthCm:kw/(ORDER.sizeCm||7))), qpx=Math.max(10,qrData.cm*ppCm);
-    var qx=ox+kw*qrData.x/100-qpx/2, qy=oy+kh*qrData.y/100-qpx/2;
+    var qcx=ox+kw*qrData.x/100, qcy=oy+kh*qrData.y/100;
     var ink=qrInk(ORDER.colorHex), halo=(ink==='#ffffff')?'rgba(0,0,0,.5)':'rgba(255,255,255,.8)';
-    ctx.setLineDash([]);ctx.lineWidth=2.4;ctx.strokeStyle=halo;ctx.strokeRect(qx,qy,qpx,qpx);                 // ハロー（反対色・実線）
-    ctx.lineWidth=1.2;ctx.strokeStyle=ink;ctx.setLineDash([4,3]);ctx.strokeRect(qx,qy,qpx,qpx);ctx.setLineDash([]); // 実寸の点線枠
+    ctx.save();ctx.translate(qcx,qcy);ctx.rotate((qrData.rot||0)*Math.PI/180);   // 向き（360度）
+    ctx.setLineDash([]);ctx.lineWidth=2.4;ctx.strokeStyle=halo;ctx.strokeRect(-qpx/2,-qpx/2,qpx,qpx);                 // ハロー（反対色・実線）
+    ctx.lineWidth=1.2;ctx.strokeStyle=ink;ctx.setLineDash([4,3]);ctx.strokeRect(-qpx/2,-qpx/2,qpx,qpx);ctx.setLineDash([]); // 実寸の点線枠
     ctx.font='bold 8px sans-serif';ctx.textAlign='center';ctx.textBaseline='middle';ctx.lineJoin='round';
-    ctx.lineWidth=2.6;ctx.strokeStyle=halo;ctx.strokeText('QR',qx+qpx/2,qy+qpx/2);ctx.fillStyle=ink;ctx.fillText('QR',qx+qpx/2,qy+qpx/2); // QR文字（縁取り＋本体）
+    ctx.lineWidth=2.6;ctx.strokeStyle=halo;ctx.strokeText('QR',0,0);ctx.fillStyle=ink;ctx.fillText('QR',0,0); // QR文字（縁取り＋本体）
+    ctx.restore();
   }
 
   // 拡大登録（クリック時に最新のキャッシュ画像で再描画）
@@ -1538,11 +1540,13 @@ function drawNFCMini(containerId, np, imgSrc) {
     }
     var ppCm=(ORDER.shape==='diecut'?DIE_FIT*kw/(ORDER.sizeCm||7):(ORDER.shape==='rect'&&ORDER.widthCm?kw/ORDER.widthCm:kw/(ORDER.sizeCm||7)));
     var bw=Math.max(10,W*ppCm), bh=Math.max(8,H*ppCm);
-    var nx=ox+kw*np.x/100-bw/2, ny=oy+kh*np.y/100-bh/2;
-    ctx.setLineDash([]);ctx.lineWidth=2.4;ctx.strokeStyle='rgba(255,255,255,.85)';ctx.strokeRect(nx,ny,bw,bh);
-    ctx.lineWidth=1.3;ctx.strokeStyle='#6b78ff';ctx.setLineDash([4,3]);ctx.strokeRect(nx,ny,bw,bh);ctx.setLineDash([]);
+    var ncx=ox+kw*np.x/100, ncy=oy+kh*np.y/100;
+    ctx.save();ctx.translate(ncx,ncy);ctx.rotate((np.rot||0)*Math.PI/180);   // 向き（360度）
+    ctx.setLineDash([]);ctx.lineWidth=2.4;ctx.strokeStyle='rgba(255,255,255,.85)';ctx.strokeRect(-bw/2,-bh/2,bw,bh);
+    ctx.lineWidth=1.3;ctx.strokeStyle='#6b78ff';ctx.setLineDash([4,3]);ctx.strokeRect(-bw/2,-bh/2,bw,bh);ctx.setLineDash([]);
     ctx.font='bold 8px sans-serif';ctx.textAlign='center';ctx.textBaseline='middle';ctx.lineJoin='round';
-    ctx.lineWidth=2.6;ctx.strokeStyle='rgba(0,0,0,.55)';ctx.strokeText('NFC',nx+bw/2,ny+bh/2);ctx.fillStyle='#cfd6ff';ctx.fillText('NFC',nx+bw/2,ny+bh/2);
+    ctx.lineWidth=2.6;ctx.strokeStyle='rgba(0,0,0,.55)';ctx.strokeText('NFC',0,0);ctx.fillStyle='#cfd6ff';ctx.fillText('NFC',0,0);
+    ctx.restore();
   }
   ZOOM_NFC = { label: 'NFCタグの位置', info: infoHTML, paint: function(tcv,scale){ paint(tcv,scale,cachedImg); } };
   zb.onclick = function(){ openZoom(ZOOM_NFC); };

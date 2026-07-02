@@ -126,9 +126,10 @@ body{font-family:'Noto Sans JP',sans-serif;background:var(--paper);color:var(--i
 .qr-box{position:absolute;border:2.5px solid #fff;box-shadow:0 0 0 1.5px rgba(0,0,0,.25),0 2px 8px rgba(0,0,0,.3);cursor:grab;border-radius:3px;display:flex;align-items:center;justify-content:center;}
 .qr-box:active{cursor:grabbing;}
 .qr-box span{font-size:9px;font-weight:700;color:#fff;letter-spacing:.05em;text-shadow:0 1px 2px rgba(0,0,0,.6);pointer-events:none;}
-.qr-size-row{display:flex;align-items:center;gap:8px;}
-.qr-size-row label{font-size:11px;color:var(--muted);width:40px;flex-shrink:0;}
-.qr-size-row input[type=range]{flex:1;accent-color:var(--accent);}
+.qr-size-row,.qr-rot-row{display:flex;align-items:center;gap:8px;}
+.qr-size-row label,.qr-rot-row label{font-size:11px;color:var(--muted);width:40px;flex-shrink:0;}
+.qr-size-row input[type=range],.qr-rot-row input[type=range]{flex:1;accent-color:var(--accent);}
+.qr-rot-row{margin-top:8px;}
 .nfc-box{position:absolute;border:2.5px solid #fff;box-shadow:0 0 0 1.5px rgba(0,0,0,.28),0 2px 8px rgba(0,0,0,.3);cursor:grab;border-radius:3px;display:flex;align-items:center;justify-content:center;background:rgba(96,116,255,.22);}
 .nfc-box:active{cursor:grabbing;}
 .nfc-box span{font-size:9px;font-weight:700;color:#fff;letter-spacing:.05em;text-shadow:0 1px 2px rgba(0,0,0,.65);pointer-events:none;}
@@ -699,9 +700,15 @@ if(document.readyState!=='loading')w();else document.addEventListener('DOMConten
           <button type="button" class="nfc-mode-btn sel" id="nfcMode-fix" onclick="setNFCMode('fix')">ボタンでかんたん<br><span style="font-weight:400;font-size:10px;opacity:.85;">縁の内側だけ動く</span></button>
           <button type="button" class="nfc-mode-btn" id="nfcMode-free" onclick="setNFCMode('free')">自由に配置<br><span style="font-weight:400;font-size:10px;opacity:.85;">長押しでどこでも</span></button>
         </div>
-        <div class="nfc-mode-row">
-          <button type="button" class="nfc-mode-btn sel" id="nfcRot-h" onclick="setNFCRot(0)">よこ向き<br><span style="font-weight:400;font-size:10px;opacity:.85;">2.4×1.4cm</span></button>
-          <button type="button" class="nfc-mode-btn" id="nfcRot-v" onclick="setNFCRot(1)">たて向き<br><span style="font-weight:400;font-size:10px;opacity:.85;">1.4×2.4cm</span></button>
+        <div class="qr-rot-row" style="margin-bottom:8px;">
+          <label>向き</label>
+          <input type="range" id="nfcRot" min="0" max="360" step="1" value="0" oninput="setNFCRot(this.value)">
+          <div class="num-step">
+            <button onclick="stepNFCRot(-15)">−</button>
+            <input type="number" id="nfcRotN" min="0" max="360" step="1" value="0" oninput="setNFCRot(this.value)">
+            <span class="unit">°</span>
+            <button onclick="stepNFCRot(15)">＋</button>
+          </div>
         </div>
         <div class="qr-canvas-wrap" id="nfcWrap">
           <canvas id="nfcBg"></canvas>
@@ -747,6 +754,25 @@ if(document.readyState!=='loading')w();else document.addEventListener('DOMConten
           <canvas id="qrBg-front"></canvas>
           <div class="qr-box" id="qrBox-front"><span>QR</span></div>
         </div>
+        <div class="att-mid" style="margin-top:8px;">
+          <div class="att-pad">
+            <button type="button" class="att-btn pad pu" onclick="qrNudge('front',0,-1)" aria-label="上へ">▲</button>
+            <button type="button" class="att-btn pad pl" onclick="qrNudge('front',-1,0)" aria-label="左へ">◀</button>
+            <button type="button" class="att-btn pad pc" onclick="qrCenter('front')" aria-label="中央へ">●</button>
+            <button type="button" class="att-btn pad pr" onclick="qrNudge('front',1,0)" aria-label="右へ">▶</button>
+            <button type="button" class="att-btn pad pd" onclick="qrNudge('front',0,1)" aria-label="下へ">▼</button>
+          </div>
+        </div>
+        <div class="qr-rot-row">
+          <label>向き</label>
+          <input type="range" id="qrRot-front" min="0" max="360" step="1" value="0" oninput="setQRRot('front',this.value)">
+          <div class="num-step">
+            <button onclick="stepQRRot('front',-15)">−</button>
+            <input type="number" id="qrRotN-front" min="0" max="360" step="1" value="0" oninput="setQRRot('front',this.value)">
+            <span class="unit">°</span>
+            <button onclick="stepQRRot('front',15)">＋</button>
+          </div>
+        </div>
         <div class="qr-size-row">
           <label>サイズ</label>
           <input type="range" id="qrSz-front" min="1.2" max="5" step="0.1" value="2" oninput="onQRSzSlider('front')">
@@ -767,6 +793,25 @@ if(document.readyState!=='loading')w();else document.addEventListener('DOMConten
         <div class="qr-canvas-wrap" id="qrWrap-back">
           <canvas id="qrBg-back"></canvas>
           <div class="qr-box" id="qrBox-back"><span>QR</span></div>
+        </div>
+        <div class="att-mid" style="margin-top:8px;">
+          <div class="att-pad">
+            <button type="button" class="att-btn pad pu" onclick="qrNudge('back',0,-1)" aria-label="上へ">▲</button>
+            <button type="button" class="att-btn pad pl" onclick="qrNudge('back',-1,0)" aria-label="左へ">◀</button>
+            <button type="button" class="att-btn pad pc" onclick="qrCenter('back')" aria-label="中央へ">●</button>
+            <button type="button" class="att-btn pad pr" onclick="qrNudge('back',1,0)" aria-label="右へ">▶</button>
+            <button type="button" class="att-btn pad pd" onclick="qrNudge('back',0,1)" aria-label="下へ">▼</button>
+          </div>
+        </div>
+        <div class="qr-rot-row">
+          <label>向き</label>
+          <input type="range" id="qrRot-back" min="0" max="360" step="1" value="0" oninput="setQRRot('back',this.value)">
+          <div class="num-step">
+            <button onclick="stepQRRot('back',-15)">−</button>
+            <input type="number" id="qrRotN-back" min="0" max="360" step="1" value="0" oninput="setQRRot('back',this.value)">
+            <span class="unit">°</span>
+            <button onclick="stepQRRot('back',15)">＋</button>
+          </div>
         </div>
         <div class="qr-size-row">
           <label>サイズ</label>
@@ -885,6 +930,7 @@ const S = {
   nfc:        false, nfcUrl: '',
   backPrint:  false,
   imgFront:   null, imgBack: null,
+  imgFrontFull:null, imgBackFull: null, // 形でクリップしない全面合成（外付けツメのはみ出し用）
   imgFrontSrc:null, imgBackSrc: null,   // オリジナルソース（再調整用）
   cropStateFront: null, cropStateBack: null, // 前回のクロップ設定
   // ── 複数画像（レイヤー）──
@@ -1871,7 +1917,7 @@ function setQRSide(side) {
   setTimeout(() => initQREditor(side), 30);
 }
 
-const QRS = { front:{x:50,y:50,cm:2}, back:{x:50,y:50,cm:2} };
+const QRS = { front:{x:50,y:50,cm:2,rot:0}, back:{x:50,y:50,cm:2,rot:0} };
 
 function getKHRect(aw, ah) {
   const margin = 14;
@@ -1961,12 +2007,38 @@ function posQRBox(side, box, bgCv, aw, ah) {
   box.style.width  = bpx+'px'; box.style.height = bpx+'px';
   box.style.left   = Math.min(ox+kw-bpx, Math.max(ox, cx))+'px';
   box.style.top    = Math.min(oy+kh-bpx, Math.max(oy, cy))+'px';
+  box.style.transform = 'rotate(' + (QRS[side].rot||0) + 'deg)';   // 向き（360度）
 }
+// QR位置を十字キーで微移動（％単位）。位置は本体内にクランプ
+function qrNudge(side, dx, dy) {
+  const step = 2;                                  // ％
+  QRS[side].x = Math.max(0, Math.min(100, QRS[side].x + dx * step));
+  QRS[side].y = Math.max(0, Math.min(100, QRS[side].y + dy * step));
+  const wrap=document.getElementById('qrWrap-'+side), bgCv=document.getElementById('qrBg-'+side);
+  const box=wrap.querySelector('.qr-box');
+  posQRBox(side, box, bgCv, bgCv.width||wrap.offsetWidth||260, bgCv.height||wrap.offsetHeight||200);
+}
+function qrCenter(side) {
+  QRS[side].x = 50; QRS[side].y = 50;
+  const wrap=document.getElementById('qrWrap-'+side), bgCv=document.getElementById('qrBg-'+side);
+  const box=wrap.querySelector('.qr-box');
+  posQRBox(side, box, bgCv, bgCv.width||wrap.offsetWidth||260, bgCv.height||wrap.offsetHeight||200);
+}
+// QRの向き（0〜360度）。スライダー・数値入力・＋－で共通
+function setQRRot(side, v) {
+  let d = Math.round(+v || 0); d = ((d % 360) + 360) % 360;
+  QRS[side].rot = d;
+  const r = document.getElementById('qrRot-'+side);  if (r && +r.value !== d) r.value = d;
+  const n = document.getElementById('qrRotN-'+side); if (n && document.activeElement !== n) n.value = d;
+  const box = document.getElementById('qrBox-'+side); if (box) box.style.transform = 'rotate(' + d + 'deg)';
+}
+function stepQRRot(side, d) { setQRRot(side, (QRS[side].rot||0) + d); }
 
 function setupQRDrag(side, wrap, box, bgCv) {
   const nb = box.cloneNode(true); box.parentNode.replaceChild(nb, box); box = nb;
   let drag=false, ox2=0, oy2=0;
   const onDown = e => {
+    if (e.button != null && e.button !== 0) return;   // 左クリックのみ
     drag=true;
     const r=wrap.getBoundingClientRect();
     const cl=e.touches?e.touches[0].clientX:e.clientX, ct=e.touches?e.touches[0].clientY:e.clientY;
@@ -2019,6 +2091,8 @@ function resyncQR(side) {
   QRS[side].cm = Math.min(QRS[side].cm, bodyShortCm());
   document.getElementById('qrSz-'+side).value  = QRS[side].cm;
   document.getElementById('qrSzN-'+side).value = QRS[side].cm;
+  const rr=document.getElementById('qrRot-'+side);  if(rr) rr.value=QRS[side].rot||0;
+  const rn=document.getElementById('qrRotN-'+side); if(rn) rn.value=QRS[side].rot||0;
   drawQRBg(side, bgCv, aw, ah);
   posQRBox(side, box, bgCv, aw, ah);
   setupQRDrag(side, wrap, box, bgCv);
@@ -2119,10 +2193,14 @@ function swapWH() {
   if (S.qr || S.nfc) syncQRAll();
 }
 // ───── NFC 埋め込み位置 ─────
-const NFCS = { x: 50, y: 50, mode: 'fix', rot: 0 };  // mode:'fix'/'free', rot:0=よこ 1=たて
+const NFCS = { x: 50, y: 50, mode: 'fix', rot: 0 };  // mode:'fix'/'free', rot=向き（0〜360度）
 const NFC_W = 2.4, NFC_H = 1.4, NFC_MARGIN = 0.2;    // cm（長辺2.4 / 短辺1.4 / 縁マージン2mm）
-function nfcEW(){ return NFCS.rot ? NFC_H : NFC_W; } // 実効幅（向き反映）
-function nfcEH(){ return NFCS.rot ? NFC_W : NFC_H; } // 実効高（向き反映）
+function nfcEW(){ return NFC_W; }                    // タグの実寸幅（回転前）
+function nfcEH(){ return NFC_H; }                    // タグの実寸高（回転前）
+// 回転後の外接ボックス（cm）。クランプ・有効判定はこの外接寸法で行う
+function nfcAABB(){ const a=(NFCS.rot||0)*Math.PI/180, c=Math.abs(Math.cos(a)), s=Math.abs(Math.sin(a)); return { w: NFC_W*c + NFC_H*s, h: NFC_W*s + NFC_H*c }; }
+function nfcAW(){ return nfcAABB().w; }
+function nfcAH(){ return nfcAABB().h; }
 let NFC_GRID = null;                                  // ダイカット用 有効枠中心点（px）
 
 // 多角形ヘルパー（NFC用・グローバル）
@@ -2151,7 +2229,7 @@ function snapNFCGrid(px,py){ if(!NFC_GRID) return {x:px,y:py}; let b=NFC_GRID[0]
 // 枠中心px(px,py)を有効位置に整える。allowFree=true なら（自由ドラッグ中）そのまま返す
 function clampNFCPx(px,py,geom,allowFree){
   const { ox,oy,kw,kh,pxPerCm }=geom;
-  const hw=nfcEW()*pxPerCm/2, hh=nfcEH()*pxPerCm/2, m=NFC_MARGIN*pxPerCm;
+  const hw=nfcAW()*pxPerCm/2, hh=nfcAH()*pxPerCm/2, m=NFC_MARGIN*pxPerCm;   // 回転後の外接寸法
   if(S.shape==='diecut'){
     if(allowFree) return {x:px,y:py};
     if(nfcValidPx(px,py,geom,hw,hh,m)) return {x:px,y:py};
@@ -2180,13 +2258,14 @@ function posNFCBox(){
   NFCS.x=((cx-ox)/kw)*100; NFCS.y=((cy-oy)/kh)*100;
   box.style.width=bw+'px'; box.style.height=bh+'px';
   box.style.left=(cx-bw/2)+'px'; box.style.top=(cy-bh/2)+'px';
+  box.style.transform='rotate('+(NFCS.rot||0)+'deg)';   // 向き（360度・中心回転）
 }
 function setupNFCDrag(){
   const wrap=document.getElementById('nfcWrap'), bg=document.getElementById('nfcBg');
   let box=document.getElementById('nfcBox'); if(!wrap||!bg||!box) return;
   const nb=box.cloneNode(true); box.parentNode.replaceChild(nb,box); box=nb;
   let drag=false, dxp=0, dyp=0;
-  const down=e=>{ drag=true; const r=wrap.getBoundingClientRect(); const cl=e.touches?e.touches[0].clientX:e.clientX, ct=e.touches?e.touches[0].clientY:e.clientY; dxp=cl-r.left-box.offsetLeft; dyp=ct-r.top-box.offsetTop; if(e.cancelable)e.preventDefault(); };
+  const down=e=>{ if(e.button!=null&&e.button!==0)return; drag=true; const r=wrap.getBoundingClientRect(); const cl=e.touches?e.touches[0].clientX:e.clientX, ct=e.touches?e.touches[0].clientY:e.clientY; dxp=cl-r.left-box.offsetLeft; dyp=ct-r.top-box.offsetTop; if(e.cancelable)e.preventDefault(); };
   const move=e=>{ if(!drag)return; const r=wrap.getBoundingClientRect(); const cl=e.touches?e.touches[0].clientX:e.clientX, ct=e.touches?e.touches[0].clientY:e.clientY;
     const aw=bg.width,ah=bg.height, geom=getKHRect(aw,ah), { ox,oy,kw,kh,pxPerCm }=geom, bw=nfcEW()*pxPerCm,bh=nfcEH()*pxPerCm;
     let cx=cl-r.left-dxp+bw/2, cy=ct-r.top-dyp+bh/2;
@@ -2203,14 +2282,14 @@ function initNFCEditor(){
   const wrap=document.getElementById('nfcWrap'), bg=document.getElementById('nfcBg'); if(!wrap||!bg) return;
   const aw=wrap.offsetWidth||260, ah=wrap.offsetHeight||200; bg.width=aw; bg.height=ah;
   drawQRBg('front', bg, aw, ah);                  // 背景＝本体＋おもて画像（QRの背景描画を流用）
-  const geom=getKHRect(aw,ah), hw=nfcEW()*geom.pxPerCm/2, hh=nfcEH()*geom.pxPerCm/2, m=NFC_MARGIN*geom.pxPerCm;
+  const geom=getKHRect(aw,ah), hw=nfcAW()*geom.pxPerCm/2, hh=nfcAH()*geom.pxPerCm/2, m=NFC_MARGIN*geom.pxPerCm;
   buildNFCGrid(geom,hw,hh,m); posNFCBox(); setupNFCDrag();
 }
 function resyncNFC(){
   const wrap=document.getElementById('nfcWrap'), bg=document.getElementById('nfcBg'); if(!wrap||!bg) return;
   const aw=wrap.offsetWidth||260, ah=wrap.offsetHeight||200; bg.width=aw; bg.height=ah;
   drawQRBg('front', bg, aw, ah);
-  const geom=getKHRect(aw,ah), hw=nfcEW()*geom.pxPerCm/2, hh=nfcEH()*geom.pxPerCm/2, m=NFC_MARGIN*geom.pxPerCm;
+  const geom=getKHRect(aw,ah), hw=nfcAW()*geom.pxPerCm/2, hh=nfcAH()*geom.pxPerCm/2, m=NFC_MARGIN*geom.pxPerCm;
   buildNFCGrid(geom,hw,hh,m); posNFCBox();
 }
 function setNFCMode(m){
@@ -2219,12 +2298,14 @@ function setNFCMode(m){
   document.getElementById('nfcMode-free').classList.toggle('sel', m==='free');
   posNFCBox();
 }
-function setNFCRot(r){
-  NFCS.rot=r;
-  document.getElementById('nfcRot-h').classList.toggle('sel', r===0);
-  document.getElementById('nfcRot-v').classList.toggle('sel', r===1);
-  resyncNFC();   // 向き変更 → 枚サイズが変わるのでグリッド再生成＋再配置
+function setNFCRot(v){
+  let d = Math.round(+v || 0); d = ((d % 360) + 360) % 360;
+  NFCS.rot = d;
+  const r = document.getElementById('nfcRot');  if (r && +r.value !== d) r.value = d;
+  const n = document.getElementById('nfcRotN'); if (n && document.activeElement !== n) n.value = d;
+  resyncNFC();   // 向き変更 → 外接寸法が変わるのでグリッド再生成＋再配置
 }
+function stepNFCRot(d){ setNFCRot((NFCS.rot||0) + d); }
 
 function syncQRAll() { ['front','back'].forEach(s => { const w = document.getElementById('qrWrap-'+s); if (w && w.offsetWidth > 0) resyncQR(s); }); if (S.nfc) { const wn=document.getElementById('nfcWrap'); if (wn && wn.offsetWidth>0) resyncNFC(); } }
 function reopenSilent() { /* 縦横入れ替え時は既存画像をそのまま再フィット表示（drawPreview側でcover）。再切り抜きは不要 */ if (typeof leRecomposeAll === 'function') leRecomposeAll(); if (typeof leStageDraw === 'function') leStageDraw(); if (window._redrawAttach) window._redrawAttach(); drawPreview('front'); if (S.imgBack) drawPreview('back'); }
@@ -2365,6 +2446,8 @@ function updateAttachControls() {
   let imgFrontEl = null, imgBackEl = null, lastFrontSrc = null, lastBackSrc = null;
   // 元画像（切り抜き前）。外付けツメに「本体の縁からはみ出した部分」を描くために使う。
   let origFrontEl = null, origBackEl = null, lastOrigFront = null, lastOrigBack = null;
+  // 全面合成（形でクリップしていない）。レイヤー方式のツメはみ出しに使う。
+  let fullFrontEl = null, fullBackEl = null, lastFullFront = null, lastFullBack = null;
 
   function bodyGeom(aw, ah){
     const margin = 16;
@@ -2477,7 +2560,7 @@ function updateAttachControls() {
 
   // 穴まわりの補強。withNeck=true:首付きツメ（外付け）／false:丸い膨らみのみ（本体内・縁近く）
   let _tabCv = null;
-  function buildTab(aw, ah, g, hx, hy, holeR, acryl, lugR, withNeck, imgEl, origImg, cropState){
+  function buildTab(aw, ah, g, hx, hy, holeR, acryl, lugR, withNeck, imgEl, origImg, cropState, fullImg){
     const a    = edgeAnchor(hx, hy, g);
     const ang  = a.ang;                       // 最近点→穴の向き（辺に直角に接続）
     const neckW = lugR * 2;   // 首の太さ＝ディスク直径（縮小後lugR×2＝従来の首と同じ太さ）
@@ -2496,9 +2579,16 @@ function updateAttachControls() {
     // 丸・四角・自由四角は「切り抜きで捨てた本体の縁の外側」を見せたいので、
     // 切り抜き済み画像(imgEl)ではなく元画像(origImg)を切り抜き時と同じ変換で描く。
     // → 本体の縁からはみ出した部分が、つなげる首やツメの上にもそのまま現れる。
-    if (S.tabImage && imgEl) {
+    if (S.tabImage && (imgEl || fullImg)) {
       tctx.globalCompositeOperation = 'source-atop';
       const cs = cropState;
+      // レイヤー方式（全面合成）がある丸・四角・自由四角は、それを本体ボックスへ等倍で載せる。
+      // 全面合成フレーム＝本体の縦横比なので、g(w×h) にそのまま重ねればはみ出しが正しく出る。
+      if (fullImg && S.shape !== 'diecut') {
+        tctx.drawImage(fullImg, g.x, g.y, g.w, g.h);
+        tctx.globalCompositeOperation = 'source-over';
+        // 以降のくり抜きへ続く
+      } else {
       // 切り抜き枠の元画像px幅・高さ。新しい切り抜きには保存済み。
       // 古い切り抜きデータには無いので、保存済みの fitScale/scale/imgW/imgH から再計算する。
       let fsw = cs && cs.frameSrcW, fsh = cs && cs.frameSrcH;
@@ -2533,6 +2623,7 @@ function updateAttachControls() {
         tctx.drawImage(imgEl, dx, dy, dw, dh);
       }
       tctx.globalCompositeOperation = 'source-over';
+      }
     }
     // 丸・四角のみ本体形状をくり抜く（ダイカットはアルファ本体を上に重ねるため、くり抜くと輪郭ズレで透明帯ができる）
     if (S.shape !== 'diecut') {
@@ -2560,6 +2651,11 @@ function updateAttachControls() {
     if (!S.imgFrontSrc) { origFrontEl=null; lastOrigFront=null; }
     if (S.imgBackSrc  && S.imgBackSrc  !== lastOrigBack)  { lastOrigBack  = S.imgBackSrc;  const im=new Image(); im.onload=()=>{origBackEl=im;  redraw();}; im.src=S.imgBackSrc; }
     if (!S.imgBackSrc)  { origBackEl=null;  lastOrigBack=null; }
+    // 全面合成（レイヤー方式のツメはみ出し用）
+    if (S.imgFrontFull && S.imgFrontFull !== lastFullFront) { lastFullFront = S.imgFrontFull; const im=new Image(); im.onload=()=>{fullFrontEl=im; redraw();}; im.src=S.imgFrontFull; }
+    if (!S.imgFrontFull) { fullFrontEl=null; lastFullFront=null; }
+    if (S.imgBackFull  && S.imgBackFull  !== lastFullBack)  { lastFullBack  = S.imgBackFull;  const im=new Image(); im.onload=()=>{fullBackEl=im;  redraw();}; im.src=S.imgBackFull; }
+    if (!S.imgBackFull)  { fullBackEl=null;  lastFullBack=null; }
 
     const dpr = Math.min(devicePixelRatio||1, 2);
     cv.width = aw*dpr; cv.height = ah*dpr;
@@ -2583,6 +2679,21 @@ function updateAttachControls() {
           gLine(g.cx + i * gStep, true,  i === 0 ? 0 : (i % 2 === 0 ? 1 : 2));
         for (let j = Math.ceil(-g.cy / gStep); j * gStep + g.cy <= ah; j++)
           gLine(g.cy + j * gStep, false, j === 0 ? 0 : (j % 2 === 0 ? 1 : 2));
+        // 座標ラベル（中心=0）。X＝上端、Y＝左端に、1cmごとの線に合わせて表示（拡大に追従）
+        ctx.font = 'bold 9px sans-serif'; ctx.fillStyle = 'rgba(255,255,255,.85)';
+        ctx.strokeStyle = 'rgba(0,0,0,.55)'; ctx.lineWidth = 2.4; ctx.lineJoin = 'round';
+        const lbl = (txt, x, y, alignH, alignV) => { ctx.textAlign = alignH; ctx.textBaseline = alignV; ctx.strokeText(txt, x, y); ctx.fillText(txt, x, y); };
+        for (let i = Math.ceil(-g.cx / gStep); i * gStep + g.cx <= aw; i++) {
+          if (i === 0 || i % 2 !== 0) continue;               // 1cm刻みだけ
+          const x = g.cx + i * gStep; if (x < 10 || x > aw - 10) continue;
+          lbl((i / 2) + '', x, 2, 'center', 'top');           // X座標（cm）を上端に
+        }
+        for (let j = Math.ceil(-g.cy / gStep); j * gStep + g.cy <= ah; j++) {
+          if (j === 0 || j % 2 !== 0) continue;
+          const y = g.cy + j * gStep; if (y < 8 || y > ah - 6) continue;
+          lbl((j / 2) + '', 3, y, 'left', 'middle');          // Y座標（cm）を左端に
+        }
+        lbl('0', g.cx, 2, 'center', 'top'); lbl('0', 3, g.cy, 'left', 'middle');   // 中心=0
         ctx.restore();
       }
     }
@@ -2604,6 +2715,8 @@ function updateAttachControls() {
     const _useBack = (S.attachView === 'back' && S.imgBack);
     const tabOrig  = _tbNoImg ? null : (_useBack ? (origBackEl || origFrontEl) : origFrontEl);
     const tabCrop  = _tbNoImg ? null : (_useBack ? (S.cropStateBack || S.cropStateFront) : S.cropStateFront);
+    // レイヤー方式の全面合成（丸・四角・自由四角のはみ出し用）
+    const tabFull  = _tbNoImg ? null : (_useBack ? (fullBackEl || fullFrontEl) : fullFrontEl);
 
     ctx.save();
     // ── 裏面の反転不具合の修正 ──
@@ -2619,10 +2732,10 @@ function updateAttachControls() {
     // 補強：外付け（中心が本体外）は首付きツメ／本体内でも縁ギリギリなら丸い膨らみのみ（穴の外側が欠けないように）
     // ツメは鏡像座標 hxM で生成。buildTab 内の画像延長はキャンバスを反転しないので正像のまま＝本体画像と継ぎ目が揃う。
     if (!isInsideBody(hx, hy, g)) {
-      const tab = buildTab(aw, ah, g, hxM, hyM, holeR, acryl, lugR, true, tabImg, tabOrig, tabCrop);
+      const tab = buildTab(aw, ah, g, hxM, hyM, holeR, acryl, lugR, true, tabImg, tabOrig, tabCrop, tabFull);
       ctx.drawImage(tab, 0, 0, aw, ah);
     } else if (!lugFullyInside(hx, hy, g, lugR)) {
-      const tab = buildTab(aw, ah, g, hxM, hyM, holeR, acryl, lugR, false, tabImg, tabOrig, tabCrop);
+      const tab = buildTab(aw, ah, g, hxM, hyM, holeR, acryl, lugR, false, tabImg, tabOrig, tabCrop, tabFull);
       ctx.drawImage(tab, 0, 0, aw, ah);
     }
     drawBody(g);                          // 本体・画像は常に正像（裏面でも反転させない）
@@ -2702,7 +2815,7 @@ function updateAttachControls() {
     S.attY = (hy - g.y) / g.h * 100;
     redraw();
   }
-  wrap.addEventListener('mousedown',  e => { drag=true; e.preventDefault(); setFromPointer(e.clientX, e.clientY); });
+  wrap.addEventListener('mousedown',  e => { if (e.button !== 0) return; drag=true; e.preventDefault(); setFromPointer(e.clientX, e.clientY); });
   window.addEventListener('mousemove', e => { if (drag) setFromPointer(e.clientX, e.clientY); });
   window.addEventListener('mouseup',   () => { drag=false; });
   // ホイール（PC）：カーソル位置を中心に拡大縮小。preventDefault でページのスクロールは止める
@@ -3009,7 +3122,8 @@ function leDrawLayer(c, l, W, H){
   c.restore();
 }
 // 1面分の最終合成（出力用）。diecut は「土台のユニオン形」で切り抜く。
-function lePaintSide(ctx, W, H, side){
+// noClip=true：形でクリップせず、フレーム全体にレイヤーを描く（外付けツメのはみ出し用）
+function lePaintSide(ctx, W, H, side, noClip){
   const sh = S.shape || 'circle';
   ctx.clearRect(0, 0, W, H);
   if (sh === 'diecut'){
@@ -3028,12 +3142,19 @@ function lePaintSide(ctx, W, H, side){
     return;
   }
   // 丸・四角・自由四角：形でクリップしてレイヤーを重ねる
+  const layers = (side === 'back' ? S.layersBack : S.layersFront);
   ctx.save();
-  ctx.beginPath();
-  if (sh === 'circle') ctx.arc(W / 2, H / 2, Math.min(W, H) / 2, 0, Math.PI * 2);
-  else rrect(ctx, 0, 0, W, H, Math.min(W, H) * 0.06);
-  ctx.clip();
-  for (const l of (side === 'back' ? S.layersBack : S.layersFront)) leDrawLayer(ctx, l, W, H);
+  if (!noClip){
+    ctx.beginPath();
+    if (sh === 'circle') ctx.arc(W / 2, H / 2, Math.min(W, H) / 2, 0, Math.PI * 2);
+    else rrect(ctx, 0, 0, W, H, Math.min(W, H) * 0.06);
+    ctx.clip();
+    // 画像が本体より小さい場合でも、空いた所には土台（アクリル）の色が見えるように下地を塗る
+    ctx.fillStyle = S.colorHex || '#d9d4c7';
+    if (sh === 'circle'){ ctx.beginPath(); ctx.arc(W/2, H/2, Math.min(W,H)/2, 0, Math.PI*2); ctx.fill(); }
+    else ctx.fillRect(0, 0, W, H);
+  }
+  for (const l of layers) leDrawLayer(ctx, l, W, H);
   ctx.restore();
 }
 
@@ -3055,7 +3176,7 @@ function leRecompose(side){
   const empty = (sh === 'diecut') ? !S.dieBase.length
                                   : !(side === 'back' ? S.layersBack : S.layersFront).length;
   if (empty){
-    if (side === 'back') S.imgBack = null; else S.imgFront = null;
+    if (side === 'back'){ S.imgBack = null; S.imgBackFull = null; } else { S.imgFront = null; S.imgFrontFull = null; }
     if (sh === 'diecut'){
       if (side === 'back'){ S.dieBack = null; S.dieHolesBack = []; }
       else                { S.dieFront = null; S.dieHolesFront = []; }
@@ -3069,6 +3190,14 @@ function leRecompose(side){
   lePaintSide(ctx, w, h, side);
   const url = cv.toDataURL('image/png');
   if (side === 'back') S.imgBack = url; else S.imgFront = url;
+  // 外付けツメのはみ出し用：形でクリップしない全面合成（丸・四角・自由四角のみ）
+  if (sh !== 'diecut'){
+    const fv = document.createElement('canvas'); fv.width = w; fv.height = h;
+    const fc = fv.getContext('2d'); fc.imageSmoothingEnabled = true; fc.imageSmoothingQuality = 'high';
+    lePaintSide(fc, w, h, side, true);
+    const furl = fv.toDataURL('image/png');
+    if (side === 'back') S.imgBackFull = furl; else S.imgFrontFull = furl;
+  } else { if (side === 'back') S.imgBackFull = null; else S.imgFrontFull = null; }
   if (sh === 'diecut'){
     // 合成画像のアルファ＝土台ユニオンの形。そこからシルエット・穴を再トレース。
     recomputeDie(side, function(){ leAfterCompose(side); });
@@ -3212,6 +3341,7 @@ function lePinchInfo(e){
            my: ((t0.clientY + t1.clientY) / 2 - r.top ) * sc };
 }
 function leDown(e){
+  if (e.button != null && e.button !== 0) return;   // マウスは左クリックのみ（右/中クリックは無視）
   // 2本指：ピンチで拡大縮小＋表示の移動（写真は動かさない＝誤操作防止）
   if (e.touches && e.touches.length >= 2){
     if (leDrag){ leDrag.l.x = leDrag.sx; leDrag.l.y = leDrag.sy; leDrag = null; }   // 1本目で動いた分は元に戻す

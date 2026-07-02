@@ -545,15 +545,17 @@ function makeNFCMiniMap(np, imgSrc) {
     ctx.strokeStyle='rgba(0,0,0,.15)'; ctx.lineWidth=1; ctx.beginPath();
     if (O.shape==='circle') ctx.arc(ox+kw/2,oy+kh/2,Math.min(kw,kh)/2,0,Math.PI*2); else ctx.rect(ox,oy,kw,kh);
     ctx.stroke();
-    // NFC枠（長方形・実寸点線）
+    // NFC枠（長方形・実寸点線・向き反映）
     const pxPerCm = (O.shape==='diecut') ? DIE_FIT_*kw/(O.sizeCm||7) : ((O.shape==='rect'&&O.widthCm) ? kw/O.widthCm : kw/(O.sizeCm||7));
     const bw = Math.max(8, W*pxPerCm), bh = Math.max(6, H*pxPerCm);
-    const nx = ox + kw*np.x/100 - bw/2, ny = oy + kh*np.y/100 - bh/2;
-    ctx.lineWidth=2.2; ctx.strokeStyle='rgba(255,255,255,.9)'; ctx.setLineDash([]); ctx.strokeRect(nx,ny,bw,bh);
-    ctx.lineWidth=1.3; ctx.strokeStyle='#3a4ad0'; ctx.setLineDash([4,3]); ctx.strokeRect(nx,ny,bw,bh); ctx.setLineDash([]);
+    const ncx = ox + kw*np.x/100, ncy = oy + kh*np.y/100;
+    ctx.save(); ctx.translate(ncx, ncy); ctx.rotate((np.rot||0)*Math.PI/180);
+    ctx.lineWidth=2.2; ctx.strokeStyle='rgba(255,255,255,.9)'; ctx.setLineDash([]); ctx.strokeRect(-bw/2,-bh/2,bw,bh);
+    ctx.lineWidth=1.3; ctx.strokeStyle='#3a4ad0'; ctx.setLineDash([4,3]); ctx.strokeRect(-bw/2,-bh/2,bw,bh); ctx.setLineDash([]);
     ctx.font='bold 7px sans-serif'; ctx.textAlign='center'; ctx.textBaseline='middle'; ctx.lineJoin='round';
-    ctx.lineWidth=2.4; ctx.strokeStyle='rgba(255,255,255,.9)'; ctx.strokeText('NFC', nx+bw/2, ny+bh/2);
-    ctx.fillStyle='#3a4ad0'; ctx.fillText('NFC', nx+bw/2, ny+bh/2);
+    ctx.lineWidth=2.4; ctx.strokeStyle='rgba(255,255,255,.9)'; ctx.strokeText('NFC', 0, 0);
+    ctx.fillStyle='#3a4ad0'; ctx.fillText('NFC', 0, 0);
+    ctx.restore();
   }
   if (imgSrc) { const img = new Image(); img.src = imgSrc; img.onload = () => drawMini(img); } else drawMini(null);
 }
@@ -701,14 +703,15 @@ if (O.qr && O.qrSide) {
       // QR枠（実寸の点線＋土台色に追従した視認色）
       const pxPerCm = (O.shape==='diecut') ? 0.82*kw/(O.sizeCm||7) : (O.shape==='rect' && O.widthCm) ? kw / O.widthCm : kw / (O.sizeCm || 7);
       const qpx = Math.max(8, qrData.cm * pxPerCm);
-      const qx  = ox + kw * qrData.x/100 - qpx/2;
-      const qy  = oy + kh * qrData.y/100 - qpx/2;
+      const qcx = ox + kw * qrData.x/100, qcy = oy + kh * qrData.y/100;
       const ink = qrInk(O.colorHex), halo = (ink==='#ffffff') ? 'rgba(0,0,0,.5)' : 'rgba(255,255,255,.8)';
-      ctx.setLineDash([]); ctx.lineWidth=2.2; ctx.strokeStyle=halo; ctx.strokeRect(qx,qy,qpx,qpx);            // ハロー
-      ctx.lineWidth=1.1; ctx.strokeStyle=ink; ctx.setLineDash([4,3]); ctx.strokeRect(qx,qy,qpx,qpx); ctx.setLineDash([]); // 実寸の点線枠
+      ctx.save(); ctx.translate(qcx, qcy); ctx.rotate((qrData.rot||0)*Math.PI/180);
+      ctx.setLineDash([]); ctx.lineWidth=2.2; ctx.strokeStyle=halo; ctx.strokeRect(-qpx/2,-qpx/2,qpx,qpx);            // ハロー
+      ctx.lineWidth=1.1; ctx.strokeStyle=ink; ctx.setLineDash([4,3]); ctx.strokeRect(-qpx/2,-qpx/2,qpx,qpx); ctx.setLineDash([]); // 実寸の点線枠
       ctx.font='bold 7px sans-serif'; ctx.textAlign='center'; ctx.textBaseline='middle'; ctx.lineJoin='round';
-      ctx.lineWidth=2.4; ctx.strokeStyle=halo; ctx.strokeText('QR',qx+qpx/2,qy+qpx/2);
-      ctx.fillStyle=ink; ctx.fillText('QR',qx+qpx/2,qy+qpx/2);
+      ctx.lineWidth=2.4; ctx.strokeStyle=halo; ctx.strokeText('QR',0,0);
+      ctx.fillStyle=ink; ctx.fillText('QR',0,0);
+      ctx.restore();
     }
 
     if (imgSrc) {
