@@ -750,6 +750,10 @@ if(document.readyState!=='loading')w();else document.addEventListener('DOMConten
           <div class="section-label" style="margin-bottom:0;">おもて面 — 位置をドラッグで指定</div>
           <button onclick="resyncQR('front')" style="font-size:11px;padding:4px 10px;border:1.5px solid var(--border);border-radius:7px;background:#fff;cursor:pointer;color:var(--ink);white-space:nowrap;">↺ 本体サイズを反映</button>
         </div>
+        <div class="nfc-mode-row" style="margin-bottom:8px;">
+          <button type="button" class="nfc-mode-btn sel" id="qrMode-front-fix" onclick="setQRMode('front','fix')">ボタンでかんたん<br><span style="font-weight:400;font-size:10px;opacity:.85;">縁の内側だけ動く</span></button>
+          <button type="button" class="nfc-mode-btn" id="qrMode-front-free" onclick="setQRMode('front','free')">自由に配置<br><span style="font-weight:400;font-size:10px;opacity:.85;">本体内ならどこでも</span></button>
+        </div>
         <div class="qr-canvas-wrap" id="qrWrap-front">
           <canvas id="qrBg-front"></canvas>
           <div class="qr-box" id="qrBox-front"><span>QR</span></div>
@@ -789,6 +793,10 @@ if(document.readyState!=='loading')w();else document.addEventListener('DOMConten
         <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:6px;">
           <div class="section-label" style="margin-bottom:0;">うら面 — 位置をドラッグで指定</div>
           <button onclick="resyncQR('back')" style="font-size:11px;padding:4px 10px;border:1.5px solid var(--border);border-radius:7px;background:#fff;cursor:pointer;color:var(--ink);white-space:nowrap;">↺ 本体サイズを反映</button>
+        </div>
+        <div class="nfc-mode-row" style="margin-bottom:8px;">
+          <button type="button" class="nfc-mode-btn sel" id="qrMode-back-fix" onclick="setQRMode('back','fix')">ボタンでかんたん<br><span style="font-weight:400;font-size:10px;opacity:.85;">縁の内側だけ動く</span></button>
+          <button type="button" class="nfc-mode-btn" id="qrMode-back-free" onclick="setQRMode('back','free')">自由に配置<br><span style="font-weight:400;font-size:10px;opacity:.85;">本体内ならどこでも</span></button>
         </div>
         <div class="qr-canvas-wrap" id="qrWrap-back">
           <canvas id="qrBg-back"></canvas>
@@ -1917,7 +1925,56 @@ function setQRSide(side) {
   setTimeout(() => initQREditor(side), 30);
 }
 
-const QRS = { front:{x:50,y:50,cm:2,rot:0}, back:{x:50,y:50,cm:2,rot:0} };
+const QRS = { front:{x:50,y:50,cm:2,rot:0,mode:'fix'}, back:{x:50,y:50,cm:2,rot:0,mode:'fix'} };
+const QR_MARGIN = 0.15;   // cm：QRは縁からこの分だけ内側に収める
+
+// QRの回転後 外接ボックス半分(px)。円は「対角(=正方形の外接円)」で本体内に収める
+function qrHalfPx(side, geom){
+  const bpx = Math.max(16, QRS[side].cm * geom.pxPerCm);
+  const a=(QRS[side].rot||0)*Math.PI/180, c=Math.abs(Math.cos(a)), s=Math.abs(Math.sin(a));
+  return { bpx, halfAABB:(bpx/2)*(c+s), halfDiag:(bpx/2)*Math.SQRT2 };
+}
+// ダイカット：QR枠(外接AABB)が形状内＋縁マージンmを満たすか
+function qrValidPx(px,py,geom,half,m){
+  const poly=nfcDiePoly(); if(!poly||poly.length<3) return true;
+  const { ox,oy,kw }=geom; const mN=m/kw;
+  const cs=[[px-half,py-half],[px+half,py-half],[px-half,py+half],[px+half,py+half],[px,py-half],[px,py+half],[px-half,py],[px+half,py]];
+  for(let k=0;k<cs.length;k++){ const nx=(cs[k][0]-ox)/kw, ny=(cs[k][1]-oy)/kw; if(!_pip(nx,ny,poly)) return false; if(_minED(nx,ny,poly)<mN) return false; }
+  return true;
+}
+function snapQRGrid(px,py,geom,half,m){
+  const poly=nfcDiePoly(); if(!poly||poly.length<3) return {x:px,y:py};
+  const { ox,oy,kw }=geom; let best=null,bd=Infinity; const N=44;
+  for(let i=0;i<=N;i++) for(let j=0;j<=N;j++){ const gx=ox+kw*i/N, gy=oy+kw*j/N; if(qrValidPx(gx,gy,geom,half,m)){ const d=(gx-px)**2+(gy-py)**2; if(d<bd){bd=d;best={x:gx,y:gy};} } }
+  return best||{x:px,y:py};
+}
+// QR中心(px,py)を本体内へ整える。allowFree=true（自由ドラッグ中）はそのまま返す
+function clampQRPx(px,py,geom,side,allowFree){
+  const { ox,oy,kw,kh,pxPerCm }=geom;
+  const { halfAABB, halfDiag }=qrHalfPx(side,geom); const m=QR_MARGIN*pxPerCm;
+  if(S.shape==='diecut'){
+    if(allowFree) return {x:px,y:py};
+    if(qrValidPx(px,py,geom,halfAABB,m)) return {x:px,y:py};
+    return snapQRGrid(px,py,geom,halfAABB,m);
+  }
+  if(S.shape==='circle'){
+    if(allowFree) return {x:px,y:py};
+    const ccx=ox+kw/2, ccy=oy+kh/2, R=Math.max(0, kw/2-m-halfDiag); let dx=px-ccx,dy=py-ccy;
+    const d=Math.hypot(dx,dy); if(d>R && d>0){ dx=dx/d*R; dy=dy/d*R; }
+    return {x:ccx+dx, y:ccy+dy};
+  }
+  // 四角 / 自由四角
+  if(allowFree) return {x:px,y:py};
+  const minx=ox+m+halfAABB, maxx=ox+kw-m-halfAABB, miny=oy+m+halfAABB, maxy=oy+kh-m-halfAABB;
+  return { x:Math.min(Math.max(px,minx),Math.max(minx,maxx)), y:Math.min(Math.max(py,miny),Math.max(miny,maxy)) };
+}
+function setQRMode(side, m){
+  QRS[side].mode = m;
+  const f=document.getElementById('qrMode-'+side+'-fix'), r=document.getElementById('qrMode-'+side+'-free');
+  if(f) f.classList.toggle('sel', m==='fix'); if(r) r.classList.toggle('sel', m==='free');
+  const wrap=document.getElementById('qrWrap-'+side), bgCv=document.getElementById('qrBg-'+side);
+  if(wrap&&bgCv){ const box=wrap.querySelector('.qr-box'); posQRBox(side, box, bgCv, bgCv.width||wrap.offsetWidth||260, bgCv.height||wrap.offsetHeight||200); }
+}
 
 function getKHRect(aw, ah) {
   const margin = 14;
@@ -2000,18 +2057,19 @@ function drawScaleBar(ctx, ox, oy, kw, kh, pxPerCm) {
 }
 
 function posQRBox(side, box, bgCv, aw, ah) {
-  const { ox, oy, kw, kh, pxPerCm } = getKHRect(aw, ah);
+  const geom = getKHRect(aw, ah); const { ox, oy, kw, kh, pxPerCm } = geom;
   const bpx = Math.max(16, QRS[side].cm * pxPerCm);
-  const cx  = ox + kw * QRS[side].x/100 - bpx/2;
-  const cy  = oy + kh * QRS[side].y/100 - bpx/2;
+  let cx = ox + kw * QRS[side].x/100, cy = oy + kh * QRS[side].y/100;
+  const cl = clampQRPx(cx, cy, geom, side, false); cx = cl.x; cy = cl.y;   // 表示時は必ず本体内へ
+  QRS[side].x = ((cx-ox)/kw)*100; QRS[side].y = ((cy-oy)/kh)*100;
   box.style.width  = bpx+'px'; box.style.height = bpx+'px';
-  box.style.left   = Math.min(ox+kw-bpx, Math.max(ox, cx))+'px';
-  box.style.top    = Math.min(oy+kh-bpx, Math.max(oy, cy))+'px';
+  box.style.left   = (cx-bpx/2)+'px';
+  box.style.top    = (cy-bpx/2)+'px';
   box.style.transform = 'rotate(' + (QRS[side].rot||0) + 'deg)';   // 向き（360度）
 }
 // QR位置を十字キーで微移動（％単位）。位置は本体内にクランプ
 function qrNudge(side, dx, dy) {
-  const step = 2;                                  // ％
+  const step = 1;                                  // ％（X・Yとも1%ずつ）
   QRS[side].x = Math.max(0, Math.min(100, QRS[side].x + dx * step));
   QRS[side].y = Math.max(0, Math.min(100, QRS[side].y + dy * step));
   const wrap=document.getElementById('qrWrap-'+side), bgCv=document.getElementById('qrBg-'+side);
@@ -2030,7 +2088,10 @@ function setQRRot(side, v) {
   QRS[side].rot = d;
   const r = document.getElementById('qrRot-'+side);  if (r && +r.value !== d) r.value = d;
   const n = document.getElementById('qrRotN-'+side); if (n && document.activeElement !== n) n.value = d;
-  const box = document.getElementById('qrBox-'+side); if (box) box.style.transform = 'rotate(' + d + 'deg)';
+  // 回転で外接ボックスが変わるので本体内へ再クランプ（＋transform反映）
+  const wrap=document.getElementById('qrWrap-'+side), bgCv=document.getElementById('qrBg-'+side);
+  if (wrap && bgCv) { const box=wrap.querySelector('.qr-box'); posQRBox(side, box, bgCv, bgCv.width||wrap.offsetWidth||260, bgCv.height||wrap.offsetHeight||200); }
+  else { const box=document.getElementById('qrBox-'+side); if (box) box.style.transform = 'rotate(' + d + 'deg)'; }
 }
 function stepQRRot(side, d) { setQRRot(side, (QRS[side].rot||0) + d); }
 
@@ -2051,19 +2112,20 @@ function setupQRDrag(side, wrap, box, bgCv) {
     const r=wrap.getBoundingClientRect();
     const cl=e.touches?e.touches[0].clientX:e.clientX, ct=e.touches?e.touches[0].clientY:e.clientY;
     const aw=bgCv.width, ah=bgCv.height;
-    const { ox, oy, kw, kh, pxPerCm }=getKHRect(aw, ah);
+    const geom=getKHRect(aw, ah); const { ox, oy, kw, kh, pxPerCm }=geom;
     const bpx=Math.max(16, QRS[side].cm*pxPerCm);
-    const nx=Math.min(ox+kw-bpx, Math.max(ox, cl-r.left-ox2));
-    const ny=Math.min(oy+kh-bpx, Math.max(oy, ct-r.top-oy2));
-    box.style.left=nx+'px'; box.style.top=ny+'px';
-    QRS[side].x = ((nx+bpx/2)-ox)/kw*100;
-    QRS[side].y = ((ny+bpx/2)-oy)/kh*100;
+    let cx = (cl-r.left-ox2) + bpx/2, cy = (ct-r.top-oy2) + bpx/2;   // 枠の中心px
+    const cl2 = clampQRPx(cx, cy, geom, side, QRS[side].mode==='free'); cx=cl2.x; cy=cl2.y;
+    box.style.left=(cx-bpx/2)+'px'; box.style.top=(cy-bpx/2)+'px';
+    QRS[side].x = ((cx-ox)/kw)*100;
+    QRS[side].y = ((cy-oy)/kh)*100;
     if (e.cancelable) e.preventDefault();
   };
   window.addEventListener('mousemove', onMove);
   window.addEventListener('touchmove', onMove, {passive:false});
-  window.addEventListener('mouseup',  ()=>drag=false);
-  window.addEventListener('touchend', ()=>drag=false);
+  const up = () => { if(!drag) return; drag=false; if (QRS[side].mode==='free') posQRBox(side, box, bgCv, bgCv.width, bgCv.height); };   // 自由モードは離した時に本体内へスナップ
+  window.addEventListener('mouseup',  up);
+  window.addEventListener('touchend', up);
 }
 
 function bodyShortCm() { return S.shape === 'rect' ? Math.min(S.widthCm, S.heightCm) : (S.sizeCm || 7); }
