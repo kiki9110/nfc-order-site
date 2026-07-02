@@ -41,11 +41,13 @@ const CONFIG = {
 
   // 対象メールを絞り込む Gmail 検索条件
   //   from:                   送信元（BOOTH の通知）
-  //   "商品が購入されました":  自分が「売った」ときの出品者向けメールだけに絞る。
-  //                           （自分が他人から「買った」ときのメールはこの文言がないので除外される）
+  //   subject:(... OR ...):    入金が確定した注文の通知だけに絞る。
+  //     ・「ご注文が確定しました」… 現在のBOOTH形式。入金確定時に届く（コンビニ払い等は
+  //        後払いなので、この確定メールが入金後に届く。未入金の「商品が注文されました」は対象外）。
+  //     ・「商品が購入されました」… 旧形式／テストメール用に一応残す。
   //   newer_than:             古すぎるメールを無視
-  // ※ テスト中は newer_than を長め（30d）にしておくと少し前のメールも拾えます。
-  GMAIL_QUERY: 'from:booth.pm subject:商品が購入されました newer_than:30d',
+  // ※ 件名の精密判定はコード側の isTargetMail() で行う。ここは粗い絞り込み。
+  GMAIL_QUERY: 'from:booth.pm newer_than:30d (subject:ご注文が確定しました OR subject:商品が購入されました)',
 
   // ──────────────────────────────────────────────
   // 商品名の設定（★テスト中は demo、本番は実際の商品名★）
@@ -106,6 +108,22 @@ const CONFIG = {
  * @param {string} body    本文（プレーンテキスト）
  * @return {string|null}   注文番号、または見つからなければ null
  */
+/**
+ * その件名が「登録対象（入金確定の注文通知）」かどうかを判定する。
+ *
+ * BOOTH の現行形式では、入金が確定すると
+ *   「（【BOOSTあり】）ご注文が確定しました（注文番号 XXXXXXXX） [BOOTH]」
+ * が届く。コンビニ払い等の後払いでも、入金後にこの確定メールが届く。
+ * 一方「商品が注文されました（お支払い未完了）」は入金前なので対象外にする。
+ * 旧形式／テスト用の「商品が購入されました」も一応対象に含める。
+ *
+ * @param {string} subject 件名
+ * @return {boolean} 登録対象なら true
+ */
+function isTargetMail(subject) {
+  return /ご注文が確定しました|商品が購入されました/.test(subject || '');
+}
+
 function extractOrderId(subject, body) {
   const text = (subject || '') + '\n' + (body || '');
 
@@ -206,14 +224,19 @@ function countProduct(body, mails) {
 function processOrders() {
   const processedLabel = getOrCreateLabel(CONFIG.PROCESSED_LABEL);
 
-  // まだ処理済みラベルが付いていないメールだけを対象にする
-  const query = CONFIG.GMAIL_QUERY + ' -label:"' + CONFIG.PROCESSED_LABEL + '"';
-  const threads = GmailApp.search(query, 0, CONFIG.MAX_THREADS);
+  // 【重要】ラベルはスレッド単位でしか付けられない。すでにラベルが付いた
+  // スレッドに後から新しい注文メールが「同じスレッド」として届くと、
+  // -label 除外でスレッドごと読み飛ばされ、その新規メールが永久に登録されない。
+  // → 検索ではラベル除外せず、処理済みは「メッセージID単位」で管理する。
+  const threads = GmailApp.search(CONFIG.GMAIL_QUERY, 0, CONFIG.MAX_THREADS);
 
   if (threads.length === 0) {
-    Logger.log('対象の新着メールはありませんでした。');
+    Logger.log('対象のメールはありませんでした。');
     return;
   }
+
+  // これまでに登録できたメッセージID一覧（メッセージ単位の二重登録防止）
+  const processedIds = loadProcessedIds();
 
   let registered = 0; // 新規に登録した数
   let skipped    = 0; // すでに登録済みでスキップした数
@@ -224,12 +247,15 @@ function processOrders() {
     let handledInThread = false; // このスレッドで1件でも注文番号を扱えたか
 
     for (const msg of messages) {
+      // このメール（メッセージ単位）を過去に登録済みならスキップ
+      const msgId = msg.getId();
+      if (processedIds[msgId]) continue;
+
       const subject = msg.getSubject();
       const body    = msg.getPlainBody();
 
-      // 出品者向けメール（自分が「売った」とき）でなければ対象外
-      const isSellerMail = /商品が購入されました/.test(subject);
-      if (!isSellerMail) continue;
+      // 入金が確定した注文の通知でなければ対象外（未入金メール等はここで除外）
+      if (!isTargetMail(subject)) continue;
 
       const orderId = extractOrderId(subject, body);
       if (!orderId) {
@@ -268,6 +294,7 @@ function processOrders() {
             ' / ' + JSON.stringify(options) + ' / 追加: ' + addonCount + '枚'
           );
           if (already) { skipped++; } else { registered++; }
+          processedIds[msgId] = Date.now();  // このメールを処理済みに記録
           handledInThread = true;
         } catch (e) {
           Logger.log('オプション在庫の登録エラー（' + orderId + '）: ' + e);
@@ -291,6 +318,7 @@ function processOrders() {
           ' / 2枚目以降: ' + addonCount + '枚'
         );
         if (already) { skipped++; } else { registered++; }
+        processedIds[msgId] = Date.now();  // このメールを処理済みに記録
         handledInThread = true;
       } catch (e) {
         Logger.log('登録エラー（' + orderId + '）: ' + e);
@@ -298,11 +326,16 @@ function processOrders() {
       }
     }
 
-    // 1件でも処理できたスレッドは、処理済みラベルを付けて次回対象から外す
+    // 1件でも処理できたスレッドには目印としてラベルを付ける（人が見て分かるように）。
+    // ※ 次回の読み飛ばしは processedIds（メッセージ単位）で行うため、この
+    //   ラベルはあくまで管理用の目印で、除外条件には使わない。
     if (handledInThread) {
       thread.addLabel(processedLabel);
     }
   }
+
+  // 処理済みメッセージID一覧を保存（次回以降の二重登録防止）
+  saveProcessedIds(processedIds);
 
   Logger.log(
     '完了 — 新規登録: ' + registered +
@@ -607,6 +640,38 @@ function getOrCreateLabel(name) {
 
 
 // ============================================================
+// 処理済みメッセージIDの管理（スレッド単位ラベルの取りこぼし対策）
+// ============================================================
+// Gmail のラベルはスレッド単位でしか付けられないため、既処理スレッドに
+// 後から届いた新規メールを取りこぼす。そこで「登録できたメッセージのID」を
+// スクリプトプロパティに記録し、メッセージ単位で二重登録を防ぐ。
+
+const PROCESSED_PROP_KEY = 'processedMsgIds_v1';
+
+/** 処理済みメッセージID一覧を読み込む（{ メッセージID: 記録時刻ミリ秒 }）。 */
+function loadProcessedIds() {
+  const raw = PropertiesService.getScriptProperties().getProperty(PROCESSED_PROP_KEY);
+  if (!raw) return {};
+  try { return JSON.parse(raw) || {}; } catch (e) { return {}; }
+}
+
+/**
+ * 処理済みメッセージID一覧を保存する。
+ * 検索は newer_than:30d で絞っているので、それより十分に古い記録（40日超）は
+ * 二度と再検索に出てこない → 間引いてプロパティの肥大化を防ぐ。
+ * @param {Object} map { メッセージID: 記録時刻ミリ秒 }
+ */
+function saveProcessedIds(map) {
+  const cutoff = Date.now() - 40 * 24 * 60 * 60 * 1000;
+  const pruned = {};
+  Object.keys(map).forEach(function(id){
+    if (map[id] && map[id] > cutoff) pruned[id] = map[id];
+  });
+  PropertiesService.getScriptProperties().setProperty(PROCESSED_PROP_KEY, JSON.stringify(pruned));
+}
+
+
+// ============================================================
 // 実行用エントリーポイント
 // ============================================================
 
@@ -642,8 +707,7 @@ function reprocessAll() {
       const subject = msg.getSubject();
       const body    = msg.getPlainBody();
 
-      const isSellerMail = /商品が購入されました/.test(subject);
-      if (!isSellerMail) continue;
+      if (!isTargetMail(subject)) continue;
 
       const orderId = extractOrderId(subject, body);
       if (!orderId) continue;
