@@ -422,7 +422,7 @@ button{color:inherit;}
 @media(prefers-reduced-motion:reduce){.gd-tw,.gd-tw2{animation:none;}}
 /* NFC/QRの動作GIFプレースホルダー枠（ステップ2）：
    比率が未定のためレスポンシブ（現状は正方形）。src を入れると自動でGIF表示に切り替わる */
-.gd-gif{position:relative;width:100%;aspect-ratio:1/1;border:1.5px dashed var(--border);border-radius:12px;background:var(--cream);overflow:hidden;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:6px;color:var(--muted);font-size:10px;line-height:1.6;padding:8px;text-align:center;}
+.gd-gif{position:relative;width:100%;aspect-ratio:1/1;border:1.5px solid var(--border);border-radius:12px;background:var(--cream);overflow:hidden;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:6px;color:var(--muted);font-size:10px;line-height:1.6;padding:8px;text-align:center;}
 .gd-gif .gg-emoji{font-size:30px;line-height:1;}
 .gd-gif img{position:absolute;inset:0;width:100%;height:100%;object-fit:cover;display:block;}
 /* 形状比較（ステップ4） */
@@ -430,15 +430,15 @@ button{color:inherit;}
 @media(max-width:420px){.gd-shapes{grid-template-columns:repeat(2,1fr);}}
 .gd-shape-cell{border:1.5px solid var(--border);border-radius:12px;background:var(--surface);padding:8px 4px 7px;text-align:center;}
 .gd-shape-cell svg{width:100%;height:auto;display:block;}
-/* 土台カラー比較（ステップ3）：5列×2段を1ブロックで横スクロール（列が縦にそろう） */
-.gd-cmp-scroll{overflow-x:auto;-webkit-overflow-scrolling:touch;margin:0 0 12px;padding-bottom:4px;}
-.gd-cmp-grid{display:grid;grid-template-columns:repeat(5,minmax(62px,1fr));gap:8px;min-width:350px;}
-.gd-cmp-lbl{grid-column:1/-1;font-size:11.5px;font-weight:700;color:var(--muted);margin-top:2px;}
-.gd-cmp-cell{text-align:center;}
-.gd-cmp-ph{position:relative;aspect-ratio:1/1;border:1.5px solid var(--border);border-radius:12px;overflow:hidden;background:var(--surface);}
-.gd-cmp-ph svg{position:absolute;inset:0;width:100%;height:100%;}
-.gd-cmp-img{position:absolute;inset:0;width:100%;height:100%;object-fit:cover;display:block;}
-.gd-cmp-name{font-size:10px;color:var(--muted);margin-top:4px;white-space:nowrap;}
+/* 土台カラー比較（ステップ3）・サイズ比較（ステップ4）：
+   複数色/サイズが1枚に写った「まとめ写真」をそのまま表示する。
+   写真の縦横比は撮影次第で不定なので、比率を固定せず max-width:100% / height:auto で収める。 */
+.gd-cap{font-size:11.5px;font-weight:700;color:var(--muted);margin:2px 0 6px;}
+.gd-photo{position:relative;border:1.5px solid var(--border);border-radius:12px;overflow:hidden;background:var(--cream);margin:0 0 8px;min-height:60px;}
+.gd-photo-img{display:block;position:relative;z-index:1;width:100%;height:auto;max-width:100%;}
+.gd-photo-fb{position:absolute;inset:0;z-index:0;display:flex;align-items:center;justify-content:center;color:var(--muted);font-size:11px;text-align:center;padding:10px;line-height:1.7;}
+/* サイズ比較の1枚写真：大きすぎないよう横幅を抑えて中央寄せ */
+.gd-photo--sm{max-width:320px;margin-left:auto;margin-right:auto;}
 /* 送信後フロー（ステップ8） */
 .gd-flow{display:flex;flex-wrap:wrap;align-items:center;gap:6px;margin:0 0 12px;font-size:12px;color:var(--muted);}
 .gd-flow-it{border:1.5px solid var(--border);border-radius:20px;background:var(--surface);padding:5px 10px;font-size:11.5px;font-weight:700;color:var(--ink);white-space:nowrap;}
@@ -3944,61 +3944,27 @@ function gdSample(scale, x, y){
     + '</g>';
 }
 
-// ── ステップ3：土台カラー比較（無地／同じ絵をプリント） ──────────────
-// 実物写真が撮れたら plainSrc（無地）/ printSrc（印刷あり）にパスを入れるだけで
-// プレースホルダーから写真表示に自動で切り替わる。色を増やす時もこの配列に足すだけ。
-// 【撮影メモ】全色とも同じ照明・同じ角度で1個ずつ撮影し、正方形にトリミング推奨。
-//   上段用＝印刷なしの無地の土台のみ／下段用＝全色に同じイラストを印刷した状態。
-var STEP3_COLORS = [
-  { name:'ホワイト', hex:'#FFFFFF', plainSrc:'', printSrc:'' },
-  { name:'ブラック', hex:'#1a1a18', plainSrc:'', printSrc:'' },
-  { name:'ブルー',   hex:'#2563EB', plainSrc:'', printSrc:'' },
-  { name:'レッド',   hex:'#EF4444', plainSrc:'', printSrc:'' },
-  { name:'イエロー', hex:'#FACC15', plainSrc:'', printSrc:'' }
-];
-
-// 2段×5色の比較ブロックを生成（上段=無地、下段=印刷あり）。列が縦にそろうよう1グリッド。
-function buildColorCompare(){
-  function cell(c, printed){
-    var src = printed ? c.printSrc : c.plainSrc;
-    var inner;
-    if (src){
-      inner = '<img class="gd-cmp-img" src="' + src + '" alt="' + c.name + (printed ? '（印刷あり）' : '（無地）') + '">';
-    } else {
-      // 写真が入るまでのプレースホルダー：実際の色hexで塗った土台（＋印刷ありは共通イラスト）
-      inner = '<svg viewBox="0 0 100 100" aria-hidden="true">'
-        + '<rect x="6" y="6" width="88" height="88" rx="16" fill="' + c.hex + '" stroke="rgba(128,128,128,.45)" stroke-width="2"/>'
-        + '<circle cx="50" cy="14" r="4" fill="none" stroke="rgba(128,128,128,.8)" stroke-width="2"/>'
-        + (printed ? gdSample(0.6, 20, 22) : '')
-        + '</svg>';
-    }
-    return '<div class="gd-cmp-cell"><div class="gd-cmp-ph">' + inner + '</div>'
-      + '<div class="gd-cmp-name">' + c.name + '</div></div>';
-  }
-  var h = '<div class="gd-cmp-scroll"><div class="gd-cmp-grid">';
-  h += '<div class="gd-cmp-lbl">無地（土台カラーのみ）</div>';
-  STEP3_COLORS.forEach(function(c){ h += cell(c, false); });
-  h += '<div class="gd-cmp-lbl">同じ絵をプリントすると…</div>';
-  STEP3_COLORS.forEach(function(c){ h += cell(c, true); });
-  h += '</div></div>';
-  return h;
+// ── まとめ写真（1枚）表示ヘルパー ──────────────────────────────
+// 土台カラー比較・サイズ比較は、複数色/サイズが1枚に写った写真をそのまま表示する。
+// 画像が読み込めない場合（アップロード前・404）は onerror で img を外し、fb（準備中）を見せる。
+// 縦横比は撮影次第で不定なため、CSS 側で max-width:100% / height:auto にして固定しない。
+function gdPhoto(src, alt, fb, cls){
+  return '<div class="gd-photo' + (cls ? ' ' + cls : '') + '"><span class="gd-photo-fb">' + fb + '</span>'
+    + '<img class="gd-photo-img" src="' + src + '" alt="' + alt + '" onerror="this.remove()"></div>';
 }
 
 // ── ステップ2：NFC/QRの動作GIF ──────────────────────────────
-// 撮影できたら下の src にパスを入れるだけで、プレースホルダーからGIF表示に切り替わる。
-// 【撮影メモ】
-//   GIF_NFC_SRC … スマホでNFCタグにかざしてからURLが開くまでの一連の動き
-//   GIF_QR_SRC  … カメラでQRコードを読み取ってからURLが開くまでの一連の動き
-//   どちらも正方形トリミング推奨（枠はレスポンシブなので、比率を変える場合は
-//   CSSの .gd-gif { aspect-ratio } を実素材に合わせて調整する）。
-var GIF_NFC_SRC = '';
-var GIF_QR_SRC  = '';
+// GIFは assets/guide/ に置く（正方形トリミング済み前提）。src が空／読み込めない場合は
+// 絵文字＋「準備中」メモのプレースホルダー表示へ自動で戻る（onerror）。
+var GIF_NFC_SRC = 'assets/guide/nfc-demo.gif';   // かざして開く動き
+var GIF_QR_SRC  = 'assets/guide/qr-demo.gif';    // 読み取って開く動き
 
-// GIFプレースホルダー枠：src が空なら絵文字＋準備中メモ、あれば <img>（GIF）を重ねて表示
+// GIF枠：下地に絵文字＋準備中メモを置き、src があれば <img>（GIF）を重ねて表示。
+// 画像が読み込めれば下地は隠れ、404など読み込めなければ img を外して下地（準備中）を見せる。
 function gdGif(src, emoji, note, alt){
   return '<div class="gd-gif">'
     + '<span class="gg-emoji">' + emoji + '</span><span>' + note + '</span>'
-    + (src ? '<img src="' + src + '" alt="' + alt + '">' : '')
+    + (src ? '<img src="' + src + '" alt="' + alt + '" onerror="this.remove()">' : '')
     + '</div>';
 }
 
@@ -4033,14 +3999,32 @@ var GUIDE_STEPS = [
       + '<p>どちらも「読み取るとURLが開く」仕組みです。<strong>両方入れる（併用）</strong>こともできます。</p>'
       + '<p class="gd-note">NFCタグは有料オプション、QRコードは無料で追加できます。それぞれのセクションで設定します。</p>' },
 
-  // 3. 土台カラー比較（無地／印刷あり。実写真に差し替え予定）
+  // 3. 土台カラー比較（無地5色まとめ写真／印刷あり5色まとめ写真の2枚）
+  //    ※ まとめ写真は ホワイト・ブラック・ブルー・イエロー・オレンジ の5色。レッド・グリーンは未収録。
+  //      将来7色版のまとめ写真に撮り直す（または追加する）ときは、この2枚を差し替えるだけでよい。
   { title:'土台カラーで見え方が変わる',
     fig:null,
-    html: buildColorCompare()
-      + '<p>土台カラーだけでも<strong>そのままアクセサリーとして成立</strong>します。同じ絵を印刷しても、土台の色によって見え方・雰囲気が変わります。</p>'
-      + '<p class="gd-note">※ 現在は準備中のイメージ図です。実物の比較写真に順次差し替えます。売り切れ中の色は選べません。</p>' },
+    html: '<p>土台カラーだけでも<strong>そのままアクセサリーとして成立</strong>します。同じ絵を印刷すると、土台の色で見え方・雰囲気が変わります。</p>'
+      // NFC/QRステップと同じ左右2分割（無地／印刷あり）で並べる。写真は横向き・小さめに収める。
+      + '<div class="gd-duo">'
+      +   '<div class="gd-duo-item">'
+      +     gdPhoto('assets/guide/color-plain-group.jpg', '無地の土台カラー（ホワイト・ブラック・ブルー・イエロー・オレンジ）', '📷 準備中')
+      +     '<div class="gd-duo-name">無地</div><div class="gd-duo-sub">土台カラーのみ</div></div>'
+      +   '<div class="gd-duo-item">'
+      +     gdPhoto('assets/guide/color-print-group.jpg', '同じ絵を印刷した各色（ホワイト・ブラック・ブルー・イエロー・オレンジ）', '📷 準備中')
+      +     '<div class="gd-duo-name">印刷あり</div><div class="gd-duo-sub">同じ絵をプリント</div></div>'
+      + '</div>'
+      + '<p class="gd-note">写真はホワイト・ブラック・ブルー・イエロー・オレンジの例です。売り切れ中の色は選べません。</p>' },
 
-  // 4. 形状の種類（4種類の比較。数値は実際の選択肢と同じ）
+  // 4. サイズで印象が変わる（白×同一印刷を小・中・大で並べた1枚写真。数値は「サイズ設定」の実仕様に一致）
+  { title:'サイズで印象が変わる',
+    fig:null,
+    html: '<p>同じ土台カラー・同じ印刷でも、<strong>大きさで印象が変わります</strong>。小さめは上品でさりげなく、大きめは存在感が出ます。</p>'
+      + '<div class="gd-cap" style="text-align:center;">白色・同じ印刷で 小・中・大</div>'
+      + gdPhoto('assets/guide/size-group.jpg', '白×同一印刷を小・中・大の3サイズで比較', '📷 サイズ比較の写真（準備中）', 'gd-photo--sm')
+      + '<p class="gd-note">サイズは長辺で<strong>3cm〜9cm</strong>、厚さは<strong>2.5〜5mm</strong>の範囲で選べます（次の「形」を選ぶと、下の「サイズ設定」で調整できます）。</p>' },
+
+  // 5. 形状の種類（4種類の比較。数値は実際の選択肢と同じ）
   { title:'形は4種類から選べる',
     fig:null,
     html:'<div class="gd-shapes" aria-hidden="true">'
@@ -4055,7 +4039,7 @@ var GUIDE_STEPS = [
       + '<p><strong>ダイカット</strong>は、置いた画像の輪郭そのままの形に切り抜きます（背景が透過のPNG推奨）。</p>'
       + '<p class="gd-note">サイズはどの形状も最小3cm〜最大9cm。「サイズ設定」で長辺・厚さ（ダイカットは縁の太さも）を調整できます。</p>' },
 
-  // 5. 送信後の流れ（簡易。詳細は完了ページのガイドへ誘導）
+  // 6. 送信後の流れ（簡易。詳細は完了ページのガイドへ誘導）
   //    ※「画像編集」「穴の位置」「NFC・QR位置」の操作説明は、ミニチュア図解では
   //      伝わりにくいため、このモーダルから外して実画面のコーチマーク方式に移行（Part B）
   { title:'送信したあとは？',

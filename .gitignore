@@ -5,3 +5,10 @@
 .DS_Store
 Thumbs.db
 *.swp
+
+# ガイド用の元素材（変換前HEIC・リネーム前GIF）。
+# ブラウザ表示用に変換・縮小した版だけ assets/guide/ に置いてコミットする。
+*.HEIC
+*.heic
+/NFC.gif
+/QR.gif
