@@ -347,6 +347,120 @@ button{color:inherit;}
 .float-cluster{position:fixed;top:14px;right:14px;z-index:1000;display:flex;gap:8px;align-items:center;}
 .float-cluster .theme-toggle,.float-cluster .nav-toggle{border-color:rgba(44,39,64,.16);background:var(--surface);color:var(--accent);box-shadow:0 4px 14px -5px rgba(0,0,0,.25);-webkit-backdrop-filter:none;backdrop-filter:none;}
 :root[data-theme="night"] .float-cluster .theme-toggle,:root[data-theme="night"] .float-cluster .nav-toggle{background:rgba(255,255,255,.08);color:#ffce9e;box-shadow:0 0 16px -4px rgba(255,131,88,.45);}
+
+/* ===== 使い方ガイド（チュートリアル） =====================================
+   ・.help-q   … 各セクション見出し横の小さな「？」（最下部のスクリプトが自動挿入）
+   ・.help-pop … 「？」タップで出る簡易説明の吹き出し（1個を全ボタンで使い回す）
+   ・.guide-btn… トップバーの大きな「？」＝フルガイドを開く
+   ・.guide-bg … ステップ形式のフルガイドモーダル
+   文言・ステップ内容は最下部スクリプトの SEC_HELP / GUIDE_STEPS（データ）に集約 */
+.help-q{width:20px;height:20px;border-radius:50%;border:1.5px solid var(--border);background:var(--surface);color:var(--muted);font-size:11px;font-weight:700;font-family:'Noto Sans JP',sans-serif;cursor:pointer;display:inline-flex;align-items:center;justify-content:center;flex-shrink:0;padding:0;line-height:1;transition:border-color .15s,color .15s,transform .12s;}
+.help-q:hover{border-color:var(--accent);color:var(--accent);transform:scale(1.12);}
+.sec.opt-locked .help-q{cursor:pointer;} /* オプション未購入ロック中でも説明は読める */
+.help-pop{position:fixed;z-index:3500;max-width:min(300px,calc(100vw - 24px));background:var(--ink);color:var(--paper);font-size:12px;line-height:1.75;padding:10px 14px;border-radius:12px;box-shadow:0 10px 28px -8px rgba(0,0,0,.4);opacity:0;transform:translateY(-4px);pointer-events:none;transition:opacity .18s,transform .18s;}
+.help-pop.show{opacity:1;transform:translateY(0);pointer-events:auto;}
+:root[data-theme="night"] .help-pop{background:#2a2433;color:#fff;box-shadow:0 10px 30px -6px rgba(0,0,0,.7);}
+
+/* トップバーの大「？」：白地×アクセント色で他ボタンより少し目立たせる */
+.guide-btn{display:inline-flex;align-items:center;justify-content:center;width:36px;height:36px;border-radius:50%;border:1.5px solid rgba(255,255,255,.65);background:rgba(255,255,255,.94);color:var(--accent);cursor:pointer;padding:0;font-family:var(--pop);font-size:15px;line-height:1;flex-shrink:0;box-shadow:0 2px 8px rgba(0,0,0,.15);transition:transform .12s,background .2s;}
+.guide-btn:hover{transform:scale(1.08);}
+.guide-btn:active{transform:scale(.93);}
+:root[data-theme="night"] .guide-btn{border-color:rgba(255,255,255,.18);background:rgba(255,255,255,.1);color:#ffce9e;box-shadow:none;}
+
+/* フルガイドモーダル（nav-drawer:2000 より上に重ねる） */
+.guide-bg{display:none;position:fixed;inset:0;background:rgba(10,8,16,.6);z-index:3000;align-items:center;justify-content:center;padding:16px;-webkit-backdrop-filter:blur(3px);backdrop-filter:blur(3px);}
+.guide-bg.open{display:flex;}
+.guide-modal{background:var(--paper);border-radius:20px;width:100%;max-width:440px;max-height:min(86vh,640px);display:flex;flex-direction:column;overflow:hidden;box-shadow:0 24px 60px -12px rgba(0,0,0,.45);}
+:root[data-theme="night"] .guide-modal{background:#1b1822;border:1px solid rgba(255,255,255,.1);}
+.guide-head{display:flex;align-items:center;justify-content:space-between;gap:10px;padding:14px 16px 12px;border-bottom:1px solid var(--border);flex-shrink:0;}
+.guide-head-title{font-family:var(--pop);font-size:15px;color:var(--ink);display:flex;align-items:center;gap:9px;}
+.guide-count{font-size:11px;font-weight:700;color:var(--accent);background:var(--sel);border-radius:20px;padding:2px 10px;font-family:'Noto Sans JP',sans-serif;}
+.guide-x{width:32px;height:32px;border:none;border-radius:50%;background:transparent;color:var(--muted);font-size:21px;line-height:1;cursor:pointer;padding:0;flex-shrink:0;}
+.guide-x:hover{background:var(--cream);color:var(--ink);}
+.guide-body{flex:1;overflow-y:auto;padding:18px 20px 14px;-webkit-overflow-scrolling:touch;}
+.guide-body.anim{animation:gdStepIn .22s ease;}
+@keyframes gdStepIn{from{opacity:0;transform:translateX(10px);}to{opacity:1;transform:none;}}
+@media(prefers-reduced-motion:reduce){.guide-body.anim{animation:none;}}
+.guide-step-title{font-family:var(--pop);font-size:16px;line-height:1.55;color:var(--ink);margin-bottom:12px;}
+/* 図解プレースホルダー枠：後日 SVG／GIF／実写真に差し替える */
+.guide-fig{margin:0 0 14px;border:1.5px dashed var(--border);border-radius:14px;background:var(--cream);min-height:150px;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:7px;color:var(--muted);font-size:11px;text-align:center;padding:14px;}
+.guide-fig .gf-emoji{font-size:36px;line-height:1;}
+.guide-step-text{font-size:13px;line-height:1.9;color:var(--ink);}
+.guide-step-text p{margin:0 0 10px;}
+.guide-step-text p:last-child{margin-bottom:0;}
+.guide-foot{flex-shrink:0;border-top:1px solid var(--border);padding:10px 16px 14px;}
+.guide-dots{display:flex;justify-content:center;margin-bottom:8px;}
+/* ドットはタップしやすいよう当たり判定24px・見た目8pxの二重構造 */
+.guide-dot{position:relative;width:24px;height:24px;border:none;background:transparent;cursor:pointer;padding:0;}
+.guide-dot::after{content:'';position:absolute;top:50%;left:50%;width:8px;height:8px;border-radius:50%;background:var(--border);transform:translate(-50%,-50%);transition:background .2s,transform .2s;}
+.guide-dot:hover::after{background:var(--muted);}
+.guide-dot.on::after{background:var(--accent);transform:translate(-50%,-50%) scale(1.45);}
+.guide-nav{display:flex;gap:10px;}
+.guide-prev{flex:1;padding:12px 8px;border:2px solid var(--border);border-radius:12px;background:transparent;color:var(--ink);font-family:'Noto Sans JP',sans-serif;font-size:13px;font-weight:700;cursor:pointer;}
+.guide-prev:hover:not(:disabled){border-color:var(--ink);}
+.guide-prev:disabled{opacity:.35;cursor:default;}
+.guide-next{flex:1.6;padding:12px 8px;border:none;border-radius:12px;background:var(--accent);color:#fff;font-family:'Noto Sans JP',sans-serif;font-size:13px;font-weight:700;cursor:pointer;box-shadow:var(--cta-sh);transition:transform .1s,box-shadow .1s;}
+.guide-next:active{transform:translateY(2px);box-shadow:var(--cta-shA);}
+/* 最終ステップ限定：操作方法の通しツアー（コーチマーク連続実行）への入口 */
+.guide-ops{display:none;width:100%;margin-bottom:8px;padding:12px 8px;border:2px solid var(--accent);border-radius:12px;background:var(--sel);color:var(--accent);font-family:'Noto Sans JP',sans-serif;font-size:13px;font-weight:700;cursor:pointer;}
+.guide-ops.show{display:block;}
+.guide-ops:active{transform:translateY(1px);}
+
+/* ---- ガイド図解（gd-）：CSSアニメSVG・比較レイアウト ---- */
+.gd-fig2{margin:0 0 14px;border:1.5px solid var(--border);border-radius:14px;background:var(--cream);padding:12px;}
+.gd-fig2 > svg{width:100%;height:auto;display:block;}
+.gd-duo{display:flex;gap:10px;margin:0 0 12px;}
+.gd-duo-item{flex:1;min-width:0;border:1.5px solid var(--border);border-radius:12px;background:var(--surface);padding:10px 8px;text-align:center;}
+.gd-duo-item svg{width:100%;height:auto;display:block;}
+.gd-duo-name{font-size:12.5px;font-weight:700;color:var(--ink);margin-top:6px;}
+.gd-duo-sub{font-size:10.5px;color:var(--muted);margin-top:2px;line-height:1.7;}
+.guide-step-text .gd-note{font-size:11.5px;color:var(--muted);}
+/* アニメ部品（reduced-motion では停止）※操作説明はコーチマーク方式へ移行したため、SVG操作アニメは廃止 */
+.gd-tw{transform-box:fill-box;transform-origin:center;animation:gdTwinkle 2.2s ease-in-out infinite;}
+.gd-tw2{animation-delay:.7s;}
+@keyframes gdTwinkle{0%,100%{opacity:.15;transform:scale(.8);}50%{opacity:1;transform:scale(1.15);}}
+@media(prefers-reduced-motion:reduce){.gd-tw,.gd-tw2{animation:none;}}
+/* NFC/QRの動作GIFプレースホルダー枠（ステップ2）：
+   比率が未定のためレスポンシブ（現状は正方形）。src を入れると自動でGIF表示に切り替わる */
+.gd-gif{position:relative;width:100%;aspect-ratio:1/1;border:1.5px dashed var(--border);border-radius:12px;background:var(--cream);overflow:hidden;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:6px;color:var(--muted);font-size:10px;line-height:1.6;padding:8px;text-align:center;}
+.gd-gif .gg-emoji{font-size:30px;line-height:1;}
+.gd-gif img{position:absolute;inset:0;width:100%;height:100%;object-fit:cover;display:block;}
+/* 形状比較（ステップ4） */
+.gd-shapes{display:grid;grid-template-columns:repeat(4,1fr);gap:8px;margin:0 0 12px;}
+@media(max-width:420px){.gd-shapes{grid-template-columns:repeat(2,1fr);}}
+.gd-shape-cell{border:1.5px solid var(--border);border-radius:12px;background:var(--surface);padding:8px 4px 7px;text-align:center;}
+.gd-shape-cell svg{width:100%;height:auto;display:block;}
+/* 土台カラー比較（ステップ3）：5列×2段を1ブロックで横スクロール（列が縦にそろう） */
+.gd-cmp-scroll{overflow-x:auto;-webkit-overflow-scrolling:touch;margin:0 0 12px;padding-bottom:4px;}
+.gd-cmp-grid{display:grid;grid-template-columns:repeat(5,minmax(62px,1fr));gap:8px;min-width:350px;}
+.gd-cmp-lbl{grid-column:1/-1;font-size:11.5px;font-weight:700;color:var(--muted);margin-top:2px;}
+.gd-cmp-cell{text-align:center;}
+.gd-cmp-ph{position:relative;aspect-ratio:1/1;border:1.5px solid var(--border);border-radius:12px;overflow:hidden;background:var(--surface);}
+.gd-cmp-ph svg{position:absolute;inset:0;width:100%;height:100%;}
+.gd-cmp-img{position:absolute;inset:0;width:100%;height:100%;object-fit:cover;display:block;}
+.gd-cmp-name{font-size:10px;color:var(--muted);margin-top:4px;white-space:nowrap;}
+/* 送信後フロー（ステップ8） */
+.gd-flow{display:flex;flex-wrap:wrap;align-items:center;gap:6px;margin:0 0 12px;font-size:12px;color:var(--muted);}
+.gd-flow-it{border:1.5px solid var(--border);border-radius:20px;background:var(--surface);padding:5px 10px;font-size:11.5px;font-weight:700;color:var(--ink);white-space:nowrap;}
+
+/* ===== コーチマーク（実画面スポットライト） ==============================
+   起動：対象セクション（画像・穴・NFC・QR）の小「？」ポップオーバー内の「▶ 使い方を見る」。
+   画面全体を暗くし、実際のUI要素だけを穴あきでハイライト＋吹き出しで説明する。
+   ツアー内容は最下部スクリプトの COACH_TOURS（データ）に集約 */
+.help-pop-btn{display:block;margin-top:9px;width:100%;padding:8px 10px;border:none;border-radius:8px;background:var(--accent);color:#fff;font-family:'Noto Sans JP',sans-serif;font-size:12px;font-weight:700;cursor:pointer;}
+.help-pop-btn:active{transform:translateY(1px);}
+.coach-root{position:fixed;inset:0;z-index:4000;display:none;}
+.coach-root.on{display:block;}
+/* スポットライト：対象要素の位置に置いた透明枠の巨大な box-shadow で周囲だけ暗くする */
+.coach-hole{position:fixed;border-radius:12px;box-shadow:0 0 0 9999px rgba(10,8,16,.62);transition:top .25s,left .25s,width .25s,height .25s;pointer-events:none;}
+.coach-hole::after{content:'';position:absolute;inset:-3px;border:2.5px solid var(--accent);border-radius:14px;}
+.coach-tip{position:fixed;max-width:min(320px,calc(100vw - 24px));background:var(--paper);color:var(--ink);border-radius:14px;padding:12px 14px;box-shadow:0 12px 34px -8px rgba(0,0,0,.5);font-size:12.5px;line-height:1.8;}
+:root[data-theme="night"] .coach-tip{background:#1b1822;border:1px solid rgba(255,255,255,.12);}
+.coach-cnt{font-size:10.5px;font-weight:700;color:var(--accent);margin-bottom:3px;}
+.coach-nav{display:flex;align-items:center;gap:8px;margin-top:9px;}
+.coach-skip{background:none;border:none;color:var(--muted);font-size:11.5px;cursor:pointer;padding:6px 4px;font-family:'Noto Sans JP',sans-serif;}
+.coach-next{margin-left:auto;padding:8px 16px;border:none;border-radius:9px;background:var(--accent);color:#fff;font-family:'Noto Sans JP',sans-serif;font-size:12.5px;font-weight:700;cursor:pointer;}
+@media print{.coach-root{display:none !important;}}
 </style>
 <script>
 (function(){var K='bukiTheme',mq=window.matchMedia('(prefers-color-scheme: dark)');
@@ -368,7 +482,7 @@ if(document.readyState!=='loading')w();else document.addEventListener('DOMConten
   <div class="topbar-right">
     <div class="topbar-order" id="topOrder">—</div>
     <div class="topbar-step">ステップ 2 / 2</div>
-    <button id="themeToggle" class="theme-toggle" type="button" aria-label="ライト/ダーク表示を切り替え"><svg class="ic-moon" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M21 12.8A9 9 0 1 1 11.2 3a7 7 0 0 0 9.8 9.8Z"/></svg><svg class="ic-sun" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><circle cx="12" cy="12" r="4"/><path d="M12 3v1.5M12 19.5V21M3 12h1.5M19.5 12H21M5.6 5.6l1 1M17.4 17.4l1 1M18.4 5.6l-1 1M6.6 17.4l-1 1"/></svg></button><button id="navToggle" class="nav-toggle" type="button" aria-label="メニューを開く"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><path d="M3 6h18M3 12h18M3 18h18"/></svg></button>
+    <button id="guideBtn" class="guide-btn" type="button" aria-label="使い方ガイドを開く">？</button><button id="themeToggle" class="theme-toggle" type="button" aria-label="ライト/ダーク表示を切り替え"><svg class="ic-moon" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M21 12.8A9 9 0 1 1 11.2 3a7 7 0 0 0 9.8 9.8Z"/></svg><svg class="ic-sun" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><circle cx="12" cy="12" r="4"/><path d="M12 3v1.5M12 19.5V21M3 12h1.5M19.5 12H21M5.6 5.6l1 1M17.4 17.4l1 1M18.4 5.6l-1 1M6.6 17.4l-1 1"/></svg></button><button id="navToggle" class="nav-toggle" type="button" aria-label="メニューを開く"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><path d="M3 6h18M3 12h18M3 18h18"/></svg></button>
   </div>
 </div>
 <div class="prog"><div class="prog-fill" id="progFill"></div></div>
@@ -460,7 +574,7 @@ if(document.readyState!=='loading')w();else document.addEventListener('DOMConten
     <div class="upload-zone" id="uz-front">
       <input type="file" id="img-front" accept="image/*" onchange="onFileChange(event,'front')">
       <div class="uz-icon">🖼️</div>
-      <div class="uz-text"><strong>クリックして選択</strong><br>またはドロップ</div>
+      <div class="uz-text"><strong>クリックして選択</strong><br>またはドロップ<br><span style="font-size:11px;">ここに追加した画像が、キーホルダーに印刷されます</span></div>
     </div>
     <div class="preview-wrap" id="pw-front">
       <canvas id="cv-front" width="200" height="200"></canvas>
@@ -475,7 +589,7 @@ if(document.readyState!=='loading')w();else document.addEventListener('DOMConten
       <div class="upload-zone" id="uz-back">
         <input type="file" id="img-back" accept="image/*" onchange="onFileChange(event,'back')">
         <div class="uz-icon">🖼️</div>
-        <div class="uz-text"><strong>うら面の画像を選択</strong></div>
+        <div class="uz-text"><strong>うら面の画像を選択</strong><br><span style="font-size:11px;">ここに追加した画像が、うら面に印刷されます</span></div>
       </div>
       <div class="preview-wrap" id="pw-back">
         <canvas id="cv-back" width="200" height="200"></canvas>
@@ -919,6 +1033,25 @@ if(document.readyState!=='loading')w();else document.addEventListener('DOMConten
     <div class="modal-foot">
       <button class="btn-cancel" onclick="closeCrop()">キャンセル</button>
       <button class="btn-apply" onclick="applyCrop()">切り取る ✓</button>
+    </div>
+  </div>
+</div>
+
+<!-- 使い方ガイド モーダル（ガワ）：ステップの中身は最下部スクリプトの GUIDE_STEPS で定義 -->
+<div class="guide-bg" id="guideOverlay" role="dialog" aria-modal="true" aria-label="使い方ガイド">
+  <div class="guide-modal">
+    <div class="guide-head">
+      <div class="guide-head-title">📖 使い方ガイド <span class="guide-count" id="guideCount">1 / 8</span></div>
+      <button class="guide-x" id="guideClose" type="button" aria-label="ガイドを閉じる">×</button>
+    </div>
+    <div class="guide-body" id="guideBody"><!-- render() がステップ内容を描画 --></div>
+    <div class="guide-foot">
+      <div class="guide-dots" id="guideDots"><!-- 進捗ドット（JSで生成・タップでジャンプ） --></div>
+      <button class="guide-ops" id="guideOps" type="button">操作方法を見る →</button><!-- 最終ステップのみ表示（renderで切替） -->
+      <div class="guide-nav">
+        <button class="guide-prev" id="guidePrev" type="button">← 戻る</button>
+        <button class="guide-next" id="guideNext" type="button">次へ →</button>
+      </div>
     </div>
   </div>
 </div>
@@ -3559,7 +3692,8 @@ function leSyncCtrl(){
 function leRenderThumbs(){
   const box = document.getElementById('leThumbs'); if (!box) return;
   const layers = leEditLayers(); const selId = leEditSelId();
-  if (!layers.length){ box.innerHTML = '<div class="le-empty">' + (leBaseMode() ? '「＋ 追加」で<br>形を作る画像を入れる' : '「＋ 追加」で<br>画像を入れる') + '</div>'; return; }
+  // 空のとき：何をすればいいか＋何が起きるかを一言で示す（エンプティステート）
+  if (!layers.length){ box.innerHTML = '<div class="le-empty">' + (leBaseMode() ? '「＋ 追加」で<br>形を作る画像を入れる<br><span style="opacity:.75;">この形に切り抜かれます</span>' : '「＋ 追加」で<br>画像を入れる<br><span style="opacity:.75;">そのまま印刷されます</span>') + '</div>'; return; }
   let h = '';
   for (let i = layers.length - 1; i >= 0; i--){
     const l = layers[i];
@@ -3700,6 +3834,558 @@ window.addEventListener('scroll',onS,{passive:true});window.addEventListener('re
 </script>
 <script>
 (function(){var t=document.getElementById('navToggle'),d=document.getElementById('navDrawer'),o=document.getElementById('navOverlay'),c=document.getElementById('navClose');if(!t||!d)return;function op(){d.classList.add('open');if(o)o.classList.add('open');d.setAttribute('aria-hidden','false');}function cl(){d.classList.remove('open');if(o)o.classList.remove('open');d.setAttribute('aria-hidden','true');}t.addEventListener('click',op);if(c)c.addEventListener('click',cl);if(o)o.addEventListener('click',cl);document.addEventListener('keydown',function(e){if(e.key==='Escape')cl();});})();
+</script>
+<script>
+/* ═══════════════════════════════════════════════════════
+   使い方ガイド（チュートリアル）
+   - SEC_HELP    … 各セクション見出し横「？」の説明文（データ）
+   - GUIDE_STEPS … フルガイドの各ステップ（データ）
+   表示側（ポップオーバー／モーダル）はこの2つのデータだけを
+   読んで描画するため、文言変更やイラスト→GIF/実写真への
+   差し替えはデータ側の編集だけで完結する。
+   ═══════════════════════════════════════════════════════ */
+(function(){
+'use strict';
+function $(id){ return document.getElementById(id); }
+
+/* ---------- A. セクション見出しの「？」（簡易ポップオーバー） ---------- */
+// sec: 対象セクションのDOM id ／ text: 1〜2文の説明
+// tour: 指定するとポップオーバーに「▶ 使い方を見る」ボタンが出て、
+//       実画面のコーチマーク（COACH_TOURS のキー）を起動できる（ロック中は非表示）
+// ボタン自体はここから自動挿入するので、セクション側のHTMLは触らない
+var SEC_HELP = [
+  { sec:'sec1',  text:'アクリル本体の色です。売り切れの色は選べません。' },
+  { sec:'sec2',  text:'丸・四角・自由四角・ダイカット（輪郭切り抜き）から選べます。ダイカットは画像の形そのままに切り抜きます。' },
+  { sec:'sec35', text:'表だけでなく裏面にも別の画像を印刷できます（+¥100）。' },
+  { sec:'sec4',  text:'表示する画像を配置します。複数枚を重ねて配置することも可能です。', tour:'img' },
+  { sec:'sec6',  text:'長辺・厚さを指定します。ダイカットは縁の太さも調整できます。' },
+  { sec:'sec7',  text:'チェーンを通す穴の位置を指定します。本体の内側／外側で見た目が変わります。', tour:'hole' },
+  { sec:'sec3',  text:'スマホをかざすとURLに飛ぶICチップです（+¥200）。位置も指定できます。', tour:'nfc' },
+  { sec:'sec5',  text:'カメラで読み取るとURLに飛ぶコードです。NFC非対応の端末でも使えます。', tour:'qr' }
+];
+
+// 吹き出しは1個だけ生成して全ボタンで使い回す
+var pop = document.createElement('div');
+pop.className = 'help-pop';
+pop.setAttribute('role', 'tooltip');
+document.body.appendChild(pop);
+var popBtn = null; // いま吹き出しを開いている「？」ボタン
+
+function openPop(btn, text, tourKey){
+  // 本文＋（対象セクションなら）コーチマーク起動ボタンを組み立てる
+  pop.innerHTML = '';
+  var s = document.createElement('span');
+  s.textContent = text;
+  pop.appendChild(s);
+  if (tourKey){
+    var tb = document.createElement('button');
+    tb.type = 'button';
+    tb.className = 'help-pop-btn';
+    tb.textContent = '▶ 使い方を見る（実際の画面で説明）';
+    tb.addEventListener('click', function(ev){
+      ev.stopPropagation();
+      closePop();
+      coachStart(tourKey);
+    });
+    pop.appendChild(tb);
+  }
+  pop.classList.add('show');
+  popBtn = btn;
+  // 表示してから実幅を測り、ボタン直下＆画面からはみ出さない位置に置く
+  var r = btn.getBoundingClientRect();
+  var x = r.left + r.width / 2 - pop.offsetWidth / 2;
+  x = Math.max(8, Math.min(x, window.innerWidth - pop.offsetWidth - 8));
+  pop.style.left = x + 'px';
+  pop.style.top  = (r.bottom + 8) + 'px';
+}
+function closePop(){ pop.classList.remove('show'); popBtn = null; }
+
+SEC_HELP.forEach(function(h){
+  var title = document.querySelector('#' + h.sec + ' .sec-head .sec-title');
+  if (!title) return;
+  var b = document.createElement('button');
+  b.type = 'button';
+  b.className = 'help-q';
+  b.textContent = '？';
+  b.setAttribute('aria-label', 'この項目の説明を表示');
+  b.addEventListener('click', function(e){
+    e.stopPropagation();                       // セクションの開閉（toggle等）を発火させない
+    if (popBtn === b){ closePop(); return; }   // 同じ「？」の再タップで閉じる
+    var t = h.text;
+    // 10桁注文番号（hide-price）のときは「（+¥○○）」表記を外す
+    if (document.body.classList.contains('hide-price')) t = t.replace(/（\+?[¥￥][0-9,]+）/g, '');
+    // ロック中（前提未選択 .locked／オプション未購入 .opt-locked）はコーチマーク起動ボタンを出さない
+    var secEl = document.getElementById(h.sec);
+    var locked = secEl && (secEl.classList.contains('locked') || secEl.classList.contains('opt-locked'));
+    openPop(b, t, (h.tour && !locked) ? h.tour : null);
+  });
+  title.after(b);
+});
+
+// 吹き出しの外側タップ／スクロール／リサイズで閉じる
+document.addEventListener('click', function(e){
+  if (popBtn && e.target !== popBtn && !pop.contains(e.target)) closePop();
+});
+window.addEventListener('scroll', closePop, { passive:true });
+window.addEventListener('resize', closePop);
+
+/* ---------- B. フルガイド（ステップ式モーダル） ---------- */
+// 各ステップ： title=見出し ／ fig=図解（emoji＋一言。fig:null なら html に直接SVG等を書く）／ html=本文
+// 文言・図はすべてこのデータ側の編集だけで差し替えられる（表示エンジンは下の render）。
+
+// 共通の「印刷例」イラスト（ブランドカラー #2563EB 基調）。
+// 土台の縁が見えるよう余白を残して置く前提で、ステップ3(印刷あり)・4(形状)・5(編集)で使い回す。
+// 0〜100 の座標系で描いた <g> を返す（scale と x/y で好きな場所に置ける）。
+function gdSample(scale, x, y){
+  return '<g transform="translate(' + (x||0) + ' ' + (y||0) + ') scale(' + (scale||1) + ')">'
+    + '<circle cx="50" cy="50" r="27" fill="#2563EB"/>'
+    + '<path d="M50 33l5.3 10.8 11.9 1.7-8.6 8.4 2 11.9L50 60.2l-10.6 5.6 2-11.9-8.6-8.4 11.9-1.7z" fill="#fff"/>'
+    + '<circle cx="24" cy="29" r="4" fill="#93c5fd"/><circle cx="78" cy="70" r="5" fill="#60a5fa"/>'
+    + '</g>';
+}
+
+// ── ステップ3：土台カラー比較（無地／同じ絵をプリント） ──────────────
+// 実物写真が撮れたら plainSrc（無地）/ printSrc（印刷あり）にパスを入れるだけで
+// プレースホルダーから写真表示に自動で切り替わる。色を増やす時もこの配列に足すだけ。
+// 【撮影メモ】全色とも同じ照明・同じ角度で1個ずつ撮影し、正方形にトリミング推奨。
+//   上段用＝印刷なしの無地の土台のみ／下段用＝全色に同じイラストを印刷した状態。
+var STEP3_COLORS = [
+  { name:'ホワイト', hex:'#FFFFFF', plainSrc:'', printSrc:'' },
+  { name:'ブラック', hex:'#1a1a18', plainSrc:'', printSrc:'' },
+  { name:'ブルー',   hex:'#2563EB', plainSrc:'', printSrc:'' },
+  { name:'レッド',   hex:'#EF4444', plainSrc:'', printSrc:'' },
+  { name:'イエロー', hex:'#FACC15', plainSrc:'', printSrc:'' }
+];
+
+// 2段×5色の比較ブロックを生成（上段=無地、下段=印刷あり）。列が縦にそろうよう1グリッド。
+function buildColorCompare(){
+  function cell(c, printed){
+    var src = printed ? c.printSrc : c.plainSrc;
+    var inner;
+    if (src){
+      inner = '<img class="gd-cmp-img" src="' + src + '" alt="' + c.name + (printed ? '（印刷あり）' : '（無地）') + '">';
+    } else {
+      // 写真が入るまでのプレースホルダー：実際の色hexで塗った土台（＋印刷ありは共通イラスト）
+      inner = '<svg viewBox="0 0 100 100" aria-hidden="true">'
+        + '<rect x="6" y="6" width="88" height="88" rx="16" fill="' + c.hex + '" stroke="rgba(128,128,128,.45)" stroke-width="2"/>'
+        + '<circle cx="50" cy="14" r="4" fill="none" stroke="rgba(128,128,128,.8)" stroke-width="2"/>'
+        + (printed ? gdSample(0.6, 20, 22) : '')
+        + '</svg>';
+    }
+    return '<div class="gd-cmp-cell"><div class="gd-cmp-ph">' + inner + '</div>'
+      + '<div class="gd-cmp-name">' + c.name + '</div></div>';
+  }
+  var h = '<div class="gd-cmp-scroll"><div class="gd-cmp-grid">';
+  h += '<div class="gd-cmp-lbl">無地（土台カラーのみ）</div>';
+  STEP3_COLORS.forEach(function(c){ h += cell(c, false); });
+  h += '<div class="gd-cmp-lbl">同じ絵をプリントすると…</div>';
+  STEP3_COLORS.forEach(function(c){ h += cell(c, true); });
+  h += '</div></div>';
+  return h;
+}
+
+// ── ステップ2：NFC/QRの動作GIF ──────────────────────────────
+// 撮影できたら下の src にパスを入れるだけで、プレースホルダーからGIF表示に切り替わる。
+// 【撮影メモ】
+//   GIF_NFC_SRC … スマホでNFCタグにかざしてからURLが開くまでの一連の動き
+//   GIF_QR_SRC  … カメラでQRコードを読み取ってからURLが開くまでの一連の動き
+//   どちらも正方形トリミング推奨（枠はレスポンシブなので、比率を変える場合は
+//   CSSの .gd-gif { aspect-ratio } を実素材に合わせて調整する）。
+var GIF_NFC_SRC = '';
+var GIF_QR_SRC  = '';
+
+// GIFプレースホルダー枠：src が空なら絵文字＋準備中メモ、あれば <img>（GIF）を重ねて表示
+function gdGif(src, emoji, note, alt){
+  return '<div class="gd-gif">'
+    + '<span class="gg-emoji">' + emoji + '</span><span>' + note + '</span>'
+    + (src ? '<img src="' + src + '" alt="' + alt + '">' : '')
+    + '</div>';
+}
+
+var GUIDE_STEPS = [
+
+  // 1. イントロ：何ができるか
+  { title:'NFC・QRキーホルダーへようこそ',
+    fig:null,
+    html:'<div class="gd-fig2" aria-hidden="true"><svg viewBox="0 0 220 110">'
+      + '<circle cx="96" cy="62" r="40" fill="#fff" stroke="#2563EB" stroke-width="3"/>'
+      + '<circle cx="96" cy="30" r="5" fill="none" stroke="#8a8398" stroke-width="2.5"/>'
+      + '<circle cx="96" cy="17" r="7" fill="none" stroke="#8a8398" stroke-width="2.5"/>'
+      + gdSample(0.56, 68, 34)
+      + '<path class="gd-tw" d="M170 28l3.2 7 7 3.2-7 3.2-3.2 7-3.2-7-7-3.2 7-3.2z" fill="#ff9d6b"/>'
+      + '<path class="gd-tw gd-tw2" d="M36 66l2.6 5.6 5.6 2.6-5.6 2.6-2.6 5.6-2.6-5.6-5.6-2.6 5.6-2.6z" fill="#93c5fd"/>'
+      + '</svg></div>'
+      + '<p>アクリルキーホルダーを、<strong>好きな画像・形・色</strong>で自由にデザインして注文できるページです。</p>'
+      + '<p>さらに <strong>NFCタグ</strong> や <strong>QRコード</strong> を入れると、スマホで読み取るだけでお好きなURL（SNS・サイトなど）を開ける「かざせる」キーホルダーになります。</p>'
+      + '<p class="gd-note">上から順番に設定していけばOK。各項目の見出しにある小さな「？」でも、その場で説明が見られます。</p>' },
+
+  // 2. NFCとQRの違い（実際の動作GIFを横並びで見せる。素材ができるまではプレースホルダー枠）
+  { title:'NFCとQR、どう違う？',
+    fig:null,
+    html:'<div class="gd-duo">'
+      + '<div class="gd-duo-item">'
+      +   gdGif(GIF_NFC_SRC, '📱', 'GIF準備中：かざして開く動き', 'スマホをNFCタグにかざしてURLが開く様子')
+      +   '<div class="gd-duo-name">📶 NFCタグ</div><div class="gd-duo-sub">スマホを<strong>かざすだけ</strong>。裏面に埋め込むので<strong>見た目に出ません</strong></div></div>'
+      + '<div class="gd-duo-item">'
+      +   gdGif(GIF_QR_SRC, '🔳', 'GIF準備中：読み取って開く動き', 'QRコードをカメラで読み取ってURLが開く様子')
+      +   '<div class="gd-duo-name">🔳 QRコード</div><div class="gd-duo-sub">カメラで<strong>読み取る</strong>。見た目に出ますが<strong>対応端末を選びません</strong></div></div>'
+      + '</div>'
+      + '<p>どちらも「読み取るとURLが開く」仕組みです。<strong>両方入れる（併用）</strong>こともできます。</p>'
+      + '<p class="gd-note">NFCタグは有料オプション、QRコードは無料で追加できます。それぞれのセクションで設定します。</p>' },
+
+  // 3. 土台カラー比較（無地／印刷あり。実写真に差し替え予定）
+  { title:'土台カラーで見え方が変わる',
+    fig:null,
+    html: buildColorCompare()
+      + '<p>土台カラーだけでも<strong>そのままアクセサリーとして成立</strong>します。同じ絵を印刷しても、土台の色によって見え方・雰囲気が変わります。</p>'
+      + '<p class="gd-note">※ 現在は準備中のイメージ図です。実物の比較写真に順次差し替えます。売り切れ中の色は選べません。</p>' },
+
+  // 4. 形状の種類（4種類の比較。数値は実際の選択肢と同じ）
+  { title:'形は4種類から選べる',
+    fig:null,
+    html:'<div class="gd-shapes" aria-hidden="true">'
+      + '<div class="gd-shape-cell"><svg viewBox="0 0 100 100"><circle cx="50" cy="50" r="38" fill="#fff" stroke="#2c2740" stroke-width="2.5"/>' + gdSample(0.52, 24, 24) + '</svg><div class="gd-duo-name">丸型</div><div class="gd-duo-sub">φ50mm</div></div>'
+      + '<div class="gd-shape-cell"><svg viewBox="0 0 100 100"><rect x="12" y="12" width="76" height="76" rx="10" fill="#fff" stroke="#2c2740" stroke-width="2.5"/>' + gdSample(0.52, 24, 24) + '</svg><div class="gd-duo-name">四角形</div><div class="gd-duo-sub">最大90×90mm</div></div>'
+      + '<div class="gd-shape-cell"><svg viewBox="0 0 100 100"><rect x="6" y="24" width="88" height="52" rx="9" fill="#fff" stroke="#2c2740" stroke-width="2.5"/>' + gdSample(0.4, 30, 30) + '</svg><div class="gd-duo-name">自由四角</div><div class="gd-duo-sub">縦横を自由に</div></div>'
+      + '<div class="gd-shape-cell"><svg viewBox="0 0 100 100">'
+      +   '<path d="M50 8l12 24 27 4-19.5 19 4.6 27L50 69 25.9 82l4.6-27L11 36l27-4z" fill="#fff" stroke="#2c2740" stroke-width="2.5" stroke-linejoin="round"/>'
+      +   '<path d="M50 24l7.4 15 16.6 2.4-12 11.7 2.8 16.6L50 62l-14.8 7.7 2.8-16.6-12-11.7L42.6 39z" fill="#2563EB"/>'
+      + '</svg><div class="gd-duo-name">ダイカット</div><div class="gd-duo-sub">輪郭で切り抜き</div></div>'
+      + '</div>'
+      + '<p><strong>ダイカット</strong>は、置いた画像の輪郭そのままの形に切り抜きます（背景が透過のPNG推奨）。</p>'
+      + '<p class="gd-note">サイズはどの形状も最小3cm〜最大9cm。「サイズ設定」で長辺・厚さ（ダイカットは縁の太さも）を調整できます。</p>' },
+
+  // 5. 送信後の流れ（簡易。詳細は完了ページのガイドへ誘導）
+  //    ※「画像編集」「穴の位置」「NFC・QR位置」の操作説明は、ミニチュア図解では
+  //      伝わりにくいため、このモーダルから外して実画面のコーチマーク方式に移行（Part B）
+  { title:'送信したあとは？',
+    fig:null,
+    html:'<div class="gd-flow" aria-hidden="true">'
+      + '<span class="gd-flow-it">📮 注文を送信</span><span>→</span>'
+      + '<span class="gd-flow-it">🛡 3日間はキャンセルOK</span><span>→</span>'
+      + '<span class="gd-flow-it">🔨 製作</span><span>→</span>'
+      + '<span class="gd-flow-it">📦 発送</span>'
+      + '</div>'
+      + '<p>送信後、<strong>3日間はキャンセルできます</strong>（注文履歴ページから）。お急ぎの場合は、完了ページで<strong>「注文を確定」</strong>すると3日を待たずにすぐ製作を開始できます。</p>'
+      + '<p class="gd-note">キャンセル・確定・発送・URL変更について詳しくは、送信後に表示される完了ページの「？」マークで案内しています。</p>' }
+];
+
+var overlay = $('guideOverlay');
+var gBody = $('guideBody');
+var gDots = $('guideDots');
+var cur = 0;
+
+// 進捗ドットをステップ数ぶん生成（タップでそのステップへジャンプ）
+GUIDE_STEPS.forEach(function(_, i){
+  var d = document.createElement('button');
+  d.type = 'button';
+  d.className = 'guide-dot';
+  d.setAttribute('aria-label', 'ステップ' + (i + 1) + 'へ');
+  d.addEventListener('click', function(){ go(i); });
+  gDots.appendChild(d);
+});
+
+function render(){
+  var st = GUIDE_STEPS[cur];
+  var fig = st.fig
+    ? '<div class="guide-fig"><span class="gf-emoji">' + st.fig.emoji + '</span><span>' + st.fig.note + '</span></div>'
+    : '';
+  gBody.innerHTML =
+    '<div class="guide-step-title">' + st.title + '</div>' + fig +
+    '<div class="guide-step-text">' + st.html + '</div>';
+  gBody.scrollTop = 0;
+  // 切替アニメ：クラスを外し reflow を挟んで付け直すと再生される
+  gBody.classList.remove('anim'); void gBody.offsetWidth; gBody.classList.add('anim');
+  $('guideCount').textContent = (cur + 1) + ' / ' + GUIDE_STEPS.length;
+  Array.prototype.forEach.call(gDots.children, function(d, i){ d.classList.toggle('on', i === cur); });
+  $('guidePrev').disabled = (cur === 0);
+  $('guideNext').textContent = (cur === GUIDE_STEPS.length - 1) ? '閉じる ✓' : '次へ →';
+  // 最終ステップだけ「操作方法を見る →」（コーチマーク通しツアー）を出す
+  $('guideOps').classList.toggle('show', cur === GUIDE_STEPS.length - 1);
+}
+function go(i){ cur = Math.max(0, Math.min(GUIDE_STEPS.length - 1, i)); render(); }
+
+function openGuide(){
+  closePop();
+  cur = 0;                                   // 開くたびに最初のステップから
+  overlay.classList.add('open');
+  document.body.style.overflow = 'hidden';   // 背面ページのスクロールを止める
+  render();
+}
+function closeGuide(){
+  overlay.classList.remove('open');
+  document.body.style.overflow = '';
+}
+
+$('guideBtn').addEventListener('click', openGuide);
+$('guideClose').addEventListener('click', closeGuide);
+// 「操作方法を見る →」：モーダルを閉じて、画像→穴→NFC→QRの通しコーチマークへ
+$('guideOps').addEventListener('click', function(){
+  closeGuide();
+  coachChainStart();
+});
+overlay.addEventListener('click', function(e){ if (e.target === overlay) closeGuide(); });
+$('guidePrev').addEventListener('click', function(){ go(cur - 1); });
+$('guideNext').addEventListener('click', function(){
+  if (cur === GUIDE_STEPS.length - 1) closeGuide(); else go(cur + 1);
+});
+// キーボード操作：← → でステップ移動、Esc で閉じる
+document.addEventListener('keydown', function(e){
+  if (!overlay.classList.contains('open')) return;
+  if (e.key === 'Escape') closeGuide();
+  else if (e.key === 'ArrowRight') go(cur + 1);
+  else if (e.key === 'ArrowLeft') go(cur - 1);
+});
+
+/* ---------- C. コーチマーク（実画面スポットライト） ---------- */
+// 各ツアー：el=対象要素のCSSセレクタ ／ text=1〜2文の短い説明。
+// 起動時に「実際に画面へ見えている要素」だけを手順にする（非表示の手順は自動スキップ）ので、
+// 状態（あり/なし・ダイカットか否か・面の選択など）でUIが変わっても定義は1つで済む。
+var COACH_TOURS = {
+  // キーホルダー画像（全形状共通のレイヤーエディタ。旧アップロードUIは廃止済み）
+  img: [
+    { el:'#sb4 .le-add',   text:'「＋ 追加」をタップして画像を入れます。複数枚入れられます。' },
+    { el:'#sb4 .le-list',  text:'入れた画像はこの一覧に並びます。動かしたい画像をタップして選択します。' },
+    { el:'#layerStage',    text:'選んだ画像はドラッグで移動できます。点線が形の縁（切り取り線）です。' },
+    { el:'#leCtrl',        text:'▲▼◀▶で微調整、スライダーで回転・大きさを調整。「前面へ／背面へ」で重なり順も変えられます。' },
+    { el:'#leModes',       text:'ダイカットは2段階：「形(土台)」で切り抜く形を作り、「画像」でその中に印刷する絵を置きます。' }
+  ],
+  // 穴の位置
+  hole: [
+    { el:'#attachWrap',        text:'キーホルダーの好きな場所をタップ／ドラッグして、チェーン穴の位置を決めます。' },
+    { el:'#sb7 .attach-info',  text:'本体の内側なら「本体内」＝その場所に穴が開きます。外側なら「外付けツメ」＝持ち手が生えます（縁から最大1cm）。' },
+    { el:'#sb7 .att-pad',      text:'▲▼◀▶で1%ずつ細かく動かせます。●で横の中央に戻ります。' },
+    { el:'#sb7 .att-ctrl-top', text:'「🔍 拡大」や＋−ズームで大きく表示して、細かい位置を合わせられます。' }
+  ],
+  // NFCタグ（「なし」の間は1手順目だけが対象になり、「あり」にすると残りも見られる）
+  nfc: [
+    { el:'#sb3 .yn-row',       text:'まず「あり」を選ぶと、NFCタグ付きになります。' },
+    { el:'#nfcUrl',            text:'かざしたときに開くURLをここに入力します（届いたあとにマイページで変更もできます）。' },
+    { el:'#nfcWrap',           text:'「NFC」の枠をドラッグして、タグを埋め込む位置を決めます。' },
+    { el:'#sb3 .nfc-mode-row', text:'「ボタンでかんたん」＝縁の内側だけ動く／「自由に配置」＝長押しでどこでも置けます。' },
+    { el:'#sb3 .qr-rot-row',   text:'「向き」でタグの角度を変えられます。' }
+  ],
+  // QRコード（面の選択状態に応じて、見えている方のエディタだけを案内）
+  qr: [
+    { el:'#sb5 > .yn-row',        text:'「あり」を選ぶと、QRコード付きになります。' },
+    { el:'#qrUrl',                text:'読み取ったときに開くURLをここに入力します。' },
+    { el:'#qrOptions > .yn-row',  text:'QRコードを印刷する面（おもて／うら）を選びます。両方に入れることもできます。' },
+    { el:'#qrWrap-front',         text:'「QR」の枠をドラッグして位置を決めます。▲▼◀▶でも微調整できます。' },
+    { el:'#qrWrap-back',          text:'「QR」の枠をドラッグして位置を決めます。▲▼◀▶でも微調整できます。' },
+    { el:'#qrEd-front .qr-size-row', text:'QRコードのサイズ（1.2〜5cm）はここで調整。上の「向き」で回転もできます。' },
+    { el:'#qrEd-back .qr-size-row',  text:'QRコードのサイズ（1.2〜5cm）はここで調整。上の「向き」で回転もできます。' }
+  ]
+};
+// ツアーキー → セクションのDOM id（ロック確認・自動オープン用）
+var COACH_SEC = { img:'sec4', hole:'sec7', nfc:'sec3', qr:'sec5' };
+
+/* ── ツアー用の一時的な「見た目だけ」の表示切替 ─────────────────────
+   「なし」選択中でも、購入済みのお客様には全手順（URL入力欄・位置エディタ等）を
+   省略せず見せるための仕組み。変更したstyle/classをundoスタックに記録し、
+   終了・スキップ・Escのどの経路でも coachTempRestore() で必ず元に戻す。
+   ※注文データ（S.nfc / S.qr などの内部状態）は一切書き換えない。 */
+var coachTempUndo = [];
+function coachTempShow(el, displayVal){
+  if (!el) return;
+  var prev = el.style.display;
+  el.style.display = displayVal;
+  coachTempUndo.push(function(){ el.style.display = prev; });
+}
+function coachTempClass(el, cls){
+  if (!el || el.classList.contains(cls)) return;
+  el.classList.add(cls);
+  coachTempUndo.push(function(){ el.classList.remove(cls); });
+}
+function coachTempRemoveClass(el, cls){
+  if (!el || !el.classList.contains(cls)) return;
+  el.classList.remove(cls);
+  coachTempUndo.push(function(){ el.classList.add(cls); });
+}
+function coachTempRestore(){
+  while (coachTempUndo.length) coachTempUndo.pop()();
+}
+
+// 各ツアー開始前の一時表示（隠れている説明対象を見せる）。hole は常時表示なので不要。
+var COACH_PREP = {
+  img: function(){
+    // エディタ本体：形状未選択などで未表示なら一時的に見せる（通しツアーのロック一時解除時）
+    var ed = document.getElementById('layerEd');
+    if (ed && getComputedStyle(ed).display === 'none') coachTempShow(ed, 'block');
+    // 調整パネル：画像未選択だと隠れている → 一時的に見せる
+    var ctrl = document.getElementById('leCtrl');
+    if (ctrl && getComputedStyle(ctrl).display === 'none') coachTempShow(ctrl, 'block');
+    // ダイカット2モードの切替：非ダイカット中も説明のため一時的に見せる
+    var modes = document.getElementById('leModes');
+    if (modes && getComputedStyle(modes).display === 'none') coachTempShow(modes, 'inline-flex');
+  },
+  nfc: function(){
+    // 「なし」選択中：URL入力欄＋位置エディタを一時的に見せる（S.nfc は触らない）
+    var box = document.getElementById('nfcUrl-box');
+    if (box && !box.classList.contains('show')){
+      coachTempClass(box, 'show');
+      // エディタの描画のみ実施（initNFCEditor はキャンバス描画とドラッグ設定だけで状態を変えない）
+      if (typeof initNFCEditor === 'function') setTimeout(initNFCEditor, 40);
+    }
+  },
+  qr: function(){
+    // 「なし」選択中：QR設定一式を一時的に見せる（S.qr は触らない）
+    var opt = document.getElementById('qrOptions');
+    if (opt && getComputedStyle(opt).display === 'none') coachTempShow(opt, 'block');
+    // 面が未選択でエディタが1つも見えていなければ、おもて面エディタを一時的に見せる
+    var f = document.getElementById('qrEd-front'), b = document.getElementById('qrEd-back');
+    var anyEd = (f && getComputedStyle(f).display !== 'none') || (b && getComputedStyle(b).display !== 'none');
+    if (!anyEd && f){
+      coachTempShow(f, 'block');
+      if (typeof initQREditor === 'function') setTimeout(function(){ initQREditor('front'); }, 40);
+    }
+  }
+};
+
+// オーバーレイDOM（1式だけ生成して全ツアーで使い回す）
+var cRoot = document.createElement('div');
+cRoot.className = 'coach-root';
+cRoot.innerHTML =
+  '<div class="coach-hole" id="coachHole"></div>'
+  + '<div class="coach-tip" role="dialog" aria-label="操作ガイド" id="coachTip">'
+  +   '<div class="coach-cnt" id="coachCnt"></div><div id="coachTxt"></div>'
+  +   '<div class="coach-nav">'
+  +     '<button type="button" class="coach-skip" id="coachSkip">スキップ</button>'
+  +     '<button type="button" class="coach-next" id="coachNext">次へ →</button>'
+  +   '</div>'
+  + '</div>';
+document.body.appendChild(cRoot);
+var cHole = $('coachHole'), cTip = $('coachTip');
+var cSteps = [], cIdx = 0, cOn = false, cKey = null;   // cKey=実行中ツアーのキー（ラベル表示用）
+
+// 対象が実際に画面へ描画されているか（display:none の祖先があると offsetParent は null）
+function coachVisible(el){
+  if (!el || el.offsetParent === null) return false;
+  var r = el.getBoundingClientRect();
+  return r.width > 2 && r.height > 2;
+}
+
+// ツアーを開始する。開始できたら true（通しツアーはこの戻り値でスキップ判定する）
+function coachStart(key){
+  var secEl = document.getElementById(COACH_SEC[key]);
+  // 未購入（opt-locked）のセクションは説明しない：単独起動は抑止済み、通しツアーでは飛ばす
+  if (secEl && secEl.classList.contains('opt-locked')) return false;
+  coachTempRestore();                      // 念のため前回分の一時表示をクリア
+  // 前提未選択のロック（.locked＝土台カラー・形状が未選択の画像セクション）は
+  // 「まだ選んでいないだけ」なので、通しツアーでは見た目だけ一時的に解除して説明する
+  // （このセクションのツアーが終わると coachTempRestore で自動的にロック表示へ戻る）
+  if (secEl && secEl.classList.contains('locked')){
+    if (!coachChain) return false;         // 単独起動（通常はボタン非表示）はここでは起動しない
+    coachTempRemoveClass(secEl, 'locked');
+  }
+  var sb = secEl && secEl.querySelector('.sec-body');
+  if (sb && sb.classList.contains('hidden')){
+    sb.classList.remove('hidden');   // セクションが畳まれていたら開く（既存の誘導処理と同じ手法）
+    // 通しツアーが自動で開いたセクションは、終了・中断時に元どおり閉じられるよう記録
+    if (coachChain) coachChain.restore.push(function(){ sb.classList.add('hidden'); });
+  }
+  // 「なし」等で隠れている説明対象を一時的に表示（見た目のみ。終了時に必ず復元）
+  if (COACH_PREP[key]) COACH_PREP[key]();
+  cSteps = COACH_TOURS[key]
+    .map(function(s){ return { text: s.text, el: document.querySelector(s.el) }; })
+    .filter(function(o){ return coachVisible(o.el); });
+  if (!cSteps.length){
+    coachTempRestore();
+    if (!coachChain && typeof toast === 'function') toast('先にこのセクションの項目を表示してください');
+    return false;
+  }
+  cKey = key; cIdx = 0; cOn = true;
+  cRoot.classList.add('on');
+  window.addEventListener('scroll', coachPos, { passive:true });
+  window.addEventListener('resize', coachPos);
+  coachShow();
+  return true;
+}
+
+function coachShow(){
+  var o = cSteps[cIdx];
+  $('coachCnt').textContent = (COACH_LABEL[cKey] || '') + '　' + (cIdx + 1) + ' / ' + cSteps.length;
+  $('coachTxt').textContent = o.text;
+  $('coachNext').textContent = (cIdx === cSteps.length - 1) ? '終了 ✓' : '次へ →';
+  o.el.scrollIntoView({ block:'center' });   // 対象を画面中央へ（スクロールに追従して再配置される）
+  coachPos();
+}
+
+// スポットライトと吹き出しの位置を対象要素に合わせる（スクロール・リサイズでも呼ばれる）
+function coachPos(){
+  if (!cOn) return;
+  var el = cSteps[cIdx].el, r = el.getBoundingClientRect(), pad = 6;
+  cHole.style.top    = (r.top - pad) + 'px';
+  cHole.style.left   = (r.left - pad) + 'px';
+  cHole.style.width  = (r.width + pad * 2) + 'px';
+  cHole.style.height = (r.height + pad * 2) + 'px';
+  // 吹き出し：下に収まるなら対象の下、無理なら上に出す
+  var tw = cTip.offsetWidth, th = cTip.offsetHeight;
+  var x = Math.max(12, Math.min(r.left + r.width / 2 - tw / 2, window.innerWidth - tw - 12));
+  var below = (r.bottom + pad + 10 + th) < (window.innerHeight - 8);
+  var y = below ? (r.bottom + pad + 10) : Math.max(8, r.top - pad - 10 - th);
+  cTip.style.left = x + 'px';
+  cTip.style.top  = y + 'px';
+}
+
+function coachNext(){
+  if (cIdx >= cSteps.length - 1){ coachEnd(true); return; }   // 最終ステップ完了
+  cIdx++; coachShow();
+}
+// ツアー終了。completed=true は「最後まで見終えた」、それ以外は中断（スキップ・Esc）
+function coachEnd(completed){
+  cOn = false;
+  cRoot.classList.remove('on');
+  window.removeEventListener('scroll', coachPos);
+  window.removeEventListener('resize', coachPos);
+  coachTempRestore();   // 一時的に見せていたUI（URL欄・エディタ等）を元の表示状態へ戻す
+  // 通しツアー中：完了なら次のセクションへ、中断なら全体を終了して開閉状態を復元
+  if (coachChain){
+    if (completed === true) coachChainNext();
+    else coachChainStop(false);
+  }
+}
+
+/* ── 通しツアー（大「？」モーダル最終ステップ「操作方法を見る →」から起動） ──
+   画像 → 穴の位置 → NFC → QR の順に連続でコーチマークを実施する。
+   ロック中のセクションは飛ばし、自動で開いたセクションは終了・中断時に閉じ直す。 */
+var COACH_ORDER = ['img', 'hole', 'nfc', 'qr'];
+var COACH_LABEL = { img:'キーホルダー画像', hole:'穴の位置', nfc:'NFCタグ', qr:'QRコード' };
+var coachChain = null;   // 実行中のみ: { idx, restore:[自動で開いたセクションを閉じ直す関数] }
+
+function coachChainStart(){
+  coachChain = { idx: -1, restore: [] };
+  coachChainNext();
+}
+// 次のセクションのツアーへ進む。開始できないもの（ロック中など）はエラーにせず飛ばす
+function coachChainNext(){
+  if (!coachChain) return;
+  coachChain.idx++;
+  while (coachChain.idx < COACH_ORDER.length){
+    if (coachStart(COACH_ORDER[coachChain.idx])) return;  // 各ツアーの終了時に coachEnd 経由でまた呼ばれる
+    coachChain.idx++;
+  }
+  coachChainStop(true);   // 全セクション完了
+}
+// 通しツアーの後始末。completed=true（完走）ならページ最上部へスムーズスクロール
+function coachChainStop(completed){
+  var restore = coachChain ? coachChain.restore : [];
+  coachChain = null;
+  restore.forEach(function(fn){ fn(); });   // ツアーが自動で開いたセクションを元どおり閉じる
+  if (completed) window.scrollTo({ top: 0, behavior: 'smooth' });
+}
+
+$('coachNext').addEventListener('click', coachNext);
+$('coachSkip').addEventListener('click', function(){ coachEnd(false); });
+// 暗い部分のタップでも次へ進める（スポットライト自体は pointer-events:none なので同じ扱い）
+cRoot.addEventListener('click', function(e){ if (e.target === cRoot) coachNext(); });
+// キーボード操作：→/Enter=次へ、←=戻る、Esc=終了
+document.addEventListener('keydown', function(e){
+  if (!cOn) return;
+  if (e.key === 'Escape') coachEnd();
+  else if (e.key === 'ArrowRight' || e.key === 'Enter') coachNext();
+  else if (e.key === 'ArrowLeft'){ if (cIdx > 0){ cIdx--; coachShow(); } }
+});
+})();
 </script>
 </body>
 </html>

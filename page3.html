@@ -263,6 +263,64 @@ body{font-family:'Noto Sans JP',sans-serif;background:var(--paper);color:var(--i
 .float-cluster{position:fixed;top:14px;right:14px;z-index:1000;display:flex;gap:8px;align-items:center;}
 .float-cluster .theme-toggle,.float-cluster .nav-toggle{border-color:rgba(44,39,64,.16);background:var(--surface);color:var(--accent);box-shadow:0 4px 14px -5px rgba(0,0,0,.25);-webkit-backdrop-filter:none;backdrop-filter:none;}
 :root[data-theme="night"] .float-cluster .theme-toggle,:root[data-theme="night"] .float-cluster .nav-toggle{background:rgba(255,255,255,.08);color:#ffce9e;box-shadow:0 0 16px -4px rgba(255,131,88,.45);}
+
+/* ===== ご購入後のガイド（page2の使い方ガイドと同じ部品構成） =====================
+   ・.help-q   … 「ご案内」カード各行の小さな「？」（最下部のスクリプトが自動挿入）
+   ・.help-pop … 「？」タップで出る一言ヒントの吹き出し（1個を使い回す）
+   ・.guide-btn… トップバーの大きな「？」＝4項目の詳細ガイドを開く
+   ・.guide-bg … ステップ形式のガイドモーダル
+   文言は最下部スクリプトの P3_HELP / GUIDE_STEPS（データ）に集約 */
+.help-q{width:20px;height:20px;border-radius:50%;border:1.5px solid var(--border);background:var(--surface);color:var(--muted);font-size:11px;font-weight:700;font-family:'Noto Sans JP',sans-serif;cursor:pointer;display:inline-flex;align-items:center;justify-content:center;flex-shrink:0;padding:0;line-height:1;transition:border-color .15s,color .15s,transform .12s;}
+.help-q:hover{border-color:var(--accent);color:var(--accent);transform:scale(1.12);}
+.help-pop{position:fixed;z-index:3500;max-width:min(300px,calc(100vw - 24px));background:var(--ink);color:var(--paper);font-size:12px;line-height:1.75;padding:10px 14px;border-radius:12px;box-shadow:0 10px 28px -8px rgba(0,0,0,.4);opacity:0;transform:translateY(-4px);pointer-events:none;transition:opacity .18s,transform .18s;}
+.help-pop.show{opacity:1;transform:translateY(0);pointer-events:auto;}
+:root[data-theme="night"] .help-pop{background:#2a2433;color:#fff;box-shadow:0 10px 30px -6px rgba(0,0,0,.7);}
+.guide-btn{display:inline-flex;align-items:center;justify-content:center;width:36px;height:36px;border-radius:50%;border:1.5px solid rgba(255,255,255,.65);background:rgba(255,255,255,.94);color:var(--accent);cursor:pointer;padding:0;font-family:var(--pop);font-size:15px;line-height:1;flex-shrink:0;box-shadow:0 2px 8px rgba(0,0,0,.15);transition:transform .12s,background .2s;}
+.guide-btn:hover{transform:scale(1.08);}
+.guide-btn:active{transform:scale(.93);}
+:root[data-theme="night"] .guide-btn{border-color:rgba(255,255,255,.18);background:rgba(255,255,255,.1);color:#ffce9e;box-shadow:none;}
+.guide-bg{display:none;position:fixed;inset:0;background:rgba(10,8,16,.6);z-index:3000;align-items:center;justify-content:center;padding:16px;-webkit-backdrop-filter:blur(3px);backdrop-filter:blur(3px);}
+.guide-bg.open{display:flex;}
+.guide-modal{background:var(--paper);border-radius:20px;width:100%;max-width:440px;max-height:min(86vh,640px);display:flex;flex-direction:column;overflow:hidden;box-shadow:0 24px 60px -12px rgba(0,0,0,.45);}
+:root[data-theme="night"] .guide-modal{background:#1b1822;border:1px solid rgba(255,255,255,.1);}
+.guide-head{display:flex;align-items:center;justify-content:space-between;gap:10px;padding:14px 16px 12px;border-bottom:1px solid var(--border);flex-shrink:0;}
+.guide-head-title{font-family:var(--pop);font-size:15px;color:var(--ink);display:flex;align-items:center;gap:9px;}
+.guide-count{font-size:11px;font-weight:700;color:var(--accent);background:var(--sel);border-radius:20px;padding:2px 10px;font-family:'Noto Sans JP',sans-serif;}
+.guide-x{width:32px;height:32px;border:none;border-radius:50%;background:transparent;color:var(--muted);font-size:21px;line-height:1;cursor:pointer;padding:0;flex-shrink:0;}
+.guide-x:hover{background:var(--cream);color:var(--ink);}
+.guide-body{flex:1;overflow-y:auto;padding:18px 20px 14px;-webkit-overflow-scrolling:touch;}
+.guide-body.anim{animation:gdStepIn .22s ease;}
+@keyframes gdStepIn{from{opacity:0;transform:translateX(10px);}to{opacity:1;transform:none;}}
+@media(prefers-reduced-motion:reduce){.guide-body.anim{animation:none;}}
+.guide-step-title{font-family:var(--pop);font-size:16px;line-height:1.55;color:var(--ink);margin-bottom:12px;}
+.guide-fig{margin:0 0 14px;border:1.5px dashed var(--border);border-radius:14px;background:var(--cream);min-height:110px;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:7px;color:var(--muted);font-size:11px;text-align:center;padding:14px;}
+.guide-fig .gf-emoji{font-size:36px;line-height:1;}
+.guide-step-text{font-size:13px;line-height:1.9;color:var(--ink);}
+.guide-step-text p{margin:0 0 10px;}
+.guide-step-text p:last-child{margin-bottom:0;}
+.guide-step-text .gd-note{font-size:11.5px;color:var(--muted);}
+.guide-foot{flex-shrink:0;border-top:1px solid var(--border);padding:10px 16px 14px;}
+.guide-dots{display:flex;justify-content:center;margin-bottom:8px;}
+.guide-dot{position:relative;width:24px;height:24px;border:none;background:transparent;cursor:pointer;padding:0;}
+.guide-dot::after{content:'';position:absolute;top:50%;left:50%;width:8px;height:8px;border-radius:50%;background:var(--border);transform:translate(-50%,-50%);transition:background .2s,transform .2s;}
+.guide-dot:hover::after{background:var(--muted);}
+.guide-dot.on::after{background:var(--accent);transform:translate(-50%,-50%) scale(1.45);}
+.guide-nav{display:flex;gap:10px;}
+.guide-prev{flex:1;padding:12px 8px;border:2px solid var(--border);border-radius:12px;background:transparent;color:var(--ink);font-family:'Noto Sans JP',sans-serif;font-size:13px;font-weight:700;cursor:pointer;}
+.guide-prev:hover:not(:disabled){border-color:var(--ink);}
+.guide-prev:disabled{opacity:.35;cursor:default;}
+.guide-next{flex:1.6;padding:12px 8px;border:none;border-radius:12px;background:var(--accent);color:#fff;font-family:'Noto Sans JP',sans-serif;font-size:13px;font-weight:700;cursor:pointer;box-shadow:var(--cta-sh);transition:transform .1s,box-shadow .1s;}
+.guide-next:active{transform:translateY(2px);box-shadow:var(--cta-shA);}
+/* 「ご購入後のご案内」カードの行（タップで該当ステップの詳細ガイドを開く） */
+.ccg-row{display:flex;align-items:center;gap:9px;padding:11px 2px;border-bottom:1px solid var(--cream);font-size:13px;color:var(--ink);cursor:pointer;border-radius:8px;transition:background .15s;}
+.ccg-row:hover{background:var(--sel);}
+.ccg-row:last-of-type{border-bottom:none;}
+.ccg-ic{width:24px;text-align:center;flex-shrink:0;}
+.ccg-t{flex:1;font-weight:700;min-width:0;}
+.ccg-sub{font-size:11px;color:var(--muted);font-weight:400;display:block;margin-top:1px;}
+.ccg-hint{font-size:11px;color:var(--muted);margin-top:8px;}
+/* 印刷時はガイドUIを出さない（既存の confirm-card と同じ扱い） */
+@media print{.guide-btn,.guide-bg,.help-pop,#guideInfoCard{display:none !important;}}
 </style>
 <script>
 (function(){var K='bukiTheme',mq=window.matchMedia('(prefers-color-scheme: dark)');
@@ -282,7 +340,7 @@ if(document.readyState!=='loading')w();else document.addEventListener('DOMConten
   <div class="topbar-logo">NFC ORDER</div>
   <div class="topbar-right">
     <div class="topbar-step">注文確認</div>
-    <button id="themeToggle" class="theme-toggle" type="button" aria-label="ライト/ダーク表示を切り替え"><svg class="ic-moon" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M21 12.8A9 9 0 1 1 11.2 3a7 7 0 0 0 9.8 9.8Z"/></svg><svg class="ic-sun" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><circle cx="12" cy="12" r="4"/><path d="M12 3v1.5M12 19.5V21M3 12h1.5M19.5 12H21M5.6 5.6l1 1M17.4 17.4l1 1M18.4 5.6l-1 1M6.6 17.4l-1 1"/></svg></button><button id="navToggle" class="nav-toggle" type="button" aria-label="メニューを開く"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><path d="M3 6h18M3 12h18M3 18h18"/></svg></button>
+    <button id="guideBtn" class="guide-btn" type="button" aria-label="ご購入後のガイドを開く">？</button><button id="themeToggle" class="theme-toggle" type="button" aria-label="ライト/ダーク表示を切り替え"><svg class="ic-moon" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M21 12.8A9 9 0 1 1 11.2 3a7 7 0 0 0 9.8 9.8Z"/></svg><svg class="ic-sun" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><circle cx="12" cy="12" r="4"/><path d="M12 3v1.5M12 19.5V21M3 12h1.5M19.5 12H21M5.6 5.6l1 1M17.4 17.4l1 1M18.4 5.6l-1 1M6.6 17.4l-1 1"/></svg></button><button id="navToggle" class="nav-toggle" type="button" aria-label="メニューを開く"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><path d="M3 6h18M3 12h18M3 18h18"/></svg></button>
   </div>
 </div>
 
@@ -390,6 +448,18 @@ if(document.readyState!=='loading')w();else document.addEventListener('DOMConten
     <button class="btn btn-primary" id="confirmBtn" onclick="confirmOrder()">✅ 注文を確定する</button>
     <div class="cc-done" id="confirmDone" style="display:none;">🔒 注文を確定しました。製作を進めます。これ以降はキャンセルできません。</div>
     <div class="cc-cancelled" id="confirmCancelled" style="display:none;">この注文はキャンセルされています。</div>
+  </div>
+
+  <!-- ご購入後のご案内（行タップ→詳細ガイド／小「？」→一言ヒント。文言は最下部スクリプトに集約） -->
+  <div class="card" id="guideInfoCard">
+    <div class="card-head">📖 ご購入後のご案内</div>
+    <div class="card-body">
+      <div class="ccg-row" id="ccgCancel"><span class="ccg-ic">🛡</span><span class="ccg-t">キャンセルできる期間<span class="ccg-sub">送信から3日間（注文履歴ページから）</span></span></div>
+      <div class="ccg-row" id="ccgConfirm"><span class="ccg-ic">⚡</span><span class="ccg-t">早く欲しいときは「注文を確定」<span class="ccg-sub">3日を待たずにすぐ製作開始</span></span></div>
+      <div class="ccg-row" id="ccgShip"><span class="ccg-ic">📦</span><span class="ccg-t">発送方法<span class="ccg-sub">あんしんBOOTHパック（匿名配送）</span></span></div>
+      <div class="ccg-row" id="ccgUrl"><span class="ccg-ic">🔗</span><span class="ccg-t">URL（リンク先）の変更<span class="ccg-sub">マイページからいつでも変更OK</span></span></div>
+      <div class="ccg-hint">各項目をタップすると詳しい説明が開きます（右上の「？」からも見られます）</div>
+    </div>
   </div>
 
   <!-- ACTIONS -->
@@ -820,6 +890,169 @@ document.getElementById('diAttMode').textContent = (O.attMode === 'outside') ? '
 </script>
 <script>
 (function(){var t=document.getElementById('navToggle'),d=document.getElementById('navDrawer'),o=document.getElementById('navOverlay'),c=document.getElementById('navClose');if(!t||!d)return;function op(){d.classList.add('open');if(o)o.classList.add('open');d.setAttribute('aria-hidden','false');}function cl(){d.classList.remove('open');if(o)o.classList.remove('open');d.setAttribute('aria-hidden','true');}t.addEventListener('click',op);if(c)c.addEventListener('click',cl);if(o)o.addEventListener('click',cl);document.addEventListener('keydown',function(e){if(e.key==='Escape')cl();});})();
+</script>
+
+<!-- ご購入後のガイド モーダル（ステップの中身は下のスクリプトの GUIDE_STEPS で定義） -->
+<div class="guide-bg" id="guideOverlay" role="dialog" aria-modal="true" aria-label="ご購入後のガイド">
+  <div class="guide-modal">
+    <div class="guide-head">
+      <div class="guide-head-title">📖 ご購入後のガイド <span class="guide-count" id="guideCount">1 / 4</span></div>
+      <button class="guide-x" id="guideClose" type="button" aria-label="ガイドを閉じる">×</button>
+    </div>
+    <div class="guide-body" id="guideBody"><!-- render() がステップ内容を描画 --></div>
+    <div class="guide-foot">
+      <div class="guide-dots" id="guideDots"><!-- 進捗ドット（JSで生成・タップでジャンプ） --></div>
+      <div class="guide-nav">
+        <button class="guide-prev" id="guidePrev" type="button">← 戻る</button>
+        <button class="guide-next" id="guideNext" type="button">次へ →</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<script>
+/* ═══════════════════════════════════════════════════════
+   ご購入後のガイド（page2 の使い方ガイドと同じ仕組み）
+   - P3_HELP     … 「ご案内」カード各行の一言ヒント（データ）
+   - GUIDE_STEPS … 詳細ガイドの各ステップ（データ）
+   数値・仕様は worker.js の実装に合わせている：
+   キャンセル猶予=3日（CANCEL_WINDOW_MS）／確定=/api/customer-confirm
+   ═══════════════════════════════════════════════════════ */
+(function(){
+'use strict';
+function $(id){ return document.getElementById(id); }
+
+/* ---------- 一言ヒント（各行の小さな「？」） ---------- */
+// row: 行のDOM id ／ step: タップで開く詳細ガイドのステップ番号 ／ text: ヒント文
+var P3_HELP = [
+  { row:'ccgCancel',  step:0, text:'送信から3日間は、注文履歴ページからキャンセルできます。3日を過ぎるか「注文を確定」すると製作に進みます。' },
+  { row:'ccgConfirm', step:1, text:'「✅ 注文を確定する」を押すと、3日を待たずにすぐ製作を開始します。確定後はキャンセルできません。' },
+  { row:'ccgShip',    step:2, text:'あんしんBOOTHパック（匿名配送）でお届けします。住所・氏名は店舗側に伝わりません。' },
+  { row:'ccgUrl',     step:3, text:'NFC・QRのリンク先は、マイページ（buki-booth.com/portal）からいつでも変更できます。' }
+];
+
+// 吹き出しは1個だけ生成して全ボタンで使い回す
+var pop = document.createElement('div');
+pop.className = 'help-pop';
+pop.setAttribute('role', 'tooltip');
+document.body.appendChild(pop);
+var popBtn = null;
+
+function openPop(btn, text){
+  pop.textContent = text;
+  pop.classList.add('show');
+  popBtn = btn;
+  var r = btn.getBoundingClientRect();
+  var x = r.left + r.width / 2 - pop.offsetWidth / 2;
+  x = Math.max(8, Math.min(x, window.innerWidth - pop.offsetWidth - 8));
+  pop.style.left = x + 'px';
+  pop.style.top  = (r.bottom + 8) + 'px';
+}
+function closePop(){ pop.classList.remove('show'); popBtn = null; }
+
+document.addEventListener('click', function(e){
+  if (popBtn && e.target !== popBtn && !pop.contains(e.target)) closePop();
+});
+window.addEventListener('scroll', closePop, { passive:true });
+window.addEventListener('resize', closePop);
+
+/* ---------- 詳細ガイド（ステップ式モーダル） ---------- */
+var GUIDE_STEPS = [
+  { title:'キャンセルできる期間',
+    fig:{ emoji:'🛡', note:'送信から3日間はキャンセルできます' },
+    html:'<p>ご注文は<strong>送信から3日間</strong>、<strong>注文履歴ページ</strong>からキャンセルできます。</p>'
+      + '<p class="gd-note">※ 3日を過ぎた注文・製作が始まった注文・「注文を確定」した注文はキャンセルできません。</p>' },
+  { title:'早く欲しいときは「注文を確定」',
+    fig:{ emoji:'⚡', note:'確定すると3日を待たずに製作開始' },
+    html:'<p>内容に問題がなければ、このページの<strong>「✅ 注文を確定する」</strong>ボタンを押してください。3日間の猶予を待たずにすぐ製作を始められるので、<strong>より早くお届け</strong>できます。</p>'
+      + '<p class="gd-note">※ 確定すると、それ以降はキャンセルできなくなります。</p>' },
+  { title:'発送について',
+    fig:{ emoji:'📦', note:'あんしんBOOTHパック（匿名配送）' },
+    html:'<p>発送には<strong>あんしんBOOTHパック</strong>を利用します。<strong>匿名配送</strong>なので、お住まいの住所やお名前を店舗側に伝えることなくお届けできます。</p>'
+      + '<p class="gd-note">製作が完了しだい発送し、完了時には別途ご連絡します。発送までの目安は時期やご注文内容により変わります。</p>' },
+  { title:'URL（リンク先）はあとから変更OK',
+    fig:{ emoji:'🔗', note:'マイページからいつでも変更できます' },
+    html:'<p>NFCタグ・QRコードのリンク先URLは、お手元に届いたあとも<strong>マイページ</strong>からいつでも変更できます。</p>'
+      + '<p><a href="https://buki-booth.com/portal" target="_blank" rel="noopener" style="color:var(--accent);font-weight:700;">🔗 buki-booth.com/portal</a>（メニューの「URL変更（マイページ）」からも開けます）</p>'
+      + '<p class="gd-note">変更の際は注文番号を使ってログインします。</p>' }
+];
+
+var overlay = $('guideOverlay');
+var gBody = $('guideBody');
+var gDots = $('guideDots');
+var cur = 0;
+
+GUIDE_STEPS.forEach(function(_, i){
+  var d = document.createElement('button');
+  d.type = 'button';
+  d.className = 'guide-dot';
+  d.setAttribute('aria-label', 'ステップ' + (i + 1) + 'へ');
+  d.addEventListener('click', function(){ go(i); });
+  gDots.appendChild(d);
+});
+
+function render(){
+  var st = GUIDE_STEPS[cur];
+  var fig = st.fig
+    ? '<div class="guide-fig"><span class="gf-emoji">' + st.fig.emoji + '</span><span>' + st.fig.note + '</span></div>'
+    : '';
+  gBody.innerHTML =
+    '<div class="guide-step-title">' + st.title + '</div>' + fig +
+    '<div class="guide-step-text">' + st.html + '</div>';
+  gBody.scrollTop = 0;
+  gBody.classList.remove('anim'); void gBody.offsetWidth; gBody.classList.add('anim');
+  $('guideCount').textContent = (cur + 1) + ' / ' + GUIDE_STEPS.length;
+  Array.prototype.forEach.call(gDots.children, function(d, i){ d.classList.toggle('on', i === cur); });
+  $('guidePrev').disabled = (cur === 0);
+  $('guideNext').textContent = (cur === GUIDE_STEPS.length - 1) ? '閉じる ✓' : '次へ →';
+}
+function go(i){ cur = Math.max(0, Math.min(GUIDE_STEPS.length - 1, i)); render(); }
+
+// start を渡すとそのステップから開く（ご案内カードの行タップ用）
+function openGuide(start){
+  closePop();
+  cur = (typeof start === 'number') ? start : 0;
+  overlay.classList.add('open');
+  document.body.style.overflow = 'hidden';
+  render();
+}
+function closeGuide(){
+  overlay.classList.remove('open');
+  document.body.style.overflow = '';
+}
+
+/* ---------- 「ご案内」カード各行に小「？」を挿入＆行タップで該当ステップへ ---------- */
+P3_HELP.forEach(function(h){
+  var row = $(h.row);
+  if (!row) return;
+  var b = document.createElement('button');
+  b.type = 'button';
+  b.className = 'help-q';
+  b.textContent = '？';
+  b.setAttribute('aria-label', 'この項目のヒントを表示');
+  b.addEventListener('click', function(e){
+    e.stopPropagation();                     // 行タップ（＝ガイドを開く）を発火させない
+    if (popBtn === b){ closePop(); return; }
+    openPop(b, h.text);
+  });
+  row.appendChild(b);
+  row.addEventListener('click', function(){ openGuide(h.step); });
+});
+
+$('guideBtn').addEventListener('click', function(){ openGuide(0); });
+$('guideClose').addEventListener('click', closeGuide);
+overlay.addEventListener('click', function(e){ if (e.target === overlay) closeGuide(); });
+$('guidePrev').addEventListener('click', function(){ go(cur - 1); });
+$('guideNext').addEventListener('click', function(){
+  if (cur === GUIDE_STEPS.length - 1) closeGuide(); else go(cur + 1);
+});
+document.addEventListener('keydown', function(e){
+  if (!overlay.classList.contains('open')) return;
+  if (e.key === 'Escape') closeGuide();
+  else if (e.key === 'ArrowRight') go(cur + 1);
+  else if (e.key === 'ArrowLeft') go(cur - 1);
+});
+})();
 </script>
 </body>
 </html>
