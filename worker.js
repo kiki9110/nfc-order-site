@@ -1164,6 +1164,7 @@ body{font-family:'Noto Sans JP',sans-serif;background:#f6f7f9;color:#1a1d23;padd
       <div class="row"><span class="row-label">形状</span><span class="row-val">${shape}</span></div>
       <div class="row"><span class="row-label">サイズ</span><span class="row-val">${sizeText}</span></div>
       <div class="row"><span class="row-label">厚さ</span><span class="row-val">${order.thickCm||'—'} mm</span></div>
+      ${order.shape === 'diecut' ? `<div class="row"><span class="row-label">縁の厚さ（ダイカット枠）</span><span class="row-val">${order.borderCm != null ? Math.round(order.borderCm*10) : '—'} mm</span></div>` : ''}
     </div>
   </div>
 
