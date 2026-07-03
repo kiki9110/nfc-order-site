@@ -343,20 +343,21 @@ function processOrders() {
     ' / 失敗: ' + failed
   );
 
-  // 同じ 5 分トリガーで、お問い合わせメッセージのメール通知も処理する。
-  // （万が一エラーが出ても、上の注文処理には影響させない）
-  try {
-    notifyNewMessages();
-  } catch (e) {
-    Logger.log('メッセージ通知エラー: ' + e);
-  }
+  // 通知（お問い合わせ・サポートのメール）は Worker 側で list() を消費するため、
+  // 5分間隔の注文処理からは切り離し、別トリガー notifyAll（30分おき）へ移した。
+  // ※ この分離を反映するには setupTrigger() を一度だけ再実行すること。
+}
 
-  // サポート：新規サポートのメール通知＋1週間放置の自動解決。
-  try {
-    notifyNewSupport();
-  } catch (e) {
-    Logger.log('サポート通知エラー: ' + e);
-  }
+
+// ============================================================
+// 通知のまとめ実行（別トリガー：30分おき）
+// ============================================================
+// お問い合わせ・サポートのメール通知をまとめて実行する。
+// list() を消費する処理をここに集約し、5分間隔の注文処理（registerOrder）から
+// 分離することで、Cloudflare KV の list 操作（無料枠 1日1,000回）の消費を抑える。
+function notifyAll() {
+  try { notifyNewMessages(); } catch (e) { Logger.log('メッセージ通知エラー: ' + e); }
+  try { notifyNewSupport(); }  catch (e) { Logger.log('サポート通知エラー: ' + e); }
 }
 
 
@@ -520,18 +521,10 @@ function notifyNewSupport() {
     Logger.log('サポート取得失敗: ' + res.getResponseCode() + ' ' + res.getContentText());
   }
 
-  // 2) 放置サポートの自動解決スイープ（管理者返信から1週間お客さんの反応なし → 解決済み）
-  const sweep = UrlFetchApp.fetch(CONFIG.WORKER_ORIGIN + '/api/support-update', {
-    method: 'post',
-    contentType: 'application/json',
-    headers: { 'Authorization': 'Bearer ' + CONFIG.ADMIN_PASSWORD },
-    payload: JSON.stringify({ sweep: true }),
-    muteHttpExceptions: true,
-  });
-  if (sweep.getResponseCode() === 200) {
-    const sd = JSON.parse(sweep.getContentText());
-    if (sd && sd.resolved) Logger.log('サポート自動解決: ' + sd.resolved + ' 件');
-  }
+  // 放置サポートの自動解決は、Worker 側の handleSupportList（GET /api/support-list）が
+  // 一覧取得のたびに全 SUP: キーへ実行している。上の pending=1 の取得でも同じく走るため、
+  // ここから別途 sweep（/api/support-update {sweep:true}）を呼ぶのは list() の二重消費に
+  // なるので廃止した（KV list 無料枠の節約）。
 }
 
 
@@ -745,21 +738,28 @@ function reprocessAll() {
  * 一度だけ実行すればよい。重複登録を防ぐため、既存トリガーは削除してから作る。
  */
 function setupTrigger() {
-  // 既存の processOrders トリガーをすべて削除（重複防止）
+  // 既存の processOrders / notifyAll トリガーをすべて削除（重複防止）
   const triggers = ScriptApp.getProjectTriggers();
   for (const t of triggers) {
-    if (t.getHandlerFunction() === 'processOrders') {
+    const fn = t.getHandlerFunction();
+    if (fn === 'processOrders' || fn === 'notifyAll') {
       ScriptApp.deleteTrigger(t);
     }
   }
 
-  // 5分おきに processOrders を実行するトリガーを新規作成
+  // 5分おきに processOrders を実行（注文の反映。list() を使わないので高頻度でOK）
   ScriptApp.newTrigger('processOrders')
     .timeBased()
     .everyMinutes(5)
     .create();
 
-  Logger.log('自動実行トリガーを登録しました（5分おき）。');
+  // 30分おきに notifyAll を実行（通知。list() を消費するので低頻度に分離）
+  ScriptApp.newTrigger('notifyAll')
+    .timeBased()
+    .everyMinutes(30)
+    .create();
+
+  Logger.log('自動実行トリガーを登録しました（processOrders=5分おき / notifyAll=30分おき）。');
 }
 
 /**
@@ -769,7 +769,8 @@ function removeTrigger() {
   const triggers = ScriptApp.getProjectTriggers();
   let count = 0;
   for (const t of triggers) {
-    if (t.getHandlerFunction() === 'processOrders') {
+    const fn = t.getHandlerFunction();
+    if (fn === 'processOrders' || fn === 'notifyAll') {
       ScriptApp.deleteTrigger(t);
       count++;
     }
