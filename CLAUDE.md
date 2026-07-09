@@ -6,12 +6,17 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 "BUKI BOOTH" — a system that lets customers who buy NFC/QR keychains on BOOTH (booth.pm)
 register and edit the destination URL their tag/QR code redirects to, keyed by their BOOTH
-order number. Comments, UI text, and product naming are in Japanese; preserve that.
+order number. It has grown well beyond a URL-redirect: it now also includes a full order
+**customization** flow (image/layer editor + 2D die-cut preview), an **order lifecycle**
+(cancel / confirm / made), a **support ticket + chat** system, a **contact form**, and a
+**self-registration** path. Comments, UI text, and product naming are in Japanese; preserve that.
 
-There is **no build system, package manager, test suite, or git repo**. Each file is deployed
-by manually copy-pasting its full contents into a hosting dashboard. Keep that constraint in
-mind: avoid module imports or tooling that assumes a bundler — everything must run as a single
-self-contained file.
+There is **no build system, package manager, test suite, or active git repo** (a `.gitignore`
+exists for a future GitHub Pages push, but `git` is not initialized). Each file is deployed by
+manually copy-pasting its full contents into a hosting dashboard. Keep that constraint in mind:
+avoid module imports or tooling that assumes a bundler — everything must run as a single
+self-contained file. `worker.js` (~4150 lines) and `page2.html` (~3800 lines) are large because
+all HTML/CSS/JS is inlined.
 
 ## Three deployment targets
 
@@ -19,65 +24,131 @@ The repo is three independent pieces that talk over HTTP. They are NOT one app.
 
 1. **`worker.js`** → Cloudflare Worker (the backend + API). Single `export default { fetch }`
    that routes by `url.pathname`. Paste the whole file into Cloudflare → Worker → Edit code.
-   Requires a KV namespace bound as **`NFC_URLS`** (the only binding). Serves the embedded
-   `/admin` and `/portal` pages via `adminHTML()` / `portalHTML()` template functions inside
-   the file.
+   Requires a KV namespace bound as **`NFC_URLS`** (the only binding). Serves several embedded
+   HTML pages via template functions inside the file:
+   - `/admin` (`adminHTML`) — admin console (login, keychain list, inventory, backup,
+     option stock, messages, self-opt, QR generator, **support panel**).
+   - `/portal` and `/my` (`portalHTML`) — customer "my page": manage several order numbers
+     (stored in `localStorage`) and edit their NFC/QR URLs.
+   - `/order/<id>` (`orderDetailHTML`) — admin per-order detail with a **2D `<canvas>`**
+     die-cut / punch-hole / QR / NFC preview render. Auth is via a `?pw=` query param
+     (`pw === env.ADMIN_PASSWORD`) — note the password travels in the URL.
+   - `/support`, `/support/new`, `/support/<n>` (`supportListHTML` / `supportNewHTML` /
+     `supportChatHTML`) — customer support ticket list / new / chat pages.
+   - `/setup/<id>` and `/setup-qr/<id>` → 302 redirect to `/portal?add=<id>` (legacy compat).
 
-2. **`Code.gs`** → Google Apps Script (the order-intake automation). Reads BOOTH "商品が購入され
-   ました" (item-sold) notification emails from Gmail, extracts the order number + purchased
-   options, and POSTs them to the Worker's admin API so the order becomes valid for login.
-   Run `setupTrigger()` once to install the 5-minute polling trigger; `runOnce()` /
-   `testExtract()` / `reprocessAll()` are manual entry points. Also relays contact-form
-   messages from the Worker to email via `notifyNewMessages()`.
+2. **`Code.gs`** → Google Apps Script (the order-intake + notification automation). Reads BOOTH
+   notification emails from Gmail (`GMAIL_QUERY` — targets 「ご注文が確定しました」 payment-confirmed
+   mails, plus legacy 「商品が購入されました」), extracts the order number + purchased options, and
+   POSTs them to the Worker's admin API so the order becomes valid for login.
+   `setupTrigger()` installs **two** time-based triggers: `processOrders` every **5 min**
+   (order registration; uses no KV `list()` so it can run often) and `notifyAll` every **30 min**
+   (email relay; batches the KV `list()`-consuming work to save the free-tier quota).
+   `notifyAll` = `notifyNewMessages()` (contact form → email) + `notifyNewSupport()`
+   (new support tickets → email, and marks them `emailed`). Manual entry points: `runOnce()`,
+   `reprocessAll()` (ignores the processed marker), `testExtract()`, `removeTrigger()`.
+   De-dup of processed mail is **per-message-ID** (in Script Properties), not per-thread label.
 
-3. **Static HTML pages** (`home`, `page1`–`page4`, `message`, `self`, `self-login`) → static
-   hosting (e.g. GitHub Pages). Customer-facing site; they link to each other with relative
-   `*.html` hrefs and call the Worker via `WORKER_ORIGIN`
+3. **Static HTML pages** → static hosting (e.g. GitHub Pages). Customer-facing site; they link
+   to each other with relative `*.html` hrefs and call the Worker via `WORKER_ORIGIN`
    (`sessionStorage.getItem('workerOrigin') || 'https://buki-booth.com'`). These are separate
-   from the Worker's embedded `/portal` and `/admin` HTML — don't confuse the two.
+   from the Worker's embedded `/portal`, `/admin`, `/support` HTML — don't confuse the two.
+   Files: `home`, `page1`–`page4`, `order-history`, `message`, `self`, `self-login`.
+   (`home.html` and `page3.html` link to the Worker-hosted `/portal` and `/support` by absolute
+   `buki-booth.com` URL.) `assets/guide/` holds images/GIFs used by page2's help modal.
 
 ### Customer page flow
-`home.html` → `page1` (enter/login with order number) → `page2` (customize: pick options,
-set URL) → `page3` (confirm) . `page4` separately links a standalone-purchased option to an
-existing body order. `self.html` / `self-login.html` are a self-service registration path for
-people who know the URL. `message.html` is the contact form.
+`home.html` → `page1` (enter order number; validated live via `/api/customer-get`) → `page2`
+(customize: options, base color, size, **image/layer editor** with front/back sides + 2D die-cut
+canvas preview + 1440dpi print export, set URL) → `page3` (confirm; can `/api/customer-confirm`).
+- `order-history.html` — customer views one order's state and can **cancel** it
+  (`/api/customer-order`, `/api/customer-cancel`) within the cancel window (see lifecycle below).
+- `page4` — links a standalone-purchased option to an existing body order (`/api/opt-apply`).
+- `self.html` / `self-login.html` — self-service registration path for people who know the URL
+  (self-register auto-issues a unique 10-digit number).
+- `message.html` — contact form (`/api/message`).
+- The Worker's own `/support*` pages are the support channel (linked from `home.html`).
 
-## Critical shared contract: ADMIN_PASSWORD
+NOTE: page2's preview is a **2D `<canvas>` composite / die-cut render**, not a WebGL/three.js 3D
+model. If you see it described as "3D", that's loose terminology.
 
-`worker.js` (`const ADMIN_PASSWORD`) and `Code.gs` (`CONFIG.ADMIN_PASSWORD`) **must hold the
-exact same string**. Admin endpoints authenticate with header `Authorization: Bearer <ADMIN_PASSWORD>`;
-both default to the placeholder `'your-secret-password-here'`. If you change one, change the other.
+## Order lifecycle (state stored on the bare `<orderId>` NFC record)
+
+Flags on the NFC record drive a small state machine (see `handleCustomerOrder`):
+- `registeredAt` — set at first registration; `withinCancelWindow()` = **3 days** from it.
+- `cancellable` = within 3 days **and** `!made` **and** `!cancelled` **and** `!confirmed`.
+- `cancelled` (+`cancelledAt`) — customer cancel (`handleCustomerCancel`) also **deletes**
+  `ORDER:<id>` and enqueues an `MSG:` auto-notification to the admin; keeps the NFC/QR records.
+  Admin can toggle via `/api/admin-cancel` (does not delete `ORDER:`).
+- `confirmed` (+`confirmedAt`) — customer confirms to start production early; after this,
+  **cancellation is blocked**. Idempotent.
+- `made` (+`madeAt`) — admin marks production done (`/api/set-made`); blocks cancel.
+`/api/register` (re-run safely by `Code.gs`) **preserves** all of these flags and the
+customer-set URL/history on overwrite.
+
+## Critical shared secret: ADMIN_PASSWORD  ⚠️ read this before touching auth
+
+Admin endpoints authenticate with header `Authorization: Bearer <ADMIN_PASSWORD>`. The secret now
+lives in exactly two runtime stores — **no plaintext anywhere in the repo** — which must hold the
+same value:
+
+- **`worker.js`** — `adminBearer(env)` reads the Cloudflare **Secret** `env.ADMIN_PASSWORD`; if unset
+  it returns an impossible token (`'\x00disabled'`) so all admin calls fail closed. `/order/<id>`
+  compares `?pw=` to `env.ADMIN_PASSWORD` the same way.
+- **`Code.gs`** — reads the Apps Script **Script Property** `ADMIN_PASSWORD` via `getAdminPassword_()`
+  (set it in Project Settings → Script Properties; `checkAdminPassword()` verifies it without printing
+  the value). No hardcoded value in the file.
+- **Static pages / customer API** — carry **no** admin token. `page2.html` persists the order through
+  the public `/api/save-order` (registered-only), which also syncs the NFC/QR redirect URL. The old
+  admin-authed `/api/register` call was removed from page2.
+
+⚠️ **Rotate the compromised value.** `Kiki.n0825` was previously committed in `page2.html` (a public
+static file) and briefly in `Code.gs`. Treat it as leaked: set a NEW value as the Cloudflare Secret
+**and** the matching Apps Script Script Property. Always change both together. The Worker fails closed
+if the Secret is unset, so set it before/at rotation.
 
 ## KV data model (all in the `NFC_URLS` namespace)
 
-Everything is one KV namespace partitioned by key prefix. Code that lists "NFC orders" filters
-keys by *excluding* the other prefixes (see `handleGetAll`), so any new prefix you add must be
-added to those exclusion filters too.
+Everything is one KV namespace partitioned by key prefix. Code that lists "NFC orders" filters keys
+with the shared `isNfcOrderKey(name)` helper (used by `handleGet` / `handleGetAll`), which excludes
+`QR:`/`ORDER:`/`OPT:`/`MSG:`/`SUP:`/`RL:` and the singletons `INVENTORY`/`SELF_OPT`. **Any new prefix
+you add must be added to `isNfcOrderKey()` too.**
 
-| Key pattern        | Holds                                                              |
-|--------------------|-------------------------------------------------------------------|
-| `<orderId>`        | NFC tag record: `{ url, options, addonCount, accessCount, ... }`  |
-| `QR:<orderId>`     | QR-code record (parallel to the NFC record)                       |
-| `ORDER:<orderId>`  | Saved order/customization detail                                  |
-| `OPT:<orderId>`    | Option-only order stock (options bought standalone, no body)      |
-| `MSG:<ts>-<rand>`  | Contact-form message (`pending=1` filters un-emailed ones)        |
-| `INVENTORY`        | Single inventory/maintenance record                               |
-| `SELF_OPT`         | Default option config for the self-registration page              |
+| Key pattern        | Holds                                                                       |
+|--------------------|-----------------------------------------------------------------------------|
+| `<orderId>`        | NFC tag record: `{ url, options, addonCount, accessCount, made, cancelled, confirmed, ... }` |
+| `QR:<orderId>`     | QR-code record (parallel to the NFC record)                                 |
+| `ORDER:<orderId>`  | Saved order/customization detail (from page2 `/api/save-order`)             |
+| `OPT:<orderId>`    | Option-only order stock (options bought standalone, no body)                |
+| `MSG:<ts>-<rand>`  | Contact-form message / auto-notifications (`pending=1` filters un-emailed)  |
+| `SUP:<6-digit>`    | Support ticket + chat: `{ number, token, subject, detail, contact, status, messages:[{from,text,ts}], emailed, autoResolved, ... }` (`token` = owner check) |
+| `RL:<bucket>:<ip>:<win>` | Rate-limit counter (support endpoints); auto-expires via `expirationTtl`  |
+| `INVENTORY`        | Single inventory/maintenance record (`maintenance`, `maintenanceMsg`, `colors`) |
+| `SELF_OPT`         | Default option config for the self-registration page                        |
+
+Backup/restore (`/api/export`, `/api/import`) use `listAllKeys()` (cursor-paginated) and cover
+**every** key regardless of prefix.
 
 ## API surface (defined by the `if (path === ...)` chain at the top of `worker.js`)
 
-- **Public (no auth, order number is the key):** `/nfc/<id>`, `/qr/<id>` (redirect + bump
-  access count), `/api/customer-get|customer-set|customer-set-all|customer-set-qr`,
-  `/api/opt-get|opt-apply`, `/api/get-inventory`, `/api/self-register|self-opt-get`,
-  `/api/message` (form submit).
-- **Admin (Bearer auth):** `/api/register`, `/api/set*`, `/api/get*`, `/api/delete`,
-  `/api/save-order`, `/api/get-order`, `/api/inventory`, `/api/export|import`,
-  `/api/opt-register|opt-list|opt-set-used`, `/api/self-opt-set`, `/api/messages`,
-  `/api/message-update`.
+- **Public (no auth, the order/support number is the key):** `/nfc/<id>`, `/qr/<id>` (redirect +
+  bump access count; unknown id → 302 to `/portal?add=<id>`), `/api/customer-get`,
+  `/api/customer-set`, `/api/customer-set-all`, `/api/customer-set-qr`, `/api/customer-order`,
+  `/api/customer-cancel`, `/api/customer-confirm`, `/api/opt-get`, `/api/opt-apply`,
+  `/api/get-inventory`, `/api/self-register`, `/api/self-opt-get`, `/api/message`,
+  `/api/support-create`, `/api/support-get`, `/api/support-message`, `/api/support-delete`.
+  `/api/save-order` is public **only for already-registered order IDs** (admin bypasses the check);
+  it saves the `ORDER:` record and also syncs any `nfcUrl`/`qrUrl` onto the NFC/QR redirect records
+  (empty string = keep existing). This replaced page2's old admin-authed `/api/register` call.
+- **Admin (Bearer auth):** `/api/register`, `/api/set`, `/api/set-all`, `/api/set-made`,
+  `/api/set-qr`, `/api/get`, `/api/get-all`, `/api/get-qr-url`, `/api/delete`, `/api/save-order`
+  (admin path), `/api/get-order`, `/api/inventory`, `/api/export`, `/api/import`, `/api/admin-cancel`,
+  `/api/opt-register`, `/api/opt-list`, `/api/opt-set-used`, `/api/self-opt-set`, `/api/messages`,
+  `/api/message-update`, `/api/support-list`, `/api/support-reply`, `/api/support-update`.
 
 To add an endpoint: add an `if (path === '/api/...')` line in the `fetch` router, then write a
 `handleXxx(request, env, cors)` function. Guard admin handlers with the
-`auth !== \`Bearer ${ADMIN_PASSWORD}\`` → 401 check used throughout.
+`if (auth !== adminBearer(env)) return json({ error: '認証エラー' }, 401, cors)` check used throughout.
 
 ## Two kinds of orders
 
@@ -86,15 +157,55 @@ To add an endpoint: add an `if (path === '/api/...')` line in the `fetch` router
 - **Option-only order:** email has options but no body → registered via `/api/opt-register` into
   the `OPT:` stock, later attached to a body order by the customer on `page4` (`/api/opt-apply`).
 
-`Code.gs` decides between these in `processOrders()`. Re-running registration is safe: the Worker
-preserves any customer-set URL/history on overwrite, so `reprocessAll()` won't wipe customer data.
+`Code.gs` decides between these in `processOrders()` (and `reprocessAll()`). Re-running
+registration is safe: the Worker preserves any customer-set URL/history and lifecycle flags on
+overwrite, so `reprocessAll()` won't wipe customer data.
+
+## Support system (`SUP:` — customer ticket + chat)
+
+- Customer creates a ticket (`/api/support-create`) and gets a **6-digit number** (`genSupportNumber`);
+  the number is the only key — it is remembered in `localStorage` on the device and in the URL.
+- Access control: each ticket also carries a **128-bit `token`** issued at creation and stored only
+  in the owner's `localStorage` (entries are `{n, t}`). `support-get` / `support-message` /
+  `support-delete` require a matching token (admin bypasses via Bearer); a wrong/missing token is
+  returned as indistinguishable "not found"/`exists:false`. Public support endpoints are
+  **rate-limited per IP** (`RL:` keys, KV + TTL). Tickets created before this change (no token) are
+  grandfathered. `publicTicket()` returns neither the token nor the contact field.
+- Auto-resolve: `autoResolveIfStale()` flips a ticket to `resolved` if the last message is from
+  admin and ≥7 days old. It runs on every `support-get` / `support-list`, plus a batch `sweep`
+  branch in `support-update`. Admin replies (`support-reply`) re-open resolved tickets.
+
+## Known issues / status (all resolved in the security pass — 2026-07)
+
+1. ✅ **Admin password removed from `page2.html`.** page2 posts to the public `/api/save-order`
+   (registered-only), which also syncs the NFC/QR redirect URL — no admin token in any static/customer
+   file. ⚠️ Still **rotate** the compromised `Kiki.n0825` value in Cloudflare + Script Property.
+2. ✅ **Order-list exclusion filters centralized** in `isNfcOrderKey()` — now also excludes `MSG:`,
+   `SUP:`, `RL:`, and `SELF_OPT` (used by both `handleGet` and `handleGetAll`).
+3. ✅ **`handleGet` paginates** via cursor-based `listAllKeys()` (no more ~1000-key truncation).
+4. ✅ **Support ownership + rate limiting** — 128-bit per-ticket `token` (owner's `localStorage` only)
+   required by `support-get`/`-message`/`-delete` (admin bypasses via Bearer); wrong token → "not found".
+   Public support endpoints rate-limited per IP via `RL:` keys. Legacy tokenless tickets grandfathered.
+5. ✅ **`Code.gs` password externalized** to a Script Property via `getAdminPassword_()` (no plaintext).
+6. ✅ **Demo product names removed** from `Code.gs` CONFIG. (No `TODO`/`FIXME` markers elsewhere.)
+
+Residual by-design notes (not bugs):
+- The customer model is still "knowing the order number = can edit that order" (`customer-get/set`,
+  `portal`, `save-order`). There are no accounts; the pass removed *admin* escalation, not this base
+  capability model. Same level of access as the rest of the customer API.
+- Support access is **device-scoped**: the owner token lives in `localStorage`, so opening a ticket on
+  another device (without the token) shows "not found". This matches the existing "this device only"
+  support list. Cross-device access would require adding accounts or a shareable link with the token.
+- Rate limiting uses KV (eventually consistent) and is coarse; it deters spam/enumeration but is not a
+  hard guarantee. The token is the real ownership control.
 
 ## Configuration to be aware of when editing
 
-- `Code.gs` `CONFIG` block: `WORKER_ORIGIN`, `ADMIN_PASSWORD`, Gmail `GMAIL_QUERY`, and the
-  product-name match lists (`PRODUCT_BODY`, `OPTIONS`, `ADDON_REORDER`). The match lists contain
-  both real product names and `(demoN)` test entries — the demo entries are meant to be deleted
-  before production.
-- Order-number extraction lives in `extractOrderId()` (ordered regex fallbacks). Per-option
-  detection is substring matching in `bodyHasProduct()`; quantity (2nd+ copies) is parsed by
-  `countProduct()` from the `x ○点` money line immediately following the product name.
+- `Code.gs` `CONFIG` block: `WORKER_ORIGIN`, `ADMIN_PASSWORD`, `NOTIFY_EMAIL` (blank → sends to the
+  script owner's Gmail), Gmail `GMAIL_QUERY`, `MAX_THREADS`, and the product-name match lists
+  (`PRODUCT_BODY`, `OPTIONS` = `[{key,name,mail:[...]}]`, `ADDON_REORDER`). Match lists hold both
+  real names and `(demoN)` test entries.
+- Order-number extraction lives in `extractOrderId()` (ordered regex fallbacks); mail eligibility
+  in `isTargetMail()`. Per-option detection is substring matching in `bodyHasProduct()`; quantity
+  (2nd+ copies) is parsed by `countProduct()` from the `x ○点` money line following the product name.
+- CORS on the Worker is wide open (`Access-Control-Allow-Origin: *`) for all endpoints.

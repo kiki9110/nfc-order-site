@@ -3202,23 +3202,16 @@ function submitOrder(orderData) {
         if (b.length <= KV_SAFE) { body = b; break; }
       }
     }
+    // 注文内容は公開APIの /api/save-order に保存する（登録済みの注文番号のみ許可）。
+    // 転送先URL(nfcUrl/qrUrl)も orderData に含めて送れば、Worker 側が NFC/QR レコードへ反映する。
+    // ※ 以前ここで管理者トークン付き /api/register を呼んでいたが、公開ページに管理者権限を
+    //   埋め込むのは重大な脆弱性だったため撤去した。page2 に管理者トークンは一切持たせない。
     Promise.race([
-      Promise.all([
-        fetch(WORKER_ORIGIN + '/api/save-order', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: body,
-        }).catch(() => {}),
-        fetch(WORKER_ORIGIN + '/api/register', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer Kiki.n0825' },
-          body: JSON.stringify({
-            orderId: orderData.orderId,
-            nfcUrl:  orderData.nfcUrl || '',
-            qrUrl:   orderData.qrUrl  || '',
-          }),
-        }).catch(() => {}),
-      ]),
+      fetch(WORKER_ORIGIN + '/api/save-order', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: body,
+      }).catch(() => {}),
       new Promise(r => setTimeout(r, 30000))   // 高解像度画像のアップロードは時間がかかることがある（4秒だと途中で打ち切られる）
     ]).then(() => {
       window.location.href = 'page3.html';

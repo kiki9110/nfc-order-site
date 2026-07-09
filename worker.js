@@ -7,7 +7,7 @@
 // ★設定方法：Cloudflare ダッシュボード → Workers & Pages → 対象Worker → Settings →
 //   Variables and Secrets → Add →  Type: Secret / Name: ADMIN_PASSWORD / Value: 任意の長い文字列。
 //   （ローカル開発で wrangler を使う場合は .dev.vars に ADMIN_PASSWORD=... を置く）
-// ※ Code.gs 側の CONFIG.ADMIN_PASSWORD と同じ文字列にすること。
+// ※ Code.gs 側はスクリプトプロパティ ADMIN_PASSWORD（getAdminPassword_() 経由）と同じ値にすること。
 //
 // 値が未設定のときは「絶対に一致しないトークン」を返し、全リクエストを拒否する
 // （シークレットの設定漏れで無認証のまま開いてしまう事故を防ぐため）。
@@ -568,12 +568,21 @@ async function handleSetQR(request, env, cors) {
 }
 
 // NFC 一覧を取得（旧エンドポイント・後方互換）
+// 「NFC注文（本体レコード）」のキーかどうか。他プレフィックス（QR/ORDER/OPT/MSG/SUP/RL）や
+// 単発キー（INVENTORY/SELF_OPT）を除外する。新しいプレフィックスを足したらここにも足すこと。
+function isNfcOrderKey(name) {
+  return !name.startsWith('QR:')    && !name.startsWith('ORDER:') && !name.startsWith('OPT:')
+      && !name.startsWith('MSG:')   && !name.startsWith('SUP:')   && !name.startsWith('RL:')
+      && name !== 'INVENTORY'       && name !== 'SELF_OPT';
+}
+
 async function handleGet(request, env, cors) {
   const auth = request.headers.get('Authorization');
   if (auth !== adminBearer(env)) return json({ error: '認証エラー' }, 401, cors);
 
-  const list    = await env.NFC_URLS.list();
-  const nfcKeys = list.keys.filter(k => !k.name.startsWith('QR:') && !k.name.startsWith('ORDER:') && !k.name.startsWith('OPT:') && k.name !== 'INVENTORY');
+  // 1000件超でも取りこぼさないよう cursor で全件取得する
+  const allKeys = await listAllKeys(env);
+  const nfcKeys = allKeys.filter(k => isNfcOrderKey(k.name));
   const items   = await Promise.all(
     nfcKeys.map(async k => {
       const v = await env.NFC_URLS.get(k.name);
@@ -589,7 +598,7 @@ async function handleGetAll(request, env, cors) {
   if (auth !== adminBearer(env)) return json({ error: '認証エラー' }, 401, cors);
 
   const allKeys = await listAllKeys(env);
-  const nfcKeys = allKeys.filter(k => !k.name.startsWith('QR:') && !k.name.startsWith('ORDER:') && !k.name.startsWith('OPT:') && k.name !== 'INVENTORY');
+  const nfcKeys = allKeys.filter(k => isNfcOrderKey(k.name));
 
   const items = await Promise.all(nfcKeys.map(async k => {
     const orderId = k.name;
@@ -733,19 +742,42 @@ async function handleSaveOrder(request, env, cors) {
     // 登録済みの番号（管理者登録や自動登録で作られたもの）なら桁数は問わない。
     // 未登録の番号は拒否（未購入・打ち間違い対策）。
     // 管理者の場合はこのチェックを通さず、好きな番号で保存できる。
-    if (!isAdmin) {
-      const isRegistered = !!(await env.NFC_URLS.get(body.orderId));
-      if (!isRegistered) {
-        return json({
-          error: 'この注文番号は登録されていません。番号をご確認ください。'
-        }, 400, cors);
-      }
+    const existingNfcRaw = await env.NFC_URLS.get(body.orderId);
+    if (!isAdmin && !existingNfcRaw) {
+      return json({
+        error: 'この注文番号は登録されていません。番号をご確認ください。'
+      }, 400, cors);
     }
 
+    // 注文内容（カスタマイズ）を保存
     await env.NFC_URLS.put('ORDER:' + body.orderId, JSON.stringify({
       ...body,
       savedAt: new Date().toISOString(),
     }));
+
+    // ── page2 の転送先URLをここで NFC / QR レコードへ反映する ──
+    // 以前は page2 が管理者トークン付きで /api/register を呼んでURLを書いていたが、
+    // 公開ページに管理者権限を埋め込むのは危険なので廃止し、この登録済み注文限定の
+    // 経路に集約した。URL が空文字のときは既存URLを保持する（register と同じ挙動）。
+    if (existingNfcRaw && typeof body.nfcUrl === 'string' && body.nfcUrl.trim() !== '') {
+      const nfc = JSON.parse(existingNfcRaw);
+      if (nfc.url !== body.nfcUrl) pushHistory(nfc, body.nfcUrl);
+      nfc.url       = body.nfcUrl;
+      nfc.updatedAt = new Date().toISOString();
+      await env.NFC_URLS.put(body.orderId, JSON.stringify(nfc));
+    }
+    if (existingNfcRaw && typeof body.qrUrl === 'string' && body.qrUrl.trim() !== '') {
+      const qrRaw = await env.NFC_URLS.get('QR:' + body.orderId);
+      const qr = qrRaw ? JSON.parse(qrRaw) : {
+        orderId: body.orderId, url: '', history: [],
+        registeredAt: new Date().toISOString(), accessCount: 0, lastAccess: null,
+      };
+      if (qr.url !== body.qrUrl) pushHistory(qr, body.qrUrl);
+      qr.url       = body.qrUrl;
+      qr.updatedAt = new Date().toISOString();
+      await env.NFC_URLS.put('QR:' + body.orderId, JSON.stringify(qr));
+    }
+
     return json({ ok: true }, 200, cors);
   } catch(e) {
     return json({ error: e.toString() }, 500, cors);
@@ -3216,7 +3248,8 @@ function closeSupport() {
 }
 function loadSupChat() {
   if (!SUP_CUR) return;
-  fetch(BASE + '/api/support-get?number=' + encodeURIComponent(SUP_CUR))
+  // 管理者は Bearer 認証でトークンゲートをバイパスして本人のチャットを取得できる
+  fetch(BASE + '/api/support-get?number=' + encodeURIComponent(SUP_CUR), { headers: { Authorization: 'Bearer ' + PW } })
     .then(function (r) { return r.json(); })
     .then(function (d) {
       if (!d || !d.exists) return;
@@ -3653,9 +3686,43 @@ async function handleMessageUpdate(request, env, cors) {
 // サポート（チケット＋チャット）
 // ============================================================
 // KV: 'SUP:<6桁番号>' →
-//   { number, subject, detail, contact, status:'open'|'resolved',
+//   { number, token, subject, detail, contact, status:'open'|'resolved',
 //     createdAt, updatedAt, emailed, autoResolved,
 //     messages:[{from:'user'|'admin', text, ts}], lastAdminReplyAt }
+//   token … 所有者確認用（本人の端末 localStorage のみ保持）。閲覧/投稿/削除で必須（管理者はBearerでバイパス）。
+
+// 所有者確認用トークン（128bit）。作成時に発行し、本人の端末（localStorage）だけが保持する。
+// 6桁番号は総当たり可能なので、閲覧・投稿・削除にはこのトークン一致を必須にする。
+function genToken() {
+  const a = new Uint8Array(16);
+  crypto.getRandomValues(a);
+  return Array.from(a, b => b.toString(16).padStart(2, '0')).join('');
+}
+
+// トークン検証。管理者（Bearer一致）は常に許可。トークンを持たない旧レコードは
+// 後付けできないため後方互換で許可する（新規レコードは必ずトークンを持つ）。
+function supportAccessOK(rec, provided, isAdmin) {
+  if (isAdmin) return true;
+  if (!rec || !rec.token) return true;         // 旧レコード（トークン無し）は従来どおり
+  return !!provided && provided === rec.token;
+}
+
+// 簡易レート制限（KV + TTL）。ip×バケット×時間窓ごとにカウント。
+// 上限到達後は書き込まず 429 を返すので、KV 書き込みは窓あたり limit 回で頭打ち。
+// 失敗時はブロックしない（可用性優先）。RL: プレフィックスは isNfcOrderKey で除外済み・TTLで自動消滅。
+async function rateLimitOK(env, request, bucket, limit, windowSec) {
+  try {
+    const ip  = request.headers.get('CF-Connecting-IP') || 'unknown';
+    const win = Math.floor(Date.now() / (windowSec * 1000));
+    const key = 'RL:' + bucket + ':' + ip + ':' + win;
+    const cur = parseInt((await env.NFC_URLS.get(key)) || '0', 10);
+    if (cur >= limit) return false;
+    await env.NFC_URLS.put(key, String(cur + 1), { expirationTtl: Math.max(60, windowSec) });
+    return true;
+  } catch (e) {
+    return true;
+  }
+}
 
 // 重複しない6桁のサポート番号を作る
 async function genSupportNumber(env) {
@@ -3691,6 +3758,8 @@ function publicTicket(r) {
 // 公開：サポート作成 { name, subject, detail, contact? } → { number }
 async function handleSupportCreate(request, env, cors) {
   if (request.method !== 'POST') return json({ error: 'POST必須' }, 405, cors);
+  if (!await rateLimitOK(env, request, 'sup-create', 5, 60))
+    return json({ error: '短時間に作成しすぎです。しばらく待ってからお試しください。' }, 429, cors);
   let body; try { body = await request.json(); } catch (e) { return json({ error: 'JSON不正' }, 400, cors); }
   const name    = String(body.name    || '').slice(0, 60).trim();
   const subject = String(body.subject || '').slice(0, 100).trim();
@@ -3700,24 +3769,30 @@ async function handleSupportCreate(request, env, cors) {
   if (!subject) return json({ error: '要件を入力してください' }, 400, cors);
   if (!detail)  return json({ error: '要件の詳細を入力してください' }, 400, cors);
   const number = await genSupportNumber(env);
+  const token  = genToken();
   const now = new Date().toISOString();
   const rec = {
-    number, name, subject, detail, contact,
+    number, token, name, subject, detail, contact,
     status: 'open', createdAt: now, updatedAt: now,
     emailed: false, autoResolved: false, lastAdminReplyAt: null, messages: [],
   };
   await env.NFC_URLS.put('SUP:' + number, JSON.stringify(rec));
-  return json({ ok: true, number }, 200, cors);
+  // token は本人の端末（localStorage）だけが保持する。以降の閲覧・投稿・削除で必須。
+  return json({ ok: true, number, token }, 200, cors);
 }
 
 // 公開：番号で取得（チャット表示）。読み込み時に自動解決も判定する。
 async function handleSupportGet(request, env, cors) {
   const url = new URL(request.url);
   const number = (url.searchParams.get('number') || '').trim();
+  const token  = (url.searchParams.get('token')  || '').trim();
   if (!number) return json({ error: 'number必須' }, 400, cors);
   const raw = await env.NFC_URLS.get('SUP:' + number);
   if (!raw) return json({ exists: false }, 200, cors);
   let r; try { r = JSON.parse(raw); } catch (e) { return json({ exists: false }, 200, cors); }
+  const isAdmin = request.headers.get('Authorization') === adminBearer(env);
+  // 所有者（トークン一致）でも管理者でもなければ、存在自体を明かさない（6桁番号の総当たり対策）
+  if (!supportAccessOK(r, token, isAdmin)) return json({ exists: false }, 200, cors);
   if (autoResolveIfStale(r)) { r.updatedAt = new Date().toISOString(); await env.NFC_URLS.put('SUP:' + number, JSON.stringify(r)); }
   return json({ exists: true, ticket: publicTicket(r) }, 200, cors);
 }
@@ -3725,13 +3800,18 @@ async function handleSupportGet(request, env, cors) {
 // 公開：本人がメッセージを追加 { number, text }。解決済みは送れない。
 async function handleSupportMessage(request, env, cors) {
   if (request.method !== 'POST') return json({ error: 'POST必須' }, 405, cors);
+  if (!await rateLimitOK(env, request, 'sup-msg', 20, 60))
+    return json({ error: '送信が多すぎます。少し待ってからお試しください。' }, 429, cors);
   let body; try { body = await request.json(); } catch (e) { return json({ error: 'JSON不正' }, 400, cors); }
   const number = String(body.number || '').trim();
   const text   = String(body.text || '').slice(0, 4000).trim();
+  const token  = String(body.token || '').trim();
   if (!number || !text) return json({ error: '入力が不正です' }, 400, cors);
   const raw = await env.NFC_URLS.get('SUP:' + number);
   if (!raw) return json({ error: '見つかりません' }, 404, cors);
   let r; try { r = JSON.parse(raw); } catch (e) { return json({ error: 'parse' }, 500, cors); }
+  const isAdmin = request.headers.get('Authorization') === adminBearer(env);
+  if (!supportAccessOK(r, token, isAdmin)) return json({ error: '見つかりません' }, 404, cors);
   if (r.status === 'resolved') return json({ error: 'このサポートは解決済みのため送信できません' }, 403, cors);
   r.messages = r.messages || [];
   r.messages.push({ from: 'user', text, ts: Date.now() });
@@ -3825,9 +3905,18 @@ async function handleSupportUpdate(request, env, cors) {
 // 公開：本人がサポートを削除 { number }（番号を知る本人のみ。元に戻せない）
 async function handleSupportDelete(request, env, cors) {
   if (request.method !== 'POST') return json({ error: 'POST必須' }, 405, cors);
+  if (!await rateLimitOK(env, request, 'sup-del', 10, 60))
+    return json({ error: 'リクエストが多すぎます。しばらく待ってからお試しください。' }, 429, cors);
   let body; try { body = await request.json(); } catch (e) { return json({ error: 'JSON不正' }, 400, cors); }
   const number = String(body.number || '').trim();
+  const token  = String(body.token || '').trim();
   if (!number) return json({ error: 'number必須' }, 400, cors);
+  const raw = await env.NFC_URLS.get('SUP:' + number);
+  // 不在・トークン不一致とも同じ 404 を返し、存在の有無を漏らさない（番号総当たり対策）
+  if (!raw) return json({ error: '見つかりません' }, 404, cors);
+  let r; try { r = JSON.parse(raw); } catch (e) { r = null; }
+  const isAdmin = request.headers.get('Authorization') === adminBearer(env);
+  if (r && !supportAccessOK(r, token, isAdmin)) return json({ error: '見つかりません' }, 404, cors);
   await env.NFC_URLS.delete('SUP:' + number);
   return json({ ok: true }, 200, cors);
 }
@@ -3936,13 +4025,15 @@ ${supportNav()}
 </div>
 <script>
 var BASE = location.origin, LS = 'buki_support_numbers';
-function getNums(){ try { return JSON.parse(localStorage.getItem(LS) || '[]'); } catch(e){ return []; } }
+// localStorage は {n:番号, t:所有トークン} の配列（旧形式=番号の文字列配列も吸収）
+function getEntries(){ var a; try{a=JSON.parse(localStorage.getItem(LS)||'[]');}catch(e){a=[];} return a.map(function(x){ return (typeof x==='string')?{n:x,t:''}:x; }); }
+function tokOf(n){ var a=getEntries(); for(var i=0;i<a.length;i++){ if(a[i].n===n) return a[i].t||''; } return ''; }
 function esc(s){ return String(s==null?'':s).replace(/[&<>"']/g,function(c){return ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'})[c];}); }
 function render(){
-  var nums = getNums(), area = document.getElementById('listArea');
-  if (!nums.length){ area.innerHTML = '<div class="empty"><span class="empty-ic">🎫</span>まだサポートはありません。<br>下のボタンからサポートを作成すると、ここに一覧で表示されます。<br><a class="empty-cta" href="/support/new">＋ 新規サポートを作成</a></div>'; return; }
-  Promise.all(nums.map(function(n){
-    return fetch(BASE + '/api/support-get?number=' + encodeURIComponent(n)).then(function(r){return r.json();}).then(function(d){ return (d && d.exists) ? d.ticket : null; }).catch(function(){ return null; });
+  var ents = getEntries(), area = document.getElementById('listArea');
+  if (!ents.length){ area.innerHTML = '<div class="empty"><span class="empty-ic">🎫</span>まだサポートはありません。<br>下のボタンからサポートを作成すると、ここに一覧で表示されます。<br><a class="empty-cta" href="/support/new">＋ 新規サポートを作成</a></div>'; return; }
+  Promise.all(ents.map(function(e){
+    return fetch(BASE + '/api/support-get?number=' + encodeURIComponent(e.n) + '&token=' + encodeURIComponent(e.t||'')).then(function(r){return r.json();}).then(function(d){ return (d && d.exists) ? d.ticket : null; }).catch(function(){ return null; });
   })).then(function(tickets){
     var html = '';
     for (var i=0;i<tickets.length;i++){
@@ -3963,11 +4054,10 @@ function openChat(n){ location.href = '/support/' + encodeURIComponent(n); }
 function delSupport(ev, n){
   ev.stopPropagation();
   if(!confirm('サポート番号 ' + n + ' を削除しますか？\\nチャット内容もすべて消え、元に戻せません。')) return;
-  fetch(BASE + '/api/support-delete', {method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify({number:n})})
+  fetch(BASE + '/api/support-delete', {method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify({number:n, token:tokOf(n)})})
    .then(function(r){return r.json();})
    .then(function(){
-     var a; try { a = JSON.parse(localStorage.getItem(LS) || '[]'); } catch(e){ a = []; }
-     a = a.filter(function(x){ return x !== n; });
+     var a = getEntries().filter(function(x){ return x.n !== n; });
      localStorage.setItem(LS, JSON.stringify(a));
      render();
    })
@@ -4033,7 +4123,15 @@ ${supportNav()}
 <script>
 var BASE = location.origin, LS = 'buki_support_numbers';
 function toast(m){ var t=document.getElementById('toast'); t.textContent=m; t.style.opacity='1'; setTimeout(function(){t.style.opacity='0';},2400); }
-function addNum(n){ var a; try{a=JSON.parse(localStorage.getItem(LS)||'[]');}catch(e){a=[];} if(a.indexOf(n)<0){a.unshift(n);localStorage.setItem(LS,JSON.stringify(a));} }
+// localStorage は {n:番号, t:所有トークン} の配列で保持（旧形式=番号の文字列配列も吸収）
+function addEntry(n, t){
+  var a; try{a=JSON.parse(localStorage.getItem(LS)||'[]');}catch(e){a=[];}
+  a = a.map(function(x){ return (typeof x==='string')?{n:x,t:''}:x; });
+  var found=false;
+  for(var i=0;i<a.length;i++){ if(a[i].n===n){ if(t)a[i].t=t; found=true; break; } }
+  if(!found) a.unshift({n:n,t:t||''});
+  localStorage.setItem(LS,JSON.stringify(a));
+}
 function submitSupport(){
   var name=document.getElementById('name').value.trim();
   var subject=document.getElementById('subject').value.trim();
@@ -4045,7 +4143,7 @@ function submitSupport(){
   var b=document.getElementById('sb'); b.disabled=true; b.textContent='送信中...';
   fetch(BASE+'/api/support-create',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({name:name,subject:subject,detail:detail,contact:contact})})
    .then(function(r){return r.json();})
-   .then(function(d){ if(d&&d.ok&&d.number){ addNum(d.number); location.href='/support/'+encodeURIComponent(d.number); } else { toast('送信に失敗：'+((d&&d.error)||'不明')); b.disabled=false; b.textContent='送信する'; } })
+   .then(function(d){ if(d&&d.ok&&d.number){ addEntry(d.number, d.token||''); location.href='/support/'+encodeURIComponent(d.number); } else { toast('送信に失敗：'+((d&&d.error)||'不明')); b.disabled=false; b.textContent='送信する'; } })
    .catch(function(){ toast('通信エラー'); b.disabled=false; b.textContent='送信する'; });
 }
 </script>
@@ -4105,11 +4203,16 @@ ${supportNav()}
 <script>
 var BASE = location.origin;
 var NUMBER = decodeURIComponent((location.pathname.split('/support/')[1] || '').replace(/\\/.*$/, ''));
+var LS = 'buki_support_numbers';
+// この端末が保持する所有トークン（無ければ空＝旧レコードのみ閲覧可）
+function _ents(){ var a; try{a=JSON.parse(localStorage.getItem(LS)||'[]');}catch(e){a=[];} return a.map(function(x){ return (typeof x==='string')?{n:x,t:''}:x; }); }
+function _tok(n){ var a=_ents(); for(var i=0;i<a.length;i++){ if(a[i].n===n) return a[i].t||''; } return ''; }
+var TOKEN = _tok(NUMBER);
 var lastCount = -1, resolved = false;
 function esc(s){ return String(s==null?'':s).replace(/[&<>"']/g,function(c){return ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'})[c];}); }
 function fmt(ts){ if(!ts) return ''; var d=new Date(ts); function p(n){return ('0'+n).slice(-2);} return (d.getMonth()+1)+'/'+d.getDate()+' '+p(d.getHours())+':'+p(d.getMinutes()); }
 function load(){
-  fetch(BASE+'/api/support-get?number='+encodeURIComponent(NUMBER)).then(function(r){return r.json();}).then(function(d){
+  fetch(BASE+'/api/support-get?number='+encodeURIComponent(NUMBER)+'&token='+encodeURIComponent(TOKEN)).then(function(r){return r.json();}).then(function(d){
     if(!d||!d.exists){ document.getElementById('subj').textContent='サポートが見つかりません'; document.getElementById('num').textContent='番号：'+NUMBER; return; }
     var t=d.ticket; resolved = (t.status==='resolved');
     document.getElementById('subj').textContent=t.subject;
@@ -4137,7 +4240,7 @@ function renderFooter(){
 function send(){
   var ta=document.getElementById('msg'); var text=(ta.value||'').trim(); if(!text) return;
   var b=document.getElementById('send'); b.disabled=true;
-  fetch(BASE+'/api/support-message',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({number:NUMBER,text:text})})
+  fetch(BASE+'/api/support-message',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({number:NUMBER,text:text,token:TOKEN})})
    .then(function(r){return r.json();}).then(function(d){ b.disabled=false; if(d&&d.ok){ ta.value=''; lastCount=-1; load(); } else { alert((d&&d.error)||'送信に失敗しました'); } })
    .catch(function(){ b.disabled=false; alert('通信エラー'); });
 }

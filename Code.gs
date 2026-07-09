@@ -30,9 +30,9 @@ const CONFIG = {
   // Cloudflare Worker のベースURL（末尾スラッシュなし）
   WORKER_ORIGIN: 'https://buki-booth.com',
 
-  // worker.js の ADMIN_PASSWORD と完全に同じ文字列にする
-  // （管理者として登録するため、この認証が必要）
-  ADMIN_PASSWORD: 'your-secret-password-here',
+  // ※ 管理者パスワードはここに書かない（平文ハードコード禁止・公開事故防止）。
+  //   スクリプトプロパティ 'ADMIN_PASSWORD' に保存し、getAdminPassword_() 経由で読み込む。
+  //   設定方法は下の getAdminPassword_() のコメントを参照。worker.js（Cloudflare Secret）と同じ値にする。
 
   // お問い合わせメッセージの通知先メールアドレス。
   // 空文字 '' のままなら、このスクリプトを実行している自分の Gmail に送られます。
@@ -50,19 +50,16 @@ const CONFIG = {
   GMAIL_QUERY: 'from:booth.pm newer_than:30d (subject:ご注文が確定しました OR subject:商品が購入されました)',
 
   // ──────────────────────────────────────────────
-  // 商品名の設定（★テスト中は demo、本番は実際の商品名★）
+  // 商品名の設定（本番の実際の商品名）
   // ──────────────────────────────────────────────
   // メール本文の「注文内容」欄に出る商品名で判定する。
   // 各項目は「候補リスト」になっていて、リストのどれか1つでも本文に含まれれば一致とみなす。
-  // → テスト用の demo 名と本番名の両方を入れておけば、どちらのメールでも動く。
-  //
-  // ★ テストが終わったら、各リストから 'demoX' の行を消すだけで本番専用になる。★
+  // （名称変更や表記ゆれに備えて複数候補を並べられる）
 
   // ① 本体商品：これが注文内容に含まれているときだけ登録する。
   //    （本体が無い注文＝オプション単体などは登録しない）
   PRODUCT_BODY: [
     'キーホルダー本体',  // 本番の本体商品名
-    '(demo1)',           // ← テスト用。不要になったら消す
   ],
 
   // ② オプション商品：本文に含まれていれば、そのオプションを「購入済み」として保存する。
@@ -71,8 +68,8 @@ const CONFIG = {
   //    name … 管理画面などで表示する名前
   //    mail … メール本文中の商品名の候補リスト（どれか1つ一致でOK）
   OPTIONS: [
-    { key: 'nfc',    name: 'NFCタグ',     mail: ['（OP）NFCタグ',     '(demo2)'] },
-    { key: 'double', name: '両面印刷',    mail: ['（OP）両面印刷']               },
+    { key: 'nfc',    name: 'NFCタグ',     mail: ['（OP）NFCタグ']   },
+    { key: 'double', name: '両面印刷',    mail: ['（OP）両面印刷']  },
   ],
 
   // ③ 追加注文（2枚目以降）：オプションのロックではなく「何枚追加されたか」を数える。
@@ -80,7 +77,6 @@ const CONFIG = {
   //    買われていなければ 0 枚。最大4枚まで購入される想定。
   ADDON_REORDER: [
     '（OP）2枚目以降',  // 本番名
-    '(demo3)',          // ← テスト用。不要になったら消す
   ],
 
   // 処理済みメールに付けるラベル名（同じメールを二重処理しないため）
@@ -92,6 +88,35 @@ const CONFIG = {
   // 1回の実行で処理する最大スレッド数（多すぎる実行を防ぐ安全上限）
   MAX_THREADS: 20,
 };
+
+
+// ============================================================
+// 管理者パスワード（スクリプトプロパティから読み込む）
+// ============================================================
+// 平文でコードに書かず、スクリプトプロパティ 'ADMIN_PASSWORD' に保存して使う。
+//
+// 【設定方法（初回一度だけ）】
+//   Apps Script エディタ左の「プロジェクトの設定（⚙ 歯車）」→「スクリプト プロパティ」→
+//   「スクリプト プロパティを追加」→ プロパティ名: ADMIN_PASSWORD ／ 値: 新しいパスワード。
+//   worker.js 側の Cloudflare Secret ADMIN_PASSWORD と同じ値にすること。
+//   ※ パスワードをコードに書き戻してコミットしないこと（公開事故の原因になる）。
+//
+// 設定できたかは checkAdminPassword() を実行して確認（値は表示せず有無だけログに出す）。
+function getAdminPassword_() {
+  var pw = PropertiesService.getScriptProperties().getProperty('ADMIN_PASSWORD');
+  if (!pw) {
+    throw new Error('ADMIN_PASSWORD が未設定です。プロジェクトの設定 → スクリプト プロパティに ADMIN_PASSWORD を追加してください。');
+  }
+  return pw;
+}
+
+// 管理者パスワードが設定済みかどうかを確認する（値そのものは出力しない）。
+function checkAdminPassword() {
+  var pw = PropertiesService.getScriptProperties().getProperty('ADMIN_PASSWORD');
+  Logger.log(pw
+    ? 'ADMIN_PASSWORD は設定済みです（長さ ' + pw.length + '）。'
+    : 'ADMIN_PASSWORD は未設定です。プロジェクトの設定 → スクリプト プロパティで追加してください。');
+}
 
 
 // ============================================================
@@ -176,7 +201,7 @@ function bodyHasProduct(body, mails) {
  * 指定した商品が「何個」購入されたかを数える。
  *
  * BOOTH の出品者メールでは、注文内容が「商品名 → 改行 → 金額行」で並ぶ。
- *   オーダーメイドキーホルダー (demo3)
+ *   （OP）2枚目以降
  *   ¥ 100 x 3点 = ¥ 300        ← 2個以上だと金額行に「x ○点」が付く
  * 1個のときは「x ○点」が付かず金額だけ（¥ 100）。
  *
@@ -375,7 +400,7 @@ function notifyNewMessages() {
   // 1) 未通知メッセージ一覧を取得（?pending=1 で emailed=false のものだけ返る）
   const url = CONFIG.WORKER_ORIGIN + '/api/messages?pending=1';
   const res = UrlFetchApp.fetch(url, {
-    headers: { 'Authorization': 'Bearer ' + CONFIG.ADMIN_PASSWORD },
+    headers: { 'Authorization': 'Bearer ' + getAdminPassword_() },
     muteHttpExceptions: true,
   });
   if (res.getResponseCode() !== 200) {
@@ -427,7 +452,7 @@ function notifyNewMessages() {
     const up = UrlFetchApp.fetch(CONFIG.WORKER_ORIGIN + '/api/message-update', {
       method: 'post',
       contentType: 'application/json',
-      headers: { 'Authorization': 'Bearer ' + CONFIG.ADMIN_PASSWORD },
+      headers: { 'Authorization': 'Bearer ' + getAdminPassword_() },
       payload: JSON.stringify({ ids: sentIds, emailed: true }),
       muteHttpExceptions: true,
     });
@@ -461,7 +486,7 @@ function notifyNewSupport() {
   // 1) 未通知サポート一覧を取得（?pending=1 で emailed=false のものだけ返る）
   const url = CONFIG.WORKER_ORIGIN + '/api/support-list?pending=1';
   const res = UrlFetchApp.fetch(url, {
-    headers: { 'Authorization': 'Bearer ' + CONFIG.ADMIN_PASSWORD },
+    headers: { 'Authorization': 'Bearer ' + getAdminPassword_() },
     muteHttpExceptions: true,
   });
   if (res.getResponseCode() === 200) {
@@ -507,7 +532,7 @@ function notifyNewSupport() {
         const up = UrlFetchApp.fetch(CONFIG.WORKER_ORIGIN + '/api/support-update', {
           method: 'post',
           contentType: 'application/json',
-          headers: { 'Authorization': 'Bearer ' + CONFIG.ADMIN_PASSWORD },
+          headers: { 'Authorization': 'Bearer ' + getAdminPassword_() },
           payload: JSON.stringify({ numbers: sentNumbers, emailed: true }),
           muteHttpExceptions: true,
         });
@@ -560,7 +585,7 @@ function registerOrder(orderId, options, addonCount) {
   const res = UrlFetchApp.fetch(url, {
     method: 'post',
     contentType: 'application/json',
-    headers: { 'Authorization': 'Bearer ' + CONFIG.ADMIN_PASSWORD },
+    headers: { 'Authorization': 'Bearer ' + getAdminPassword_() },
     payload: JSON.stringify({
       orderId: orderId,
       nfcUrl: '',                    // 空＝お客さんが後で設定
@@ -604,7 +629,7 @@ function registerOptionOrder(orderId, options, addonCount) {
   const res = UrlFetchApp.fetch(url, {
     method: 'post',
     contentType: 'application/json',
-    headers: { 'Authorization': 'Bearer ' + CONFIG.ADMIN_PASSWORD },
+    headers: { 'Authorization': 'Bearer ' + getAdminPassword_() },
     payload: JSON.stringify({
       orderId:    orderId,
       options:    options || {},

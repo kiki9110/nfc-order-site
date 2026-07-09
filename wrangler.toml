@@ -1,0 +1,29 @@
+# =============================================================================
+# Cloudflare Worker 設定ファイル（wrangler deploy 用）
+#
+# ⚠️ Connect（自動デプロイ連携）を押す前に、下の <...> を Cloudflare ダッシュボードの
+#    現在値に必ず置き換えてから push すること。値がズレると「別Workerが新規作成される」
+#    または「デプロイ失敗」の事故になる。
+#
+# 確認場所:
+#   name        … Workers & Pages → 対象Worker名（既存Workerの表示名と完全一致させる）
+#   id (KV)     … Storage & Databases → KV → NFC_URLS namespace の「ID」列の値
+#   ADMIN_PASSWORD … これは Secret。ここには書かない。
+#                    ダッシュボード（Worker → Settings → Variables → Secret）で設定するか
+#                    `npx wrangler secret put ADMIN_PASSWORD` で投入する。
+# =============================================================================
+
+name = "nfc-order"                          # 既存Worker名と一致
+main = "worker.js"                          # エントリ（export default { fetch } の単一ファイル）
+compatibility_date = "2025-07-01"           # デプロイ日以前の日付でOK。必要なら更新。
+
+# KV 名前空間バインディング。binding 名 "NFC_URLS" はコードが参照しているので変更不可。
+# id は本番の namespace ID を貼る（下記 preview_id は使わないなら削除可）。
+[[kv_namespaces]]
+binding = "NFC_URLS"
+id = "55e1b0a7f7c740cc930617cd2429eb4c"
+
+# --- 補足 ---
+# ・ADMIN_PASSWORD は Secret 管理。wrangler.toml / リポジトリには絶対に書かない。
+# ・worker.js は import の無い自己完結ファイルなのでビルド不要。deploy コマンドは
+#   `npx wrangler deploy`（Cloudflare Builds の Deploy command に入力済みのもの）。
