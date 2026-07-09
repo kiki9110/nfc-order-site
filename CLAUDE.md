@@ -11,19 +11,30 @@ order number. It has grown well beyond a URL-redirect: it now also includes a fu
 (cancel / confirm / made), a **support ticket + chat** system, a **contact form**, and a
 **self-registration** path. Comments, UI text, and product naming are in Japanese; preserve that.
 
-There is **no build system, package manager, test suite, or active git repo** (a `.gitignore`
-exists for a future GitHub Pages push, but `git` is not initialized). Each file is deployed by
-manually copy-pasting its full contents into a hosting dashboard. Keep that constraint in mind:
-avoid module imports or tooling that assumes a bundler — everything must run as a single
-self-contained file. `worker.js` (~4150 lines) and `page2.html` (~3800 lines) are large because
-all HTML/CSS/JS is inlined.
+There is **no build system, package manager, or test suite**. The repo **is** now git-tracked and
+pushed to GitHub (`kiki9110/nfc-order-site`, `main` branch, also serving GitHub Pages). Keep the
+"single self-contained file" constraint in mind regardless: avoid module imports or tooling that
+assumes a bundler — everything must run as one file. `worker.js` (~4150 lines) and `page2.html`
+(~3800 lines) are large because all HTML/CSS/JS is inlined.
+
+### Deploy / operations rule (read before shipping a change)
+- **`worker.js` → auto-deploys.** Cloudflare Builds is connected to the GitHub repo: a `git push`
+  to `main` runs `npx wrangler deploy` (per `wrangler.toml`, Worker `name = "nfc-order"`, KV binding
+  `NFC_URLS`) and publishes the new Worker automatically. **No manual copy-paste into the Cloudflare
+  dashboard is needed** — just commit and push. (Do NOT put secrets in `wrangler.toml`; `ADMIN_PASSWORD`
+  is a Cloudflare Secret.)
+- **`Code.gs` → still manual.** Apps Script is NOT auto-deployed (clasp intentionally not adopted).
+  After editing `Code.gs`, paste the whole file into the Apps Script editor by hand. Committing it to
+  git does not deploy it.
+- **Static HTML pages → GitHub Pages** publishes from the same repo on push.
 
 ## Three deployment targets
 
 The repo is three independent pieces that talk over HTTP. They are NOT one app.
 
 1. **`worker.js`** → Cloudflare Worker (the backend + API). Single `export default { fetch }`
-   that routes by `url.pathname`. Paste the whole file into Cloudflare → Worker → Edit code.
+   that routes by `url.pathname`. **Deployed automatically on `git push` to `main`** via Cloudflare
+   Builds (`npx wrangler deploy`, config in `wrangler.toml`) — no manual paste needed anymore.
    Requires a KV namespace bound as **`NFC_URLS`** (the only binding). Serves several embedded
    HTML pages via template functions inside the file:
    - `/admin` (`adminHTML`) — admin console (login, keychain list, inventory, backup,
@@ -102,10 +113,11 @@ same value:
   the public `/api/save-order` (registered-only), which also syncs the NFC/QR redirect URL. The old
   admin-authed `/api/register` call was removed from page2.
 
-⚠️ **Rotate the compromised value.** `Kiki.n0825` was previously committed in `page2.html` (a public
-static file) and briefly in `Code.gs`. Treat it as leaked: set a NEW value as the Cloudflare Secret
-**and** the matching Apps Script Script Property. Always change both together. The Worker fails closed
-if the Secret is unset, so set it before/at rotation.
+✅ **The compromised value has been rotated.** `Kiki.n0825` (once committed in `page2.html`, a public
+static file, and briefly in `Code.gs`) is retired. A NEW secret is now set as the Cloudflare Secret
+`ADMIN_PASSWORD` **and** the matching Apps Script Script Property (both verified in production:
+login with the new password works, `Kiki.n0825` is rejected). If you ever rotate again, always change
+**both** stores together; the Worker fails closed if the Secret is unset, so set it before/at rotation.
 
 ## KV data model (all in the `NFC_URLS` namespace)
 
@@ -175,13 +187,21 @@ overwrite, so `reprocessAll()` won't wipe customer data.
   admin and ≥7 days old. It runs on every `support-get` / `support-list`, plus a batch `sweep`
   branch in `support-update`. Admin replies (`support-reply`) re-open resolved tickets.
 
-## Known issues / status (all resolved in the security pass — 2026-07)
+## Known issues / status (security pass complete AND deployed — 2026-07-09)
 
-1. ✅ **Admin password removed from `page2.html`.** page2 posts to the public `/api/save-order`
-   (registered-only), which also syncs the NFC/QR redirect URL — no admin token in any static/customer
-   file. ⚠️ Still **rotate** the compromised `Kiki.n0825` value in Cloudflare + Script Property.
+All six findings below are fixed **and live in production**. `worker.js`/`page2.html` are deployed
+(Cloudflare Builds active deployment `9d08bfa8`, traffic 100%, error rate 0%); `Code.gs` is pasted
+into Apps Script; the fix commit is pushed to `main` (`3393efe`). Production spot-checks passed:
+`/portal` loads, `/admin` login works with the new password and rejects `Kiki.n0825`, and the admin
+keychain list no longer shows `MSG:`/`SUP:` records. Nothing here is outstanding.
+
+1. ✅ **Admin password removed from `page2.html`** and **rotated.** page2 posts to the public
+   `/api/save-order` (registered-only), which also syncs the NFC/QR redirect URL — no admin token in
+   any static/customer file. The leaked `Kiki.n0825` value is retired in both stores (see the
+   ADMIN_PASSWORD section above).
 2. ✅ **Order-list exclusion filters centralized** in `isNfcOrderKey()` — now also excludes `MSG:`,
-   `SUP:`, `RL:`, and `SELF_OPT` (used by both `handleGet` and `handleGetAll`).
+   `SUP:`, `RL:`, and `SELF_OPT` (used by both `handleGet` and `handleGetAll`). Verified in prod:
+   admin list is clean.
 3. ✅ **`handleGet` paginates** via cursor-based `listAllKeys()` (no more ~1000-key truncation).
 4. ✅ **Support ownership + rate limiting** — 128-bit per-ticket `token` (owner's `localStorage` only)
    required by `support-get`/`-message`/`-delete` (admin bypasses via Bearer); wrong token → "not found".
