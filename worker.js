@@ -1301,6 +1301,10 @@ body{font-family:'Noto Sans JP',sans-serif;background:#f6f7f9;color:#1a1d23;padd
   <div class="card">
     <div class="card-head">🔩 穴の位置</div>
     <div class="card-body">
+      <div style="display:flex;gap:8px;margin-bottom:14px;">
+        <button id="holeBtnFront" onclick="setHoleSide('front')" style="padding:7px 16px;border:1.5px solid #ccc8be;border-radius:8px;background:#fff;color:#6b6860;font-family:'Noto Sans JP',sans-serif;font-size:12px;font-weight:700;cursor:pointer;">おもて面</button>
+        <button id="holeBtnBack"  onclick="setHoleSide('back')"  style="padding:7px 16px;border:1.5px solid #ccc8be;border-radius:8px;background:#fff;color:#6b6860;font-family:'Noto Sans JP',sans-serif;font-size:12px;font-weight:700;cursor:pointer;">うら面</button>
+      </div>
       <div class="minimap-row" style="align-items:flex-start;gap:20px;">
         <canvas id="attachCv" width="200" height="200" style="border-radius:10px;border:1.5px solid #ccc8be;flex-shrink:0;"></canvas>
         <div class="minimap-info" style="padding-top:8px;font-size:13px;line-height:2;">
@@ -1352,6 +1356,23 @@ if (dlB && (ORDER.imgPrintBack || ORDER.imgBack)) dlB.href = ORDER.imgPrintBack 
 // ── QR ミニマップ描画 ──
 function rrect(ctx,x,y,w,h,r){ctx.moveTo(x+r,y);ctx.lineTo(x+w-r,y);ctx.arcTo(x+w,y,x+w,y+r,r);ctx.lineTo(x+w,y+h-r);ctx.arcTo(x+w,y+h,x+w-r,y+h,r);ctx.lineTo(x+r,y+h);ctx.arcTo(x,y+h,x,y+h-r,r);ctx.lineTo(x,y+r);ctx.arcTo(x,y,x+r,y,r);ctx.closePath();}
 
+// キーホルダー本体に重ねる座標グリッド（中心=0・0.5cm間隔／1cmごとに濃く・中心線が最も明るい）。
+// QR・NFCの位置確認用。背景の明暗どちらでも見えるよう「暗いハロー＋明るい線」の二重描き。clipPath で本体内にクリップ。
+function drawKHGrid(ctx, ox, oy, kw, kh, ppc, clipPath){
+  var gStep = ppc*0.5; if(gStep<=4) return;
+  var cx=ox+kw/2, cy=oy+kh/2, x0=ox, x1=ox+kw, y0=oy, y1=oy+kh, i, v, s;
+  ctx.save();
+  if(clipPath){ clipPath(); ctx.clip(); }
+  function seg(a,b,c,d){ ctx.beginPath(); ctx.moveTo(a,b); ctx.lineTo(c,d); ctx.stroke(); }
+  // k: 0=中心線 / 1=1cm線 / 2=0.5cm線 → [ハロー濃度, 明線濃度, 線幅]
+  function sty(k){ return k===0 ? [0.34,0.62,1] : (k===1 ? [0.18,0.32,1] : [0.09,0.15,1]); }
+  function vline(x,p){ ctx.strokeStyle='rgba(0,0,0,'+p[0]+')'; ctx.lineWidth=p[2]+1; seg(x,y0,x,y1); ctx.strokeStyle='rgba(255,255,255,'+p[1]+')'; ctx.lineWidth=p[2]; seg(x,y0,x,y1); }
+  function hline(y,p){ ctx.strokeStyle='rgba(0,0,0,'+p[0]+')'; ctx.lineWidth=p[2]+1; seg(x0,y,x1,y); ctx.strokeStyle='rgba(255,255,255,'+p[1]+')'; ctx.lineWidth=p[2]; seg(x0,y,x1,y); }
+  for(i=Math.ceil((x0-cx)/gStep); cx+i*gStep<=x1; i++){ v=cx+i*gStep; s=sty(i===0?0:(i%2===0?1:2)); vline(v,s); }
+  for(i=Math.ceil((y0-cy)/gStep); cy+i*gStep<=y1; i++){ v=cy+i*gStep; s=sty(i===0?0:(i%2===0?1:2)); hline(v,s); }
+  ctx.restore();
+}
+
 // ダイカットの中抜き穴を描画。mode='cut'=透明にくり抜き / 'fill'=指定色で塗り
 function diePunchHoles(ctx, holes, ox, oy, w, h, mode, bg) {
   if (!holes || !holes.length) return;
@@ -1390,6 +1411,7 @@ function dieBorderPx(s) { return (ORDER.sizeCm ? (ORDER.borderCm || 0) / ORDER.s
 
 // ── 拡大表示（キーホルダー画像・QR位置・NFC位置・穴位置 共通モーダル）──
 var ZOOM_SCALE = 3, ZOOM_QR = {}, ZOOM_HOLE = null, ZOOM_NFC = null;
+var HOLE_SIDE = (ORDER.attachView === 'back' ? 'back' : 'front');   // 穴の位置：表示中の面（管理画面で切替）
 var _zUser = 1, _zTx = 0, _zTy = 0, _zoomSrc = null;   // ユーザー操作のズーム倍率・移動量／画像保存用の元src
 function _zApply(){
   var cv = document.getElementById('zoomCv'); if(!cv) return;
@@ -1514,6 +1536,7 @@ function drawQRMini(containerId, qrData, imgSrc) {
       ctx.strokeStyle='rgba(255,255,255,.30)';ctx.lineWidth=1;khPath();ctx.stroke();  // 暗背景に合わせ白枠
     }
     var ppCm=(ORDER.shape==='diecut'?DIE_FIT*kw/(ORDER.sizeCm||7):(ORDER.shape==='rect'&&ORDER.widthCm?kw/ORDER.widthCm:kw/(ORDER.sizeCm||7))), qpx=Math.max(10,qrData.cm*ppCm);
+    drawKHGrid(ctx, ox, oy, kw, kh, ppCm, khPath);                                 // 位置確認グリッド（本体内）
     var qcx=ox+kw*qrData.x/100, qcy=oy+kh*qrData.y/100;
     var ink=qrInk(ORDER.colorHex), halo=(ink==='#ffffff')?'rgba(0,0,0,.5)':'rgba(255,255,255,.8)';
     ctx.save();ctx.translate(qcx,qcy);ctx.rotate((qrData.rot||0)*Math.PI/180);   // 向き（360度）
@@ -1572,6 +1595,7 @@ function drawNFCMini(containerId, np, imgSrc) {
       ctx.strokeStyle='rgba(255,255,255,.30)';ctx.lineWidth=1;khPath();ctx.stroke();
     }
     var ppCm=(ORDER.shape==='diecut'?DIE_FIT*kw/(ORDER.sizeCm||7):(ORDER.shape==='rect'&&ORDER.widthCm?kw/ORDER.widthCm:kw/(ORDER.sizeCm||7)));
+    drawKHGrid(ctx, ox, oy, kw, kh, ppCm, khPath);                                 // 位置確認グリッド（本体内）
     var bw=Math.max(10,W*ppCm), bh=Math.max(8,H*ppCm);
     var ncx=ox+kw*np.x/100, ncy=oy+kh*np.y/100;
     ctx.save();ctx.translate(ncx,ncy);ctx.rotate((np.rot||0)*Math.PI/180);   // 向き（360度）
@@ -1609,7 +1633,10 @@ function paintHole(tcv, scale, img, blank){
   else                           { bw = bh = ppc*sizeCm; }
   var g = { cx:aw/2, cy:ah/2, w:bw, h:bh, size:Math.max(bw,bh), r:Math.min(bw,bh)/2, x:aw/2-bw/2, y:ah/2-bh/2, rad:Math.min(bw,bh)*0.06 };
   var pxPerCm = ppc;
-  var hx = g.x+g.w*attX/100, hy = g.y+g.h*attY/100;
+  // うら面表示：丸・四角は穴を本体中心で左右鏡像（物理的に穴が反対側に来る）。ダイカットは画像＝シルエットのため据え置き。
+  var mirror = (HOLE_SIDE==='back' && shape!=='diecut');
+  var attXd  = mirror ? (100-attX) : attX;
+  var hx = g.x+g.w*attXd/100, hy = g.y+g.h*attY/100;
   var holeR = Math.max(2,(holeCm/2)*pxPerCm);
   var lugR  = (holeR+Math.max(8,holeR*0.9))*2/3;   // ディスク半径＝旧サイズの2/3（首と同じ幅に）
 
@@ -1650,6 +1677,30 @@ function paintHole(tcv, scale, img, blank){
   // 本体・画像・縁取りの描画（旧 draw(img, blank) 相当）
   ctx.clearRect(0,0,aw,ah);
   ctx.fillStyle=WRAP_BG; ctx.fillRect(0,0,aw,ah);
+
+  // グリッド線（本体中心が0・0.5cm間隔／1cmごとに濃く・中心線が最も明るい）— page2の穴エディタと同じ
+  (function(){
+    var gStep = pxPerCm*0.5; if(gStep<=5) return;
+    ctx.save(); ctx.lineWidth=1;
+    function gLine(v, vert, kind){
+      ctx.strokeStyle = kind===0 ? 'rgba(255,255,255,.30)' : (kind===1 ? 'rgba(255,255,255,.12)' : 'rgba(255,255,255,.055)');
+      ctx.beginPath();
+      if(vert){ ctx.moveTo(v,0); ctx.lineTo(v,ah); } else { ctx.moveTo(0,v); ctx.lineTo(aw,v); }
+      ctx.stroke();
+    }
+    var i,j,x,y;
+    for(i=Math.ceil(-g.cx/gStep); i*gStep+g.cx<=aw; i++) gLine(g.cx+i*gStep, true,  i===0?0:(i%2===0?1:2));
+    for(j=Math.ceil(-g.cy/gStep); j*gStep+g.cy<=ah; j++) gLine(g.cy+j*gStep, false, j===0?0:(j%2===0?1:2));
+    // 座標ラベル（中心=0）。X＝上端／Y＝左端に1cmごと
+    ctx.font='bold 9px sans-serif'; ctx.fillStyle='rgba(255,255,255,.85)';
+    ctx.strokeStyle='rgba(0,0,0,.55)'; ctx.lineWidth=2.4; ctx.lineJoin='round';
+    function lbl(txt,lx,ly,alignH,alignV){ ctx.textAlign=alignH; ctx.textBaseline=alignV; ctx.strokeText(txt,lx,ly); ctx.fillText(txt,lx,ly); }
+    for(i=Math.ceil(-g.cx/gStep); i*gStep+g.cx<=aw; i++){ if(i===0||i%2!==0) continue; x=g.cx+i*gStep; if(x<10||x>aw-10) continue; lbl((i/2)+'',x,2,'center','top'); }
+    for(j=Math.ceil(-g.cy/gStep); j*gStep+g.cy<=ah; j++){ if(j===0||j%2!==0) continue; y=g.cy+j*gStep; if(y<8||y>ah-6) continue; lbl((j/2)+'',3,y,'left','middle'); }
+    lbl('0',g.cx,2,'center','top'); lbl('0',3,g.cy,'left','middle');
+    ctx.restore();
+  })();
+
   if(!isInsideBody(hx,hy)) ctx.drawImage(buildTab(true),0,0,aw,ah);             // 外付け：首付きツメ
   else if(!lugFullyInside(hx,hy,lugR)) ctx.drawImage(buildTab(false),0,0,aw,ah); // 本体内・縁近く：丸い膨らみのみ
   if(shape==='diecut' && ORDER.dieReinforce===false && img){
@@ -1668,21 +1719,29 @@ function paintHole(tcv, scale, img, blank){
   ctx.lineWidth=1.4; ctx.strokeStyle='rgba(0,0,0,.45)'; ctx.beginPath(); ctx.arc(hx,hy,holeR,0,Math.PI*2); ctx.stroke();
   ctx.lineWidth=1; ctx.strokeStyle='rgba(255,255,255,.22)'; ctx.beginPath(); ctx.arc(hx,hy,Math.max(1,holeR-1.4),0,Math.PI*2); ctx.stroke();
 }
+var _holeImg = null, _holeBlank = true;
 (function(){
   var attX = (ORDER.attX!=null ? ORDER.attX : 50);
   var attY = (ORDER.attY!=null ? ORDER.attY : 10);
   var holeInfo = 'X: <strong>'+Math.round(attX)+'%</strong><br>Y: <strong>'+Math.round(attY)+'%</strong><br>状態: <strong>'+(ORDER.attMode==='outside'?'外付けツメ':'本体内')+'</strong><br>穴径: <strong>5mm</strong>';
-  var holeImg = null, holeBlank = true;
+  // 拡大登録（クリック時に最新の面・状態で再描画）
+  ZOOM_HOLE = { label: '穴の位置（拡大）', info: holeInfo, paint: function(tcv,scale){ paintHole(tcv,scale,_holeImg,_holeBlank); } };
+})();
+// 面切替（おもて／うら）。うら面は穴を鏡像描画（paintHole 内で処理）。
+function setHoleSide(side){
+  HOLE_SIDE = (side==='back') ? 'back' : 'front';
+  var bf=document.getElementById('holeBtnFront'), bb=document.getElementById('holeBtnBack');
+  function styleBtn(btn, on){ if(!btn) return; btn.style.borderColor=on?'#3257d6':'#ccc8be'; btn.style.background=on?'#eef1fd':'#fff'; btn.style.color=on?'#3257d6':'#6b6860'; }
+  styleBtn(bf, HOLE_SIDE==='front'); styleBtn(bb, HOLE_SIDE==='back');
   var cv = document.getElementById('attachCv');
-  // 拡大登録（クリック時に最新の状態で再描画）
-  ZOOM_HOLE = { label: '穴の位置（拡大）', info: holeInfo, paint: function(tcv,scale){ paintHole(tcv,scale,holeImg,holeBlank); } };
-  var backNoPrint = (ORDER.attachView==='back' && !ORDER.imgBack);   // 裏面・印刷なし
-  var contentSrc  = backNoPrint ? null : ((ORDER.attachView==='back' ? ORDER.imgBack : ORDER.imgFront) || ORDER.imgFront);
+  var backNoPrint = (HOLE_SIDE==='back' && !ORDER.imgBack);   // うら面・印刷なし
+  var contentSrc  = backNoPrint ? null : ((HOLE_SIDE==='back' ? ORDER.imgBack : ORDER.imgFront) || ORDER.imgFront);
   var loadSrc     = contentSrc || (ORDER.shape==='diecut' ? ORDER.imgFront : null);   // 無地でもシルエット用に表画像を読む
-  function render(img, blank){ holeImg=img; holeBlank=blank; if(cv) paintHole(cv,1,img,blank); }
+  function render(img, blank){ _holeImg=img; _holeBlank=blank; if(cv) paintHole(cv,1,img,blank); }
   if(loadSrc){ var i=new Image(); i.onload=function(){render(i, !contentSrc);}; i.onerror=function(){render(null, true);}; i.src=loadSrc; }
   else render(null, true);
-})();
+}
+setHoleSide(HOLE_SIDE);   // 初期表示（保存された attachView の面）
 </script>
 </body>
 </html>`;
