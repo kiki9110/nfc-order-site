@@ -617,6 +617,13 @@ if(document.readyState!=='loading')w();else document.addEventListener('DOMConten
           <button type="button" id="leSideBack" class="le-sidebtn" onclick="leSetSide('back')" style="display:none;">うら</button>
         </div>
       </div>
+      <div id="leBorderPrintBar" style="display:none;padding:9px 11px;margin-bottom:8px;background:var(--sel);border:1.5px solid var(--border);border-radius:9px;">
+        <label style="display:flex;align-items:center;gap:8px;font-size:13px;cursor:pointer;">
+          <input type="checkbox" id="borderPrintChk" onchange="setBorderPrint(this.checked)" style="width:16px;height:16px;flex-shrink:0;">
+          <strong>縁（ふち）にも印刷する</strong>
+        </label>
+        <div class="att-hint" style="margin-top:3px;">ONにすると、この画像が切り取りの<strong style="color:var(--ink);">縁まで印刷</strong>されます。縁まで届くよう画像の位置・大きさを調整してください（画像が無い部分は無地アクリルのまま）。</div>
+      </div>
       <div class="le-body">
         <div class="le-list">
           <button type="button" class="le-add" onclick="leAddClick()">＋ 追加</button>
@@ -731,11 +738,6 @@ if(document.readyState!=='loading')w();else document.addEventListener('DOMConten
           <button onclick="stepBd(1)">＋</button>
         </div>
       </div>
-      <label style="display:flex;align-items:center;gap:8px;margin-top:12px;font-size:13px;cursor:pointer;">
-        <input type="checkbox" id="borderPrintChk" onchange="setBorderPrint(this.checked)" style="width:16px;height:16px;flex-shrink:0;">
-        縁（ふち）にも印刷する
-      </label>
-      <div class="att-hint" style="margin-top:4px;">ONにすると、挿入した画像が切り取りの縁まで印刷されます（画像が無い部分は無地アクリルのまま）。OFFは縁を無地アクリルにします。</div>
     </div>
     <div style="font-size:11px;color:var(--muted);margin-top:4px;line-height:1.6;">※ サイズはすべての形状で最小3cm・最大9cmです。自由四角は縦横それぞれ3〜9cm、ダイカットは9×9cmの枠に収まります。</div>
   </div>
@@ -3883,6 +3885,10 @@ function leShow(){
   const mb = document.getElementById('leModeBase'), mp = document.getElementById('leModePrint');
   if (mb) mb.classList.toggle('on', base);
   if (mp) mp.classList.toggle('on', !base);
+  // 「縁にも印刷する」トグル：ダイカットの画像（プリント）モードのときだけ表示（画像の位置・大きさを見ながら切替できる）
+  const bpBar = document.getElementById('leBorderPrintBar');
+  if (bpBar) bpBar.style.display = (diecut && !base) ? 'block' : 'none';
+  const bpChk = document.getElementById('borderPrintChk'); if (bpChk) bpChk.checked = !!S.borderPrint;
   // 面切替（おもて／うら）：土台モードでは形が共通なので隠す
   const showSide = !base;
   const bf = document.getElementById('leSideFront'); if (bf) bf.style.display = showSide ? 'inline-flex' : 'none';
