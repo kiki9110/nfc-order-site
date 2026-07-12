@@ -2158,7 +2158,7 @@ function drawQRBg(side, cv, aw, ah) {
       if (S.shape === 'diecut') {
         // ダイカット：アルファに沿って縁取り＋穴抜き（kw=kh の正方形領域に等倍）
         drawDieBodyAlpha(ctx, img, ox, oy, kw, acryl, (S.sizeCm ? (S.borderCm||0)/S.sizeCm : 0) * kw * DIE_FIT, true);
-        drawKHGrid(ctx, ox, oy, kw, kh, pxPerCm, khPath);   // 位置確認グリッド（本体内）
+        drawKHGrid(ctx, aw, ah, ox+kw/2, oy+kh/2, pxPerCm);   // 位置確認グリッド（全体＋外周に数字）
         drawScaleBar(ctx, ox, oy, kw, kh, pxPerCm);
         return;
       }
@@ -2169,7 +2169,7 @@ function drawQRBg(side, cv, aw, ah) {
       else          { dw=kw; dh=dw/ir; dy=oy-(dh-kh)/2; dx=ox; }
       ctx.drawImage(img, dx, dy, dw, dh); ctx.restore();
       ctx.strokeStyle='rgba(0,0,0,.2)'; ctx.lineWidth=1; khPath(); ctx.stroke();
-      drawKHGrid(ctx, ox, oy, kw, kh, pxPerCm, khPath);   // 位置確認グリッド（本体内）
+      drawKHGrid(ctx, aw, ah, ox+kw/2, oy+kh/2, pxPerCm);   // 位置確認グリッド（全体＋外周に数字）
       drawScaleBar(ctx, ox, oy, kw, kh, pxPerCm);
     };
     img.src = src;
@@ -2178,25 +2178,31 @@ function drawQRBg(side, cv, aw, ah) {
     ctx.strokeStyle='rgba(0,0,0,.12)'; ctx.lineWidth=1; khPath(); ctx.stroke();
     ctx.fillStyle='rgba(100,98,94,.45)'; ctx.font='11px sans-serif'; ctx.textAlign='center'; ctx.textBaseline='middle';
     ctx.fillText('画像未設定', aw/2, ah/2);
-    drawKHGrid(ctx, ox, oy, kw, kh, pxPerCm, khPath);   // 位置確認グリッド（本体内）
+    drawKHGrid(ctx, aw, ah, ox+kw/2, oy+kh/2, pxPerCm);   // 位置確認グリッド（全体＋外周に数字）
     drawScaleBar(ctx, ox, oy, kw, kh, pxPerCm);
   }
 }
 
-// キーホルダー本体に重ねる座標グリッド（中心=0・0.5cm間隔／1cmごとに濃く・中心線が最も明るい）。
-// QR・NFCの位置確認用。背景の明暗どちらでも見えるよう「暗いハロー＋明るい線」の二重描き。clipPath で本体内にクリップ。
-function drawKHGrid(ctx, ox, oy, kw, kh, ppc, clipPath) {
+// キーホルダーに重ねる座標グリッド（中心=0・0.5cm間隔／1cmごとに濃く・中心線が最も明るい）。
+// 穴の位置確認と同様、キャンバス全体に線を引き外周の縁に数字（cm）を表示。中の線は「暗いハロー＋明るい線」で画像上でも視認。
+// cx,cy=本体中心（px）／aw,ah=キャンバス全体サイズ（px）。
+function drawKHGrid(ctx, aw, ah, cx, cy, ppc) {
   const gStep = ppc * 0.5; if (gStep <= 4) return;
-  const cx = ox + kw/2, cy = oy + kh/2, x0 = ox, x1 = ox + kw, y0 = oy, y1 = oy + kh;
   ctx.save();
-  if (clipPath) { clipPath(); ctx.clip(); }
   const seg = (a,b,c,d) => { ctx.beginPath(); ctx.moveTo(a,b); ctx.lineTo(c,d); ctx.stroke(); };
   // k: 0=中心線 / 1=1cm線 / 2=0.5cm線 → [ハロー濃度, 明線濃度, 線幅]
-  const sty = k => k === 0 ? [0.34,0.62,1] : (k === 1 ? [0.18,0.32,1] : [0.09,0.15,1]);
-  const vline = (x,p) => { ctx.strokeStyle='rgba(0,0,0,'+p[0]+')'; ctx.lineWidth=p[2]+1; seg(x,y0,x,y1); ctx.strokeStyle='rgba(255,255,255,'+p[1]+')'; ctx.lineWidth=p[2]; seg(x,y0,x,y1); };
-  const hline = (y,p) => { ctx.strokeStyle='rgba(0,0,0,'+p[0]+')'; ctx.lineWidth=p[2]+1; seg(x0,y,x1,y); ctx.strokeStyle='rgba(255,255,255,'+p[1]+')'; ctx.lineWidth=p[2]; seg(x0,y,x1,y); };
-  for (let i = Math.ceil((x0-cx)/gStep); cx + i*gStep <= x1; i++) vline(cx + i*gStep, sty(i===0?0:(i%2===0?1:2)));
-  for (let i = Math.ceil((y0-cy)/gStep); cy + i*gStep <= y1; i++) hline(cy + i*gStep, sty(i===0?0:(i%2===0?1:2)));
+  const sty = k => k === 0 ? [0.34,0.66,1] : (k === 1 ? [0.20,0.34,1] : [0.10,0.16,1]);
+  const vline = (x,p) => { ctx.strokeStyle='rgba(0,0,0,'+p[0]+')'; ctx.lineWidth=p[2]+1; seg(x,0,x,ah); ctx.strokeStyle='rgba(255,255,255,'+p[1]+')'; ctx.lineWidth=p[2]; seg(x,0,x,ah); };
+  const hline = (y,p) => { ctx.strokeStyle='rgba(0,0,0,'+p[0]+')'; ctx.lineWidth=p[2]+1; seg(0,y,aw,y); ctx.strokeStyle='rgba(255,255,255,'+p[1]+')'; ctx.lineWidth=p[2]; seg(0,y,aw,y); };
+  for (let i = Math.ceil(-cx/gStep); cx + i*gStep <= aw; i++) vline(cx + i*gStep, sty(i===0?0:(i%2===0?1:2)));
+  for (let i = Math.ceil(-cy/gStep); cy + i*gStep <= ah; i++) hline(cy + i*gStep, sty(i===0?0:(i%2===0?1:2)));
+  // 座標ラベル（cm）。X＝上端／Y＝左端に1cmごと。中心=0。白文字＋黒縁取りで明暗どちらでも読める。
+  ctx.font = 'bold 9px sans-serif'; ctx.fillStyle = 'rgba(255,255,255,.92)';
+  ctx.strokeStyle = 'rgba(0,0,0,.6)'; ctx.lineWidth = 2.4; ctx.lineJoin = 'round';
+  const lbl = (t,x,y,alignH,alignV) => { ctx.textAlign=alignH; ctx.textBaseline=alignV; ctx.strokeText(t,x,y); ctx.fillText(t,x,y); };
+  for (let i = Math.ceil(-cx/gStep); cx + i*gStep <= aw; i++) { if (i===0 || i%2!==0) continue; const x = cx+i*gStep; if (x<9 || x>aw-9) continue; lbl((i/2)+'', x, 1, 'center', 'top'); }
+  for (let i = Math.ceil(-cy/gStep); cy + i*gStep <= ah; i++) { if (i===0 || i%2!==0) continue; const y = cy+i*gStep; if (y<8 || y>ah-5) continue; lbl((i/2)+'', 2, y, 'left', 'middle'); }
+  lbl('0', cx, 1, 'center', 'top'); lbl('0', 2, cy, 'left', 'middle');
   ctx.restore();
 }
 

@@ -1356,20 +1356,27 @@ if (dlB && (ORDER.imgPrintBack || ORDER.imgBack)) dlB.href = ORDER.imgPrintBack 
 // ── QR ミニマップ描画 ──
 function rrect(ctx,x,y,w,h,r){ctx.moveTo(x+r,y);ctx.lineTo(x+w-r,y);ctx.arcTo(x+w,y,x+w,y+r,r);ctx.lineTo(x+w,y+h-r);ctx.arcTo(x+w,y+h,x+w-r,y+h,r);ctx.lineTo(x+r,y+h);ctx.arcTo(x,y+h,x,y+h-r,r);ctx.lineTo(x,y+r);ctx.arcTo(x,y,x+r,y,r);ctx.closePath();}
 
-// キーホルダー本体に重ねる座標グリッド（中心=0・0.5cm間隔／1cmごとに濃く・中心線が最も明るい）。
-// QR・NFCの位置確認用。背景の明暗どちらでも見えるよう「暗いハロー＋明るい線」の二重描き。clipPath で本体内にクリップ。
-function drawKHGrid(ctx, ox, oy, kw, kh, ppc, clipPath){
+// キーホルダーに重ねる座標グリッド（中心=0・0.5cm間隔／1cmごとに濃く・中心線が最も明るい）。
+// 穴の位置確認と同様、キャンバス全体に線を引き外周の縁に数字（cm）を表示。中の線は「暗いハロー＋明るい線」で画像上でも視認。
+// cx,cy=本体中心（px）／aw,ah=キャンバス全体サイズ（px）。
+function drawKHGrid(ctx, aw, ah, cx, cy, ppc){
   var gStep = ppc*0.5; if(gStep<=4) return;
-  var cx=ox+kw/2, cy=oy+kh/2, x0=ox, x1=ox+kw, y0=oy, y1=oy+kh, i, v, s;
+  var i, v, s;
   ctx.save();
-  if(clipPath){ clipPath(); ctx.clip(); }
   function seg(a,b,c,d){ ctx.beginPath(); ctx.moveTo(a,b); ctx.lineTo(c,d); ctx.stroke(); }
   // k: 0=中心線 / 1=1cm線 / 2=0.5cm線 → [ハロー濃度, 明線濃度, 線幅]
-  function sty(k){ return k===0 ? [0.34,0.62,1] : (k===1 ? [0.18,0.32,1] : [0.09,0.15,1]); }
-  function vline(x,p){ ctx.strokeStyle='rgba(0,0,0,'+p[0]+')'; ctx.lineWidth=p[2]+1; seg(x,y0,x,y1); ctx.strokeStyle='rgba(255,255,255,'+p[1]+')'; ctx.lineWidth=p[2]; seg(x,y0,x,y1); }
-  function hline(y,p){ ctx.strokeStyle='rgba(0,0,0,'+p[0]+')'; ctx.lineWidth=p[2]+1; seg(x0,y,x1,y); ctx.strokeStyle='rgba(255,255,255,'+p[1]+')'; ctx.lineWidth=p[2]; seg(x0,y,x1,y); }
-  for(i=Math.ceil((x0-cx)/gStep); cx+i*gStep<=x1; i++){ v=cx+i*gStep; s=sty(i===0?0:(i%2===0?1:2)); vline(v,s); }
-  for(i=Math.ceil((y0-cy)/gStep); cy+i*gStep<=y1; i++){ v=cy+i*gStep; s=sty(i===0?0:(i%2===0?1:2)); hline(v,s); }
+  function sty(k){ return k===0 ? [0.34,0.66,1] : (k===1 ? [0.20,0.34,1] : [0.10,0.16,1]); }
+  function vline(x,p){ ctx.strokeStyle='rgba(0,0,0,'+p[0]+')'; ctx.lineWidth=p[2]+1; seg(x,0,x,ah); ctx.strokeStyle='rgba(255,255,255,'+p[1]+')'; ctx.lineWidth=p[2]; seg(x,0,x,ah); }
+  function hline(y,p){ ctx.strokeStyle='rgba(0,0,0,'+p[0]+')'; ctx.lineWidth=p[2]+1; seg(0,y,aw,y); ctx.strokeStyle='rgba(255,255,255,'+p[1]+')'; ctx.lineWidth=p[2]; seg(0,y,aw,y); }
+  for(i=Math.ceil(-cx/gStep); cx+i*gStep<=aw; i++){ v=cx+i*gStep; s=sty(i===0?0:(i%2===0?1:2)); vline(v,s); }
+  for(i=Math.ceil(-cy/gStep); cy+i*gStep<=ah; i++){ v=cy+i*gStep; s=sty(i===0?0:(i%2===0?1:2)); hline(v,s); }
+  // 座標ラベル（cm）。X＝上端／Y＝左端に1cmごと。中心=0。縁の白文字＋黒縁取りで明暗どちらでも読める。
+  ctx.font='bold 9px sans-serif'; ctx.fillStyle='rgba(255,255,255,.92)';
+  ctx.strokeStyle='rgba(0,0,0,.6)'; ctx.lineWidth=2.4; ctx.lineJoin='round';
+  function lbl(t,x,y,ah2,av){ ctx.textAlign=ah2; ctx.textBaseline=av; ctx.strokeText(t,x,y); ctx.fillText(t,x,y); }
+  for(i=Math.ceil(-cx/gStep); cx+i*gStep<=aw; i++){ if(i===0||i%2!==0) continue; v=cx+i*gStep; if(v<9||v>aw-9) continue; lbl((i/2)+'',v,1,'center','top'); }
+  for(i=Math.ceil(-cy/gStep); cy+i*gStep<=ah; i++){ if(i===0||i%2!==0) continue; v=cy+i*gStep; if(v<8||v>ah-5) continue; lbl((i/2)+'',2,v,'left','middle'); }
+  lbl('0',cx,1,'center','top'); lbl('0',2,cy,'left','middle');
   ctx.restore();
 }
 
@@ -1412,23 +1419,32 @@ function dieBorderPx(s) { return (ORDER.sizeCm ? (ORDER.borderCm || 0) / ORDER.s
 // ── 拡大表示（キーホルダー画像・QR位置・NFC位置・穴位置 共通モーダル）──
 var ZOOM_SCALE = 3, ZOOM_QR = {}, ZOOM_HOLE = null, ZOOM_NFC = null;
 var HOLE_SIDE = (ORDER.attachView === 'back' ? 'back' : 'front');   // 穴の位置：表示中の面（管理画面で切替）
-var _zUser = 1, _zTx = 0, _zTy = 0, _zoomSrc = null;   // ユーザー操作のズーム倍率・移動量／画像保存用の元src
+var _zUser = 1, _zTx = 0, _zTy = 0, _zoomSrc = null, _zRec = null;   // ユーザー操作のズーム倍率・移動量／画像保存用の元src／表示中の対象
 function _zApply(){
   var cv = document.getElementById('zoomCv'); if(!cv) return;
-  cv.style.transform = 'translate('+_zTx+'px,'+_zTy+'px) scale('+_zUser+')';
+  if(_zRec && _zRec.rerender){
+    // 再描画方式：グリッド・数字を毎回引き直し、数字を縁に固定（page2と同じ挙動）。CSS変形は使わない。
+    cv.style.transform = '';
+    var r = cv.getBoundingClientRect();
+    var k = r.width>0 ? (cv.width/ZOOM_SCALE)/r.width : 1;   // 論理px / 表示px（パン量の換算）
+    _zRec.paint(cv, ZOOM_SCALE, { zoom:_zUser, panX:_zTx*k, panY:_zTy*k });
+  } else {
+    cv.style.transform = 'translate('+_zTx+'px,'+_zTy+'px) scale('+_zUser+')';
+  }
   var p = document.getElementById('zPct'); if(p) p.textContent = Math.round(_zUser*100)+'%';
 }
 function zReset(){ _zUser=1; _zTx=0; _zTy=0; _zApply(); }
 function zStep(d){ _zUser = Math.max(1, Math.min(6, Math.round((_zUser+d)*100)/100)); if(_zUser===1){_zTx=0;_zTy=0;} _zApply(); }
 function openZoom(rec){
   if(!rec) return;
+  _zRec = rec;
   var cv = document.getElementById('zoomCv');
   document.getElementById('zoomTitle').textContent = rec.label || '拡大表示';
   document.getElementById('zoomInfo').innerHTML = rec.info || '';
   _zoomSrc = rec.isImg ? (rec.src || null) : null;
   var sb = document.getElementById('zoomSaveBtn'); if(sb) sb.style.display = _zoomSrc ? 'inline-block' : 'none';
-  zReset();                                  // 開くたびに拡大・位置をリセット
-  rec.paint(cv, ZOOM_SCALE);                 // 同じ絵を高解像度で再描画（ぼやけない）
+  zReset();                                  // 開くたびに拡大・位置をリセット（rerender対象はここで等倍描画）
+  if(!rec.rerender) rec.paint(cv, ZOOM_SCALE);   // 通常は高解像度で一度だけ描画（ぼやけない）
   document.getElementById('zoomModal').style.display = 'flex';
 }
 function closeZoom(e){ if(e && e.target !== e.currentTarget) return; var m=document.getElementById('zoomModal'); if(m) m.style.display='none'; }
@@ -1518,7 +1534,7 @@ function drawQRMini(containerId, qrData, imgSrc) {
   function paint(tcv, scale, img) {
     var L=160; tcv.width=Math.round(L*scale); tcv.height=Math.round(L*scale);
     var ctx=tcv.getContext('2d'); ctx.setTransform(scale,0,0,scale,0,0);
-    var aw=L, ah=L, m=12;
+    var aw=L, ah=L, m=18;                                                          // 外周に数字を置く余白
     var _box=Math.min(aw,ah)-m*2, kw=_box, kh=_box;
     if (ORDER.shape==='rect' && ORDER.widthCm && ORDER.heightCm) { var _ar=ORDER.widthCm/ORDER.heightCm; if(_ar>=1){kw=_box;kh=_box/_ar;}else{kh=_box;kw=_box*_ar;} }
     var ox=(aw-kw)/2, oy=(ah-kh)/2;
@@ -1536,7 +1552,7 @@ function drawQRMini(containerId, qrData, imgSrc) {
       ctx.strokeStyle='rgba(255,255,255,.30)';ctx.lineWidth=1;khPath();ctx.stroke();  // 暗背景に合わせ白枠
     }
     var ppCm=(ORDER.shape==='diecut'?DIE_FIT*kw/(ORDER.sizeCm||7):(ORDER.shape==='rect'&&ORDER.widthCm?kw/ORDER.widthCm:kw/(ORDER.sizeCm||7))), qpx=Math.max(10,qrData.cm*ppCm);
-    drawKHGrid(ctx, ox, oy, kw, kh, ppCm, khPath);                                 // 位置確認グリッド（本体内）
+    drawKHGrid(ctx, aw, ah, ox+kw/2, oy+kh/2, ppCm);                               // 位置確認グリッド（全体＋外周に数字）
     var qcx=ox+kw*qrData.x/100, qcy=oy+kh*qrData.y/100;
     var ink=qrInk(ORDER.colorHex), halo=(ink==='#ffffff')?'rgba(0,0,0,.5)':'rgba(255,255,255,.8)';
     ctx.save();ctx.translate(qcx,qcy);ctx.rotate((qrData.rot||0)*Math.PI/180);   // 向き（360度）
@@ -1580,7 +1596,7 @@ function drawNFCMini(containerId, np, imgSrc) {
   function paint(tcv, scale, img) {
     var L=160; tcv.width=Math.round(L*scale); tcv.height=Math.round(L*scale);
     var ctx=tcv.getContext('2d'); ctx.setTransform(scale,0,0,scale,0,0);
-    var aw=L, ah=L, m=12; var _box=Math.min(aw,ah)-m*2, kw=_box, kh=_box;
+    var aw=L, ah=L, m=18; var _box=Math.min(aw,ah)-m*2, kw=_box, kh=_box;         // 外周に数字を置く余白
     if (ORDER.shape==='rect' && ORDER.widthCm && ORDER.heightCm) { var _ar=ORDER.widthCm/ORDER.heightCm; if(_ar>=1){kw=_box;kh=_box/_ar;}else{kh=_box;kw=_box*_ar;} }
     var ox=(aw-kw)/2, oy=(ah-kh)/2;
     function khPath(){ ctx.beginPath(); if(isDie){ ctx.moveTo(ox+poly[0].x*kw, oy+poly[0].y*kh); for(var i=1;i<poly.length;i++) ctx.lineTo(ox+poly[i].x*kw, oy+poly[i].y*kh); ctx.closePath(); } else if(ORDER.shape==='circle') ctx.arc(ox+kw/2,oy+kh/2,kw/2,0,Math.PI*2); else rrect(ctx,ox,oy,kw,kh,8); }
@@ -1595,7 +1611,7 @@ function drawNFCMini(containerId, np, imgSrc) {
       ctx.strokeStyle='rgba(255,255,255,.30)';ctx.lineWidth=1;khPath();ctx.stroke();
     }
     var ppCm=(ORDER.shape==='diecut'?DIE_FIT*kw/(ORDER.sizeCm||7):(ORDER.shape==='rect'&&ORDER.widthCm?kw/ORDER.widthCm:kw/(ORDER.sizeCm||7)));
-    drawKHGrid(ctx, ox, oy, kw, kh, ppCm, khPath);                                 // 位置確認グリッド（本体内）
+    drawKHGrid(ctx, aw, ah, ox+kw/2, oy+kh/2, ppCm);                               // 位置確認グリッド（全体＋外周に数字）
     var bw=Math.max(10,W*ppCm), bh=Math.max(8,H*ppCm);
     var ncx=ox+kw*np.x/100, ncy=oy+kh*np.y/100;
     ctx.save();ctx.translate(ncx,ncy);ctx.rotate((np.rot||0)*Math.PI/180);   // 向き（360度）
@@ -1612,11 +1628,15 @@ function drawNFCMini(containerId, np, imgSrc) {
 }
 if(ORDER.nfc && ORDER.nfcPos) drawNFCMini('nfcMiniRow', ORDER.nfcPos, ORDER.imgFront);
 
-// ── 穴のミニマップ（5mm固定・補強リング/ツメ対応／scaleで拡大再描画）──
-function paintHole(tcv, scale, img, blank){
+// ── 穴のミニマップ（5mm固定・補強リング/ツメ対応／scaleで高解像度化・viewで拡大鏡内ズーム／パン）──
+// view = {zoom, panX, panY}（省略可）。拡大モーダルではこれを更新して再描画し、数字を縁に固定＝page2と同じ挙動。
+function paintHole(tcv, scale, img, blank, view){
   var ctx=tcv.getContext('2d');
   var aw=200, ah=200; tcv.width=Math.round(aw*scale); tcv.height=Math.round(ah*scale);
   ctx.setTransform(scale,0,0,scale,0,0);
+  var Z  = (view && view.zoom>0) ? view.zoom : 1;
+  var PX = (view && view.panX) || 0;
+  var PY = (view && view.panY) || 0;
   var WRAP_BG='#16161a';
   var shape  = ORDER.shape || 'circle';
   var sizeCm = ORDER.sizeCm || 7;
@@ -1625,13 +1645,14 @@ function paintHole(tcv, scale, img, blank){
   var attX   = (ORDER.attX!=null ? ORDER.attX : 50);
   var attY   = (ORDER.attY!=null ? ORDER.attY : 10);
   var margin = 20, maxBody = Math.min(aw-margin*2, ah-margin*2);
-  var ppc    = maxBody/12;   // page2 の穴エディタと同じ縮尺（最大9cm本体＋外付けツメが枠内に収まる基準）
+  var ppc    = maxBody/12 * Z;   // page2 の穴エディタと同じ縮尺（最大9cm本体＋外付けツメが枠内に収まる基準）×ズーム
   // 丸/四角=正方形、自由四角=横/縦、ダイア=正方形フレーム(シルエットが ppc*sizeCm になるよう拡大)
   var bw, bh;
   if (ORDER.shape==='diecut')    { bw = bh = ppc*sizeCm/DIE_FIT; }
   else if (ORDER.shape==='rect') { bw = ppc*(ORDER.widthCm||sizeCm); bh = ppc*(ORDER.heightCm||sizeCm); }
   else                           { bw = bh = ppc*sizeCm; }
-  var g = { cx:aw/2, cy:ah/2, w:bw, h:bh, size:Math.max(bw,bh), r:Math.min(bw,bh)/2, x:aw/2-bw/2, y:ah/2-bh/2, rad:Math.min(bw,bh)*0.06 };
+  var gcx = aw/2 + PX, gcy = ah/2 + PY;   // ズーム時のパン（中心をずらす）
+  var g = { cx:gcx, cy:gcy, w:bw, h:bh, size:Math.max(bw,bh), r:Math.min(bw,bh)/2, x:gcx-bw/2, y:gcy-bh/2, rad:Math.min(bw,bh)*0.06 };
   var pxPerCm = ppc;
   // うら面表示：丸・四角は穴を本体中心で左右鏡像（物理的に穴が反対側に来る）。ダイカットは画像＝シルエットのため据え置き。
   var mirror = (HOLE_SIDE==='back' && shape!=='diecut');
@@ -1724,8 +1745,8 @@ var _holeImg = null, _holeBlank = true;
   var attX = (ORDER.attX!=null ? ORDER.attX : 50);
   var attY = (ORDER.attY!=null ? ORDER.attY : 10);
   var holeInfo = 'X: <strong>'+Math.round(attX)+'%</strong><br>Y: <strong>'+Math.round(attY)+'%</strong><br>状態: <strong>'+(ORDER.attMode==='outside'?'外付けツメ':'本体内')+'</strong><br>穴径: <strong>5mm</strong>';
-  // 拡大登録（クリック時に最新の面・状態で再描画）
-  ZOOM_HOLE = { label: '穴の位置（拡大）', info: holeInfo, paint: function(tcv,scale){ paintHole(tcv,scale,_holeImg,_holeBlank); } };
+  // 拡大登録（rerender=拡大鏡内でズーム/パンのたびに再描画し、数字を縁に固定＝page2と同じ）
+  ZOOM_HOLE = { label: '穴の位置（拡大）', info: holeInfo, rerender: true, paint: function(tcv,scale,view){ paintHole(tcv,scale,_holeImg,_holeBlank,view); } };
 })();
 // 面切替（おもて／うら）。うら面は穴を鏡像描画（paintHole 内で処理）。
 function setHoleSide(side){
