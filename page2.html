@@ -836,6 +836,9 @@ if(document.readyState!=='loading')w();else document.addEventListener('DOMConten
           <canvas id="nfcBg"></canvas>
           <div class="nfc-box" id="nfcBox"><span>NFC</span></div>
         </div>
+        <div id="nfcWarn" style="display:none;margin-top:8px;padding:9px 11px;background:#fde8e0;border:1.5px solid #f5b3a0;border-radius:9px;font-size:12px;color:#c0392b;line-height:1.6;">
+          ⚠ NFCタグが入る範囲に収まっていません。<strong>本体サイズを大きくする</strong>か、<strong>向き・位置を調整</strong>して、縁から2mm以上内側に収まるようにしてください。
+        </div>
       </div>
     </div>
   </div>
@@ -2502,6 +2505,57 @@ function clampNFCPx(px,py,geom,allowFree){
   return { x:Math.min(Math.max(px,minx),Math.max(minx,maxx)), y:Math.min(Math.max(py,miny),Math.max(miny,maxy)) };
 }
 
+// 現在のNFC配置が有効か（ダイカット=形＋2mmマージン内 / 丸=半径内 / 四角=本体内＋マージン）
+function nfcCurValid(geom){
+  const { ox,oy,kw,kh,pxPerCm }=geom;
+  const hw=nfcAW()*pxPerCm/2, hh=nfcAH()*pxPerCm/2, m=NFC_MARGIN*pxPerCm;
+  const cx=ox+kw*NFCS.x/100, cy=oy+kh*NFCS.y/100;
+  if(S.shape==='diecut') return nfcValidPx(cx,cy,geom,hw,hh,m);
+  if(S.shape==='circle'){ const R=kw/2-m, bx=ox+kw/2, by=oy+kh/2, cs=[[cx-hw,cy-hh],[cx+hw,cy-hh],[cx-hw,cy+hh],[cx+hw,cy+hh]]; for(const c of cs){ if(Math.hypot(c[0]-bx,c[1]-by)>R) return false; } return true; }
+  return (cx-hw>=ox+m-0.5 && cx+hw<=ox+kw-m+0.5 && cy-hh>=oy+m-0.5 && cy+hh<=oy+kh-m+0.5);
+}
+function nfcShowWarn(show){ const el=document.getElementById('nfcWarn'); if(el) el.style.display=show?'block':'none'; }
+function nfcUpdateWarn(){
+  const wrap=document.getElementById('nfcWrap'), bg=document.getElementById('nfcBg'); if(!wrap||!bg) return;
+  const aw=bg.width||wrap.offsetWidth||260, ah=bg.height||wrap.offsetHeight||200;
+  nfcShowWarn(!nfcCurValid(getKHRect(aw,ah)));
+}
+// 指定角度で desired(px) に最も近い有効中心（ダイカット）。無ければ null。
+function nfcNearestForRot(rot, geom, dcx, dcy){
+  const poly=nfcDiePoly(); if(!poly||poly.length<3) return null;
+  const a=rot*Math.PI/180, c=Math.abs(Math.cos(a)), s=Math.abs(Math.sin(a));
+  const hw=(NFC_W*c+NFC_H*s)*geom.pxPerCm/2, hh=(NFC_W*s+NFC_H*c)*geom.pxPerCm/2, m=NFC_MARGIN*geom.pxPerCm;
+  const { ox,oy,kw }=geom; const N=30; let best=null,bd=Infinity;
+  for(let i=0;i<=N;i++) for(let j=0;j<=N;j++){ const px=ox+kw*i/N, py=oy+kw*j/N; if(nfcValidPx(px,py,geom,hw,hh,m)){ const d=(px-dcx)**2+(py-dcy)**2; if(d<bd){bd=d;best={x:px,y:py};} } }
+  return best;
+}
+// かんたんモード：現在の角度で入ればそこへ（角度は変えない）、入らなければ角度を近い順に変えて近くに入れる。{x,y,rot,ok}
+function nfcEasyPlace(dcx,dcy,geom){
+  const cur=NFCS.rot||0;
+  const r0=nfcNearestForRot(cur,geom,dcx,dcy);
+  if(r0) return {x:r0.x,y:r0.y,rot:cur,ok:true};   // 今の角度で入る → 角度そのまま
+  for(let da=15; da<=180; da+=15){                 // 入らない → 近い角度から順に試す
+    for(const rc of [cur+da, cur-da]){ const rot=(((Math.round(rc))%360)+360)%360; const res=nfcNearestForRot(rot,geom,dcx,dcy); if(res) return {x:res.x,y:res.y,rot,ok:true}; }
+  }
+  return {x:dcx,y:dcy,rot:cur,ok:false};            // どの角度でも入らない
+}
+// ドロップ時のかんたん配置（必要なら角度も自動調整）。ダイカット専用。
+function nfcAutoFit(){
+  const wrap=document.getElementById('nfcWrap'), bg=document.getElementById('nfcBg'); if(!wrap||!bg) return;
+  const aw=bg.width||wrap.offsetWidth||260, ah=bg.height||wrap.offsetHeight||200;
+  const geom=getKHRect(aw,ah); const { ox,oy,kw,kh }=geom;
+  const dcx=ox+kw*NFCS.x/100, dcy=oy+kh*NFCS.y/100;
+  const pl=nfcEasyPlace(dcx,dcy,geom);
+  if(pl.rot !== (NFCS.rot||0)){                        // 角度を変えて入れた場合はUIとグリッドを更新
+    NFCS.rot=pl.rot;
+    const r=document.getElementById('nfcRot'); if(r) r.value=pl.rot;
+    const n=document.getElementById('nfcRotN'); if(n && document.activeElement!==n) n.value=pl.rot;
+    const hw=nfcAW()*geom.pxPerCm/2, hh=nfcAH()*geom.pxPerCm/2, m=NFC_MARGIN*geom.pxPerCm;
+    buildNFCGrid(geom,hw,hh,m);
+  }
+  NFCS.x=((pl.x-ox)/kw)*100; NFCS.y=((pl.y-oy)/kh)*100;
+  posNFCBox();
+}
 function posNFCBox(){
   const wrap=document.getElementById('nfcWrap'), bg=document.getElementById('nfcBg'), box=document.getElementById('nfcBox');
   if(!wrap||!bg||!box) return;
@@ -2528,7 +2582,11 @@ function setupNFCDrag(){
     box.style.left=(cx-bw/2)+'px'; box.style.top=(cy-bh/2)+'px';
     NFCS.x=((cx-ox)/kw)*100; NFCS.y=((cy-oy)/kh)*100;
     if(e.cancelable)e.preventDefault(); };
-  const up=()=>{ if(!drag)return; drag=false; if(NFCS.mode==='free') posNFCBox(); };   // 自由モードは離した時に最寄り有効位置へスナップ
+  const up=()=>{ if(!drag)return; drag=false;
+    if(S.shape==='diecut' && NFCS.mode==='fix') nfcAutoFit();   // かんたん×ダイカット：入らなければ角度も変えて近くへ
+    else if(NFCS.mode==='free') posNFCBox();                    // 自由モードは離した時に最寄り有効位置へスナップ
+    nfcUpdateWarn();
+  };
   box.addEventListener('mousedown',down); box.addEventListener('touchstart',down,{passive:false});
   window.addEventListener('mousemove',move); window.addEventListener('touchmove',move,{passive:false});
   window.addEventListener('mouseup',up); window.addEventListener('touchend',up);
@@ -2538,20 +2596,21 @@ function initNFCEditor(){
   const aw=wrap.offsetWidth||260, ah=wrap.offsetHeight||200; bg.width=aw; bg.height=ah;
   drawQRBg('front', bg, aw, ah);                  // 背景＝本体＋おもて画像（QRの背景描画を流用）
   const geom=getKHRect(aw,ah), hw=nfcAW()*geom.pxPerCm/2, hh=nfcAH()*geom.pxPerCm/2, m=NFC_MARGIN*geom.pxPerCm;
-  buildNFCGrid(geom,hw,hh,m); posNFCBox(); setupNFCDrag();
+  buildNFCGrid(geom,hw,hh,m); posNFCBox(); setupNFCDrag(); nfcUpdateWarn();
 }
 function resyncNFC(){
   const wrap=document.getElementById('nfcWrap'), bg=document.getElementById('nfcBg'); if(!wrap||!bg) return;
   const aw=wrap.offsetWidth||260, ah=wrap.offsetHeight||200; bg.width=aw; bg.height=ah;
   drawQRBg('front', bg, aw, ah);
   const geom=getKHRect(aw,ah), hw=nfcAW()*geom.pxPerCm/2, hh=nfcAH()*geom.pxPerCm/2, m=NFC_MARGIN*geom.pxPerCm;
-  buildNFCGrid(geom,hw,hh,m); posNFCBox();
+  buildNFCGrid(geom,hw,hh,m); posNFCBox(); nfcUpdateWarn();
 }
 function setNFCMode(m){
   NFCS.mode=m;
   document.getElementById('nfcMode-fix').classList.toggle('sel', m==='fix');
   document.getElementById('nfcMode-free').classList.toggle('sel', m==='free');
-  posNFCBox();
+  if(m==='fix' && S.shape==='diecut') nfcAutoFit(); else posNFCBox();   // かんたんに切替時は入る位置へ寄せる
+  nfcUpdateWarn();
 }
 function setNFCRot(v){
   let d = Math.round(+v || 0); d = ((d % 360) + 360) % 360;
