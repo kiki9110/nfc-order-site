@@ -3806,8 +3806,39 @@ function applyImageMode(){
   leShow();
 }
 // ダイカットの編集モード切替：'base'（形/土台） / 'print'（画像/プリント）
+// 土台（形）を確定したときに、土台シルエットを常に DIE_FIT(0.82) の一定サイズへ正規化する。
+// これで「土台を小さく描いても、確定後の形と画像投入サイズは一定」になる（切り抜き経由と同じ扱い）。
+// 土台レイヤーの scale/x/y を bbox 中心基準で factor 倍し、フレーム中心へ再配置する。
+function leNormalizeDieBase(){
+  if ((S.shape || 'circle') !== 'diecut') return;
+  if (!S.dieBase || !S.dieBase.length) return;
+  const { w:W, h:H } = leFrameWH();
+  const m = document.createElement('canvas'); m.width = W; m.height = H;
+  const mc = m.getContext('2d'); mc.imageSmoothingEnabled = true; mc.imageSmoothingQuality = 'high';
+  for (const l of S.dieBase) leDrawLayer(mc, l, W, H);          // 土台ユニオンを描く
+  const d = mc.getImageData(0, 0, W, H).data;
+  let x0 = W, y0 = H, x1 = -1, y1 = -1;
+  for (let y = 0; y < H; y++){ const o = y * W; for (let x = 0; x < W; x++){ if (d[(o + x) * 4 + 3] > 40){ if (x < x0) x0 = x; if (x > x1) x1 = x; if (y < y0) y0 = y; if (y > y1) y1 = y; } } }
+  if (x1 < x0 || y1 < y0) return;                               // 不透明画素なし
+  const longPx = Math.max(x1 - x0 + 1, y1 - y0 + 1), frameLong = Math.max(W, H);
+  if (longPx <= 0) return;
+  const factor = (DIE_FIT * frameLong) / longPx;                // = DIE_FIT / (現在の長辺フレーム比)
+  if (!isFinite(factor) || factor <= 0) return;
+  if (Math.abs(factor - 1) < 0.01) return;                      // 既に一定サイズなら何もしない
+  const cx = ((x0 + x1) / 2) / W, cy = ((y0 + y1) / 2) / H;     // bbox中心（フレーム比）
+  for (const l of S.dieBase){
+    l.scale = l.scale * factor;
+    l.x = 0.5 + (l.x - cx) * factor;
+    l.y = 0.5 + (l.y - cy) * factor;
+  }
+}
 function leSetMode(mode){
+  const wasBase = (S.leMode === 'base');
   S.leMode = (mode === 'base') ? 'base' : 'print';
+  if (wasBase && S.leMode === 'print'){                         // 土台の形を確定 → 一定サイズへ正規化して再合成・再トレース
+    leNormalizeDieBase();
+    if (typeof leRecomposeAll === 'function') leRecomposeAll();
+  }
   leShow();
 }
 // 画像エディタの表示ズーム（50%〜300%）。＋－は25%刻み、ホイール／ピンチは連続
