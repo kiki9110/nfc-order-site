@@ -1877,6 +1877,7 @@ body{font-family:'Noto Sans JP',sans-serif;background:var(--paper);color:var(--i
 /* ── 一覧の注文有無マーク・状態バッジ ── */
 .ord-mark{font-size:13px;font-weight:700;margin-right:7px;vertical-align:middle;}
 .ord-mark.yes{color:#16a34a;}
+.ord-mark.made{color:#3257d6;}
 .ord-mark.no{color:#cbd0d6;}
 .st-badge{display:inline-block;font-size:10px;font-weight:700;padding:2px 9px;border-radius:10px;}
 .st-made{background:#dcfce7;color:#15803d;}
@@ -2833,9 +2834,11 @@ function renderList() {
     const made      = !!item.made;
     const cancelled = !!item.cancelled;
     const confirmed = !!item.confirmed;
-    const mark = hasOrder
-      ? '<span class="ord-mark yes" title="注文あり">●</span>'
-      : '<span class="ord-mark no" title="注文なし">✕</span>';
+    const mark = (made && !cancelled)
+      ? '<span class="ord-mark made" title="作成済み">●</span>'
+      : (hasOrder
+          ? '<span class="ord-mark yes" title="注文あり">●</span>'
+          : '<span class="ord-mark no" title="注文なし">✕</span>');
     const stB = cancelled
       ? '<span class="st-badge st-cancelled">キャンセル済み</span>'
       : (made
