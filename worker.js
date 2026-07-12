@@ -1660,10 +1660,10 @@ function paintHole(tcv, scale, img, blank, view){
   var gcx = aw/2 + PX, gcy = ah/2 + PY;   // ズーム時のパン（中心をずらす）
   var g = { cx:gcx, cy:gcy, w:bw, h:bh, size:Math.max(bw,bh), r:Math.min(bw,bh)/2, x:gcx-bw/2, y:gcy-bh/2, rad:Math.min(bw,bh)*0.06 };
   var pxPerCm = ppc;
-  // うら面表示：丸・四角は穴を本体中心で左右鏡像（物理的に穴が反対側に来る）。ダイカットは画像＝シルエットのため据え置き。
-  var mirror = (HOLE_SIDE==='back' && shape!=='diecut');
-  var attXd  = mirror ? (100-attX) : attX;
-  var hx = g.x+g.w*attXd/100, hy = g.y+g.h*attY/100;
+  // うら面表示：実物を裏返した見た目にするため、本体・画像・穴・ツメをまとめて本体中心で左右反転（キャンバス変換で処理）。
+  // 座標(hx)は据え置きのまま描画し、下の mirror 変換で全体を反転する（グリッド／数字は反転しない＝物理位置を読む定規）。
+  var back = (HOLE_SIDE==='back');
+  var hx = g.x+g.w*attX/100, hy = g.y+g.h*attY/100;
   var holeR = Math.max(2,(holeCm/2)*pxPerCm);
   var lugR  = (holeR+Math.max(8,holeR*0.9))*2/3;   // ディスク半径＝旧サイズの2/3（首と同じ幅に）
 
@@ -1728,6 +1728,7 @@ function paintHole(tcv, scale, img, blank, view){
     ctx.restore();
   })();
 
+  if(back){ ctx.save(); ctx.translate(g.cx,0); ctx.scale(-1,1); ctx.translate(-g.cx,0); }   // うら面＝本体中心で左右反転
   if(!isInsideBody(hx,hy)) ctx.drawImage(buildTab(true),0,0,aw,ah);             // 外付け：首付きツメ
   else if(!lugFullyInside(hx,hy,lugR)) ctx.drawImage(buildTab(false),0,0,aw,ah); // 本体内・縁近く：丸い膨らみのみ
   if(shape==='diecut' && ORDER.dieReinforce===false && img){
@@ -1745,6 +1746,7 @@ function paintHole(tcv, scale, img, blank, view){
   ctx.beginPath(); ctx.arc(hx,hy,holeR,0,Math.PI*2); ctx.fillStyle=WRAP_BG; ctx.fill();
   ctx.lineWidth=1.4; ctx.strokeStyle='rgba(0,0,0,.45)'; ctx.beginPath(); ctx.arc(hx,hy,holeR,0,Math.PI*2); ctx.stroke();
   ctx.lineWidth=1; ctx.strokeStyle='rgba(255,255,255,.22)'; ctx.beginPath(); ctx.arc(hx,hy,Math.max(1,holeR-1.4),0,Math.PI*2); ctx.stroke();
+  if(back){ ctx.restore(); ctx.font='bold 10px sans-serif'; ctx.textAlign='right'; ctx.textBaseline='bottom'; ctx.lineJoin='round'; ctx.lineWidth=2.6; ctx.strokeStyle='rgba(0,0,0,.6)'; ctx.fillStyle='rgba(255,255,255,.9)'; ctx.strokeText('うら面（左右反転）',aw-6,ah-5); ctx.fillText('うら面（左右反転）',aw-6,ah-5); }
 }
 var _holeImg = null, _holeBlank = true;
 (function(){
