@@ -636,9 +636,10 @@ if(document.readyState!=='loading')w();else document.addEventListener('DOMConten
             <div class="le-sliders">
               <label>回転 <input type="number" id="leRotN" min="-180" max="180" step="1" value="0" onchange="leSetRot(this.value)" style="width:60px;padding:3px 6px;border:1.5px solid var(--border);border-radius:6px;background:var(--surface);color:var(--ink);font-family:inherit;font-size:12px;text-align:right;">°</label>
               <input type="range" id="leRot" min="-180" max="180" value="0" oninput="leSetRot(this.value)">
-              <label>大きさ <input type="number" id="leScaleN" min="30" max="250" step="1" value="50" onchange="leSetScale(this.value)" style="width:60px;padding:3px 6px;border:1.5px solid var(--border);border-radius:6px;background:var(--surface);color:var(--ink);font-family:inherit;font-size:12px;text-align:right;">%</label>
+              <label>大きさ <input type="number" id="leScaleN" min="1" step="1" value="50" onchange="leSetScaleFree(this.value)" style="width:60px;padding:3px 6px;border:1.5px solid var(--border);border-radius:6px;background:var(--surface);color:var(--ink);font-family:inherit;font-size:12px;text-align:right;">%</label>
               <input type="range" id="leScale" min="30" max="250" value="50" oninput="leSetScale(this.value)">
             </div>
+            <div class="att-hint" style="margin-top:6px;">スライダーは 30〜250% まで。もっと大きく／小さくしたいときは、数値を直接入力するか数値欄の▲▼で 250% を超えて調整できます。</div>
             <div class="le-zbtns">
               <button type="button" class="att-btn" onclick="leZ(1)">前面へ</button>
               <button type="button" class="att-btn" onclick="leZ(-1)">背面へ</button>
@@ -3709,9 +3710,18 @@ function leSetRot(v){
 }
 function leSetScale(v){
   const l = leEditLayers().find(x => x.id === leEditSelId()); if (!l) return;
-  v = Math.max(30, Math.min(250, Math.round(+v || 0)));
+  v = Math.max(30, Math.min(250, Math.round(+v || 0)));   // スライダー用：30〜250でクランプ
   l.scale = v / 100;
   const r = document.getElementById('leScale');  if (r && +r.value !== v) r.value = v;
+  const n = document.getElementById('leScaleN'); if (n && document.activeElement !== n) n.value = v;
+  leStageDraw(); leScheduleAfterEdit();
+}
+// 数値入力・数値欄の▲▼用：上限なし（下限は1%＝0/マイナス防止のみ）。スライダーは範囲内で追従。
+function leSetScaleFree(v){
+  const l = leEditLayers().find(x => x.id === leEditSelId()); if (!l) return;
+  v = Math.max(1, Math.round(+v || 0));
+  l.scale = v / 100;
+  const r = document.getElementById('leScale');  if (r) r.value = Math.min(250, Math.max(30, v));   // スライダーは範囲内だけ追従（見た目）
   const n = document.getElementById('leScaleN'); if (n && document.activeElement !== n) n.value = v;
   leStageDraw(); leScheduleAfterEdit();
 }
