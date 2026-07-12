@@ -2017,7 +2017,10 @@ function drawPreview(target) {
     ctx.setTransform(dpr,0,0,dpr,0,0); ctx.clearRect(0,0,200,200);
     if (S.shape === 'diecut') {
       // ダイカット：画像のアルファに沿って縁取り＋穴抜き（イラストどおりにすき間・穴を残す）
+      ctx.save();
+      if (target === 'back'){ ctx.translate(100,0); ctx.scale(-1,1); ctx.translate(-100,0); }   // うら面＝実物どおり左右反転
       drawDieBodyAlpha(ctx, img, 0, 0, 200, S.colorHex || '#d9d4c7', dieBorderPx(200), true);
+      ctx.restore();
     } else if (S.shape === 'rect') {
       // 自由四角：縦横比に合わせた長方形でプレビュー（画像はcoverで充填）
       const ar = (S.widthCm||7)/(S.heightCm||7);
@@ -2156,9 +2159,12 @@ function drawQRBg(side, cv, aw, ah) {
     const img = new Image();
     img.onload = () => {
       if (S.shape === 'diecut') {
-        // ダイカット：アルファに沿って縁取り＋穴抜き（kw=kh の正方形領域に等倍）
+        // ダイカット：アルファに沿って縁取り＋穴抜き（kw=kh の正方形領域に等倍）。うら面は実物どおり左右反転。
+        ctx.save();
+        if (side === 'back'){ ctx.translate(ox+kw/2,0); ctx.scale(-1,1); ctx.translate(-(ox+kw/2),0); }
         drawDieBodyAlpha(ctx, img, ox, oy, kw, acryl, (S.sizeCm ? (S.borderCm||0)/S.sizeCm : 0) * kw * DIE_FIT, true);
-        drawKHGrid(ctx, aw, ah, ox+kw/2, oy+kh/2, pxPerCm);   // 位置確認グリッド（全体＋外周に数字）
+        ctx.restore();
+        drawKHGrid(ctx, aw, ah, ox+kw/2, oy+kh/2, pxPerCm);   // 位置確認グリッド（全体＋外周に数字・正立）
         drawScaleBar(ctx, ox, oy, kw, kh, pxPerCm);
         return;
       }
@@ -2174,11 +2180,14 @@ function drawQRBg(side, cv, aw, ah) {
     };
     img.src = src;
   } else {
+    ctx.save();
+    if (side === 'back' && S.shape === 'diecut'){ ctx.translate(ox+kw/2,0); ctx.scale(-1,1); ctx.translate(-(ox+kw/2),0); }   // うら面ダイカット＝左右反転
     ctx.fillStyle='rgba(200,198,190,.4)'; khPath(); ctx.fill();
     ctx.strokeStyle='rgba(0,0,0,.12)'; ctx.lineWidth=1; khPath(); ctx.stroke();
+    ctx.restore();
     ctx.fillStyle='rgba(100,98,94,.45)'; ctx.font='11px sans-serif'; ctx.textAlign='center'; ctx.textBaseline='middle';
     ctx.fillText('画像未設定', aw/2, ah/2);
-    drawKHGrid(ctx, aw, ah, ox+kw/2, oy+kh/2, pxPerCm);   // 位置確認グリッド（全体＋外周に数字）
+    drawKHGrid(ctx, aw, ah, ox+kw/2, oy+kh/2, pxPerCm);   // 位置確認グリッド（全体＋外周に数字・正立）
     drawScaleBar(ctx, ox, oy, kw, kh, pxPerCm);
   }
 }
@@ -2215,16 +2224,19 @@ function drawScaleBar(ctx, ox, oy, kw, kh, pxPerCm) {
   ctx.fillText(barCm+'cm', bx+barPx/2, by-2);
 }
 
+// うら面ダイカットは背景を左右反転表示しているので、マーカー（DOM）位置・回転もそれに合わせて反転する
+function qrMir(side){ return side === 'back' && (S.shape || 'circle') === 'diecut'; }
 function posQRBox(side, box, bgCv, aw, ah) {
   const geom = getKHRect(aw, ah); const { ox, oy, kw, kh, pxPerCm } = geom;
   const bpx = Math.max(16, QRS[side].cm * pxPerCm);
   let cx = ox + kw * QRS[side].x/100, cy = oy + kh * QRS[side].y/100;
-  const cl = clampQRPx(cx, cy, geom, side, false); cx = cl.x; cy = cl.y;   // 表示時は必ず本体内へ
+  const cl = clampQRPx(cx, cy, geom, side, false); cx = cl.x; cy = cl.y;   // 表示時は必ず本体内へ（content座標）
   QRS[side].x = ((cx-ox)/kw)*100; QRS[side].y = ((cy-oy)/kh)*100;
+  const dispCx = qrMir(side) ? (2*ox + kw - cx) : cx;                       // 表示（screen）位置：うら面は反転
   box.style.width  = bpx+'px'; box.style.height = bpx+'px';
-  box.style.left   = (cx-bpx/2)+'px';
+  box.style.left   = (dispCx-bpx/2)+'px';
   box.style.top    = (cy-bpx/2)+'px';
-  box.style.transform = 'rotate(' + (QRS[side].rot||0) + 'deg)';   // 向き（360度）
+  box.style.transform = 'rotate(' + (qrMir(side) ? -(QRS[side].rot||0) : (QRS[side].rot||0)) + 'deg)';   // 向き（うら面は反転）
 }
 // QR位置を十字キーで微移動（％単位）。位置は本体内にクランプ
 function qrNudge(side, dx, dy) {
@@ -2273,9 +2285,11 @@ function setupQRDrag(side, wrap, box, bgCv) {
     const aw=bgCv.width, ah=bgCv.height;
     const geom=getKHRect(aw, ah); const { ox, oy, kw, kh, pxPerCm }=geom;
     const bpx=Math.max(16, QRS[side].cm*pxPerCm);
-    let cx = (cl-r.left-ox2) + bpx/2, cy = (ct-r.top-oy2) + bpx/2;   // 枠の中心px
-    const cl2 = clampQRPx(cx, cy, geom, side, QRS[side].mode==='free'); cx=cl2.x; cy=cl2.y;
-    box.style.left=(cx-bpx/2)+'px'; box.style.top=(cy-bpx/2)+'px';
+    let cxScr = (cl-r.left-ox2) + bpx/2, cy = (ct-r.top-oy2) + bpx/2;   // 枠の中心px（screen）
+    let cx = qrMir(side) ? (2*ox + kw - cxScr) : cxScr;                  // うら面は content座標へ戻す
+    const cl2 = clampQRPx(cx, cy, geom, side, QRS[side].mode==='free'); cx=cl2.x; cy=cl2.y;   // content でクランプ
+    const dispCx = qrMir(side) ? (2*ox + kw - cx) : cx;                  // 表示（screen）へ
+    box.style.left=(dispCx-bpx/2)+'px'; box.style.top=(cy-bpx/2)+'px';
     QRS[side].x = ((cx-ox)/kw)*100;
     QRS[side].y = ((cy-oy)/kh)*100;
     if (e.cancelable) e.preventDefault();
@@ -2949,6 +2963,10 @@ function updateAttachControls() {
     const mirrorGeom = backView && S.shape !== 'diecut';
     const hxM = mirrorGeom ? (2 * g.cx - hx) : hx;   // 描画用の穴X（裏面の丸・四角だけ本体中心で鏡像）
     const hyM = hy;
+    // うら面ダイカットは本体（シルエット＝画像）・穴・ツメをまとめて本体中心で左右反転（実物どおり）。
+    // 丸・四角は対称なので従来どおり穴位置だけ鏡像（hxM）＝画像は正像のまま。
+    const dieBackFlip = backView && S.shape === 'diecut';
+    if (dieBackFlip){ ctx.translate(g.cx, 0); ctx.scale(-1, 1); ctx.translate(-g.cx, 0); }
 
     // 補強：外付け（中心が本体外）は首付きツメ／本体内でも縁ギリギリなら丸い膨らみのみ（穴の外側が欠けないように）
     // ツメは鏡像座標 hxM で生成。buildTab 内の画像延長はキャンバスを反転しないので正像のまま＝本体画像と継ぎ目が揃う。
@@ -3018,9 +3036,9 @@ function updateAttachControls() {
     const aw = r.width, ah = r.height;
     const g = bodyGeom(aw, ah);
     let rawx = clientX - r.left;
-    // 裏面の丸・四角は穴位置を鏡像描画しているので、ポインタ座標も鏡像で受ける（描画と一致させる）。
-    // 鏡像の軸は本体中心（パンで本体が動いていても一致）。ダイカットは鏡像化していないのでそのまま。
-    if (S.attachView === 'back' && S.shape !== 'diecut') rawx = 2 * g.cx - rawx;
+    // 裏面は穴位置を鏡像描画（丸・四角）またはキャンバス全体を鏡像（ダイカット）しているので、
+    // ポインタ座標も本体中心で鏡像に受ける（描画と一致させる。パンで本体が動いていても軸は本体中心）。
+    if (S.attachView === 'back') rawx = 2 * g.cx - rawx;
     let hx = Math.min(aw, Math.max(0, rawx));
     let hy = Math.min(ah, Math.max(0, clientY - r.top));
     const maxOut = g.ppc; // 1cm
@@ -3514,6 +3532,7 @@ function leStageDraw(){
   ctx.save();
   if (leZPanX || leZPanY) ctx.translate(leZPanX, leZPanY);                                       // 2本指／背景ドラッグでのパン
   if (z !== 1){ ctx.translate(W / 2, H / 2); ctx.scale(z, z); ctx.translate(-W / 2, -H / 2); }   // 中心基準でズーム（表示のみ）
+  if (leSide === 'back' && (S.shape || 'circle') === 'diecut' && !leBaseMode()){ ctx.translate(W / 2, 0); ctx.scale(-1, 1); ctx.translate(-W / 2, 0); }   // うら面ダイカット＝実物どおり左右反転表示（土台編集中は共有の形なので反転しない）
   leStagePaint(ctx, W, H);
   // 選択枠（編集中コンテキストの選択）
   const sel = leEditLayers().find(l => l.id === leEditSelId());
@@ -3536,7 +3555,9 @@ function leStagePos(e){
   let cx = ((e.touches ? e.touches[0].clientX : e.clientX) - r.left) * (W / (r.width  || W));
   let cy = ((e.touches ? e.touches[0].clientY : e.clientY) - r.top ) * (H / (r.height || H));
   const z = S.leZoom || 1;
-  return { x: W / 2 + (cx - leZPanX - W / 2) / z, y: H / 2 + (cy - leZPanY - H / 2) / z };   // 表示ズーム＋パンの逆変換
+  let px = W / 2 + (cx - leZPanX - W / 2) / z, py = H / 2 + (cy - leZPanY - H / 2) / z;   // 表示ズーム＋パンの逆変換
+  if (leSide === 'back' && (S.shape || 'circle') === 'diecut' && !leBaseMode()) px = W - px;   // うら面ダイカット＝表示反転に合わせて入力Xも反転
+  return { x: px, y: py };
 }
 // 上のレイヤーから当たり判定（回転を逆変換してローカル矩形内か）
 function leHit(px, py){

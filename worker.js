@@ -1544,6 +1544,8 @@ function drawQRMini(containerId, qrData, imgSrc) {
     function khPath(){ ctx.beginPath(); if(isDie){ ctx.moveTo(ox+poly[0].x*kw, oy+poly[0].y*kh); for(var i=1;i<poly.length;i++) ctx.lineTo(ox+poly[i].x*kw, oy+poly[i].y*kh); ctx.closePath(); } else if(ORDER.shape==='circle') ctx.arc(ox+kw/2,oy+kh/2,kw/2,0,Math.PI*2); else rrect(ctx,ox,oy,kw,kh,8); }
     ctx.clearRect(0,0,aw,ah);
     ctx.fillStyle='#16161a'; ctx.fillRect(0,0,aw,ah);                              // 暗背景で視認性確保
+    var _bmir=(qrData.side==='back' && ORDER.shape==='diecut'), _mcx=ox+kw/2;      // うら面ダイカット＝本体・マーカーを左右反転（丸・四角はpage2同様そのまま）
+    if(_bmir){ ctx.save(); ctx.translate(_mcx,0); ctx.scale(-1,1); ctx.translate(-_mcx,0); }
     var dieOff = (ORDER.shape==='diecut' && ORDER.dieReinforce===false && img);
     if(dieOff){
       drawDieBodyAlpha(ctx, img, ox, oy, kw, ORDER.colorHex||'#d9d4c7', (ORDER.sizeCm ? (ORDER.borderCm||0)/ORDER.sizeCm : 0) * kw * DIE_FIT, true);
@@ -1554,16 +1556,19 @@ function drawQRMini(containerId, qrData, imgSrc) {
       ctx.restore();
       ctx.strokeStyle='rgba(255,255,255,.30)';ctx.lineWidth=1;khPath();ctx.stroke();  // 暗背景に合わせ白枠
     }
+    if(_bmir){ ctx.restore(); }
     var ppCm=(ORDER.shape==='diecut'?DIE_FIT*kw/(ORDER.sizeCm||7):(ORDER.shape==='rect'&&ORDER.widthCm?kw/ORDER.widthCm:kw/(ORDER.sizeCm||7))), qpx=Math.max(10,qrData.cm*ppCm);
-    drawKHGrid(ctx, aw, ah, ox+kw/2, oy+kh/2, ppCm);                               // 位置確認グリッド（全体＋外周に数字）
+    drawKHGrid(ctx, aw, ah, ox+kw/2, oy+kh/2, ppCm);                               // 位置確認グリッド（全体＋外周に数字・正立）
     var qcx=ox+kw*qrData.x/100, qcy=oy+kh*qrData.y/100;
+    if(_bmir){ qcx = 2*_mcx - qcx; }                                               // マーカー位置も反転（QR文字は正立のまま）
     var ink=qrInk(ORDER.colorHex), halo=(ink==='#ffffff')?'rgba(0,0,0,.5)':'rgba(255,255,255,.8)';
-    ctx.save();ctx.translate(qcx,qcy);ctx.rotate((qrData.rot||0)*Math.PI/180);   // 向き（360度）
+    ctx.save();ctx.translate(qcx,qcy);ctx.rotate((_bmir?-(qrData.rot||0):(qrData.rot||0))*Math.PI/180);   // 向き（360度・うら面は反転）
     ctx.setLineDash([]);ctx.lineWidth=2.4;ctx.strokeStyle=halo;ctx.strokeRect(-qpx/2,-qpx/2,qpx,qpx);                 // ハロー（反対色・実線）
     ctx.lineWidth=1.2;ctx.strokeStyle=ink;ctx.setLineDash([4,3]);ctx.strokeRect(-qpx/2,-qpx/2,qpx,qpx);ctx.setLineDash([]); // 実寸の点線枠
     ctx.font='bold 8px sans-serif';ctx.textAlign='center';ctx.textBaseline='middle';ctx.lineJoin='round';
     ctx.lineWidth=2.6;ctx.strokeStyle=halo;ctx.strokeText('QR',0,0);ctx.fillStyle=ink;ctx.fillText('QR',0,0); // QR文字（縁取り＋本体）
     ctx.restore();
+    if(_bmir){ ctx.font='bold 9px sans-serif'; ctx.textAlign='right'; ctx.textBaseline='bottom'; ctx.lineJoin='round'; ctx.lineWidth=2.4; ctx.strokeStyle='rgba(0,0,0,.6)'; ctx.fillStyle='rgba(255,255,255,.9)'; ctx.strokeText('左右反転',aw-4,ah-3); ctx.fillText('左右反転',aw-4,ah-3); }
   }
 
   // 拡大登録（rerender=ズーム/パンのたびに再描画し、数字を縁に固定＝page2/穴と同じ）
@@ -1660,10 +1665,15 @@ function paintHole(tcv, scale, img, blank, view){
   var gcx = aw/2 + PX, gcy = ah/2 + PY;   // ズーム時のパン（中心をずらす）
   var g = { cx:gcx, cy:gcy, w:bw, h:bh, size:Math.max(bw,bh), r:Math.min(bw,bh)/2, x:gcx-bw/2, y:gcy-bh/2, rad:Math.min(bw,bh)*0.06 };
   var pxPerCm = ppc;
-  // うら面表示：実物を裏返した見た目にするため、本体・画像・穴・ツメをまとめて本体中心で左右反転（キャンバス変換で処理）。
-  // 座標(hx)は据え置きのまま描画し、下の mirror 変換で全体を反転する（グリッド／数字は反転しない＝物理位置を読む定規）。
+  // うら面表示（page2と統一）：
+  //  ・ダイカット＝本体（シルエット＝画像）・穴・ツメをまとめて本体中心で左右反転（下の dieFlip 変換）。
+  //  ・丸・四角＝形が対称なので画像は正像のまま、穴（hx）だけ本体中心で鏡像。
+  // グリッド／数字は反転しない（物理位置を読む定規）。
   var back = (HOLE_SIDE==='back');
-  var hx = g.x+g.w*attX/100, hy = g.y+g.h*attY/100;
+  var dieFlip = back && shape==='diecut';
+  var holeMir = back && shape!=='diecut';
+  var hxRaw = g.x+g.w*attX/100;
+  var hx = holeMir ? (2*g.cx - hxRaw) : hxRaw, hy = g.y+g.h*attY/100;
   var holeR = Math.max(2,(holeCm/2)*pxPerCm);
   var lugR  = (holeR+Math.max(8,holeR*0.9))*2/3;   // ディスク半径＝旧サイズの2/3（首と同じ幅に）
 
@@ -1728,7 +1738,7 @@ function paintHole(tcv, scale, img, blank, view){
     ctx.restore();
   })();
 
-  if(back){ ctx.save(); ctx.translate(g.cx,0); ctx.scale(-1,1); ctx.translate(-g.cx,0); }   // うら面＝本体中心で左右反転
+  if(dieFlip){ ctx.save(); ctx.translate(g.cx,0); ctx.scale(-1,1); ctx.translate(-g.cx,0); }   // うら面ダイカット＝本体中心で左右反転
   if(!isInsideBody(hx,hy)) ctx.drawImage(buildTab(true),0,0,aw,ah);             // 外付け：首付きツメ
   else if(!lugFullyInside(hx,hy,lugR)) ctx.drawImage(buildTab(false),0,0,aw,ah); // 本体内・縁近く：丸い膨らみのみ
   if(shape==='diecut' && ORDER.dieReinforce===false && img){
@@ -1746,7 +1756,8 @@ function paintHole(tcv, scale, img, blank, view){
   ctx.beginPath(); ctx.arc(hx,hy,holeR,0,Math.PI*2); ctx.fillStyle=WRAP_BG; ctx.fill();
   ctx.lineWidth=1.4; ctx.strokeStyle='rgba(0,0,0,.45)'; ctx.beginPath(); ctx.arc(hx,hy,holeR,0,Math.PI*2); ctx.stroke();
   ctx.lineWidth=1; ctx.strokeStyle='rgba(255,255,255,.22)'; ctx.beginPath(); ctx.arc(hx,hy,Math.max(1,holeR-1.4),0,Math.PI*2); ctx.stroke();
-  if(back){ ctx.restore(); ctx.font='bold 10px sans-serif'; ctx.textAlign='right'; ctx.textBaseline='bottom'; ctx.lineJoin='round'; ctx.lineWidth=2.6; ctx.strokeStyle='rgba(0,0,0,.6)'; ctx.fillStyle='rgba(255,255,255,.9)'; ctx.strokeText('うら面（左右反転）',aw-6,ah-5); ctx.fillText('うら面（左右反転）',aw-6,ah-5); }
+  if(dieFlip){ ctx.restore(); }
+  if(back){ var _cap = dieFlip ? 'うら面（左右反転）' : 'うら面（穴は反対側）'; ctx.font='bold 10px sans-serif'; ctx.textAlign='right'; ctx.textBaseline='bottom'; ctx.lineJoin='round'; ctx.lineWidth=2.6; ctx.strokeStyle='rgba(0,0,0,.6)'; ctx.fillStyle='rgba(255,255,255,.9)'; ctx.strokeText(_cap,aw-6,ah-5); ctx.fillText(_cap,aw-6,ah-5); }
 }
 var _holeImg = null, _holeBlank = true;
 (function(){
