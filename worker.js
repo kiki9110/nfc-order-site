@@ -1324,6 +1324,10 @@ body{font-family:'Noto Sans JP',sans-serif;background:#f6f7f9;color:#1a1d23;padd
 <div id="zoomModal" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,.8);z-index:300;align-items:center;justify-content:center;padding:18px;" onclick="closeZoom(event)">
   <div style="background:#fff;border-radius:14px;padding:18px 18px 16px;max-width:94vw;max-height:92vh;overflow:auto;text-align:center;">
     <div id="zoomTitle" style="font-size:14px;font-weight:700;color:#0f0f0d;margin-bottom:12px;"></div>
+    <div id="zoomSideRow" style="display:none;gap:8px;justify-content:center;margin-bottom:12px;">
+      <button id="zHoleBtnFront" onclick="zoomSetSide('front')" style="padding:6px 16px;border:1.5px solid #ccc8be;border-radius:8px;background:#fff;color:#6b6860;font-family:'Noto Sans JP',sans-serif;font-size:12px;font-weight:700;cursor:pointer;">おもて面</button>
+      <button id="zHoleBtnBack"  onclick="zoomSetSide('back')"  style="padding:6px 16px;border:1.5px solid #ccc8be;border-radius:8px;background:#fff;color:#6b6860;font-family:'Noto Sans JP',sans-serif;font-size:12px;font-weight:700;cursor:pointer;">うら面</button>
+    </div>
     <div id="zoomViewport" style="overflow:hidden;touch-action:none;max-width:86vw;max-height:62vh;margin:0 auto;display:flex;align-items:center;justify-content:center;cursor:grab;border-radius:10px;border:1.5px solid #ccc8be;background:#f6f7f9;">
       <canvas id="zoomCv" style="display:block;max-width:86vw;max-height:62vh;height:auto;transform-origin:center center;"></canvas>
     </div>
@@ -1443,6 +1447,8 @@ function openZoom(rec){
   document.getElementById('zoomInfo').innerHTML = rec.info || '';
   _zoomSrc = rec.isImg ? (rec.src || null) : null;
   var sb = document.getElementById('zoomSaveBtn'); if(sb) sb.style.display = _zoomSrc ? 'inline-block' : 'none';
+  var sr = document.getElementById('zoomSideRow'); if(sr) sr.style.display = rec.sideToggle ? 'flex' : 'none';   // 穴の拡大は表裏トグルを表示
+  if(rec.sideToggle) syncHoleSideBtns();
   zReset();                                  // 開くたびに拡大・位置をリセット（rerender対象はここで等倍描画）
   if(!rec.rerender) rec.paint(cv, ZOOM_SCALE);   // 通常は高解像度で一度だけ描画（ぼやけない）
   document.getElementById('zoomModal').style.display = 'flex';
@@ -1581,7 +1587,7 @@ function drawQRMini(containerId, qrData, imgSrc) {
 }
 if(ORDER.qr && ORDER.qrSide) {
   if(ORDER.qrSide==='front'||ORDER.qrSide==='both') drawQRMini('qrMiniRow',{...ORDER.qrFront,side:'front'}, ORDER.imgFront);
-  if(ORDER.qrSide==='back' ||ORDER.qrSide==='both') drawQRMini('qrMiniRow',{...ORDER.qrBack, side:'back'},  ORDER.imgBack);
+  if(ORDER.qrSide==='back' ||ORDER.qrSide==='both') drawQRMini('qrMiniRow',{...ORDER.qrBack, side:'back'},  (ORDER.backPrint && ORDER.imgBack) ? ORDER.imgBack : null);   // 裏プリント無しなら画像なし（シルエットのみ）
 }
 
 // ── NFC位置のミニマップ（2.5x1.8cm固定枠・ダイカットpoly対応／scaleで拡大）──
@@ -1764,23 +1770,35 @@ var _holeImg = null, _holeBlank = true;
   var attX = (ORDER.attX!=null ? ORDER.attX : 50);
   var attY = (ORDER.attY!=null ? ORDER.attY : 10);
   var holeInfo = 'X: <strong>'+Math.round(attX)+'%</strong><br>Y: <strong>'+Math.round(attY)+'%</strong><br>状態: <strong>'+(ORDER.attMode==='outside'?'外付けツメ':'本体内')+'</strong><br>穴径: <strong>5mm</strong>';
-  // 拡大登録（rerender=拡大鏡内でズーム/パンのたびに再描画し、数字を縁に固定＝page2と同じ）
-  ZOOM_HOLE = { label: '穴の位置（拡大）', info: holeInfo, rerender: true, paint: function(tcv,scale,view){ paintHole(tcv,scale,_holeImg,_holeBlank,view); } };
+  // 拡大登録（rerender=拡大鏡内でズーム/パンのたびに再描画し、数字を縁に固定＝page2と同じ／sideToggle=拡大中も表裏切替可）
+  ZOOM_HOLE = { label: '穴の位置（拡大）', info: holeInfo, rerender: true, sideToggle: true, paint: function(tcv,scale,view){ paintHole(tcv,scale,_holeImg,_holeBlank,view); } };
 })();
-// 面切替（おもて／うら）。うら面は穴を鏡像描画（paintHole 内で処理）。
+// おもて／うら 選択ボタン（穴カード＋拡大モーダル）の見た目を現在の面へ同期
+function syncHoleSideBtns(){
+  function styleBtn(btn, on){ if(!btn) return; btn.style.borderColor=on?'#3257d6':'#ccc8be'; btn.style.background=on?'#eef1fd':'#fff'; btn.style.color=on?'#3257d6':'#6b6860'; }
+  styleBtn(document.getElementById('holeBtnFront'),  HOLE_SIDE==='front');
+  styleBtn(document.getElementById('holeBtnBack'),   HOLE_SIDE==='back');
+  styleBtn(document.getElementById('zHoleBtnFront'), HOLE_SIDE==='front');
+  styleBtn(document.getElementById('zHoleBtnBack'),  HOLE_SIDE==='back');
+}
+// 面切替（おもて／うら）。うら面ダイカットは左右反転（paintHole内）。
+// 裏プリントがある注文だけ、うら面に裏面画像を表示。無ければ画像は出さずシルエットのみ（表面画像は出さない）。
 function setHoleSide(side){
   HOLE_SIDE = (side==='back') ? 'back' : 'front';
-  var bf=document.getElementById('holeBtnFront'), bb=document.getElementById('holeBtnBack');
-  function styleBtn(btn, on){ if(!btn) return; btn.style.borderColor=on?'#3257d6':'#ccc8be'; btn.style.background=on?'#eef1fd':'#fff'; btn.style.color=on?'#3257d6':'#6b6860'; }
-  styleBtn(bf, HOLE_SIDE==='front'); styleBtn(bb, HOLE_SIDE==='back');
+  syncHoleSideBtns();
   var cv = document.getElementById('attachCv');
-  var backNoPrint = (HOLE_SIDE==='back' && !ORDER.imgBack);   // うら面・印刷なし
-  var contentSrc  = backNoPrint ? null : ((HOLE_SIDE==='back' ? ORDER.imgBack : ORDER.imgFront) || ORDER.imgFront);
-  var loadSrc     = contentSrc || (ORDER.shape==='diecut' ? ORDER.imgFront : null);   // 無地でもシルエット用に表画像を読む
-  function render(img, blank){ _holeImg=img; _holeBlank=blank; if(cv) paintHole(cv,1,img,blank); }
+  var hasBackImg = (HOLE_SIDE==='back') && ORDER.backPrint && ORDER.imgBack;
+  var contentSrc = (HOLE_SIDE==='back') ? (hasBackImg ? ORDER.imgBack : null) : (ORDER.imgFront || null);
+  var loadSrc    = contentSrc || (ORDER.shape==='diecut' ? ORDER.imgFront : null);   // シルエット形状用に表画像のアルファだけ使う（描画は blank）
+  function render(img, blank){
+    _holeImg=img; _holeBlank=blank;
+    if(cv) paintHole(cv,1,img,blank);
+    if(_zRec===ZOOM_HOLE && document.getElementById('zoomModal') && document.getElementById('zoomModal').style.display!=='none') _zApply();   // 拡大表示中なら拡大側も再描画
+  }
   if(loadSrc){ var i=new Image(); i.onload=function(){render(i, !contentSrc);}; i.onerror=function(){render(null, true);}; i.src=loadSrc; }
   else render(null, true);
 }
+function zoomSetSide(side){ setHoleSide(side); }   // 拡大モーダル内の表裏切替
 setHoleSide(HOLE_SIDE);   // 初期表示（保存された attachView の面）
 </script>
 </body>

@@ -2772,8 +2772,8 @@ function updateAttachControls() {
     rrect(ctx, g.x, g.y, g.w, g.h, g.rad);
   }
   function drawBody(g){
-    const backNoPrint = (S.attachView === 'back' && !S.imgBack);   // 裏面・印刷なし
-    const imgEl = backNoPrint ? null : (S.attachView === 'back' ? (imgBackEl || imgFrontEl) : imgFrontEl);
+    const backNoPrint = (S.attachView === 'back' && !(S.backPrint && S.imgBack));   // 裏面・裏プリント無し＝画像は出さずシルエットのみ（表画像を裏に出さない）
+    const imgEl = backNoPrint ? null : (S.attachView === 'back' ? imgBackEl : imgFrontEl);
     const acryl = S.colorHex || '#d9d4c7';
     // ダイカット：画像のアルファに沿って描画（穴・すき間はそのまま透過）。表画像が必要
     if (S.shape === 'diecut' && imgFrontEl) {
@@ -2943,11 +2943,11 @@ function updateAttachControls() {
     S.attMode = inside ? 'inside' : 'outside';
     const acryl = S.colorHex || '#d9d4c7';
     const backView = (S.attachView === 'back');
-    // ツメに載せる本体画像（裏面・画像なしならnull）
-    const _tbNoImg = (S.attachView === 'back' && !S.imgBack);
-    const tabImg = _tbNoImg ? null : (S.attachView === 'back' ? (imgBackEl || imgFrontEl) : imgFrontEl);
-    // はみ出し描画用の元画像（切り抜き前）と切り抜き状態。裏面に画像があれば裏、無ければ表を流用。
-    const _useBack = (S.attachView === 'back' && S.imgBack);
+    // ツメに載せる本体画像（裏面・裏プリント無しならnull＝表画像を裏に出さない）
+    const _tbNoImg = (S.attachView === 'back' && !(S.backPrint && S.imgBack));
+    const tabImg = _tbNoImg ? null : (S.attachView === 'back' ? imgBackEl : imgFrontEl);
+    // はみ出し描画用の元画像（切り抜き前）と切り抜き状態。裏面は裏プリントがある時だけ裏を使う。
+    const _useBack = (S.attachView === 'back' && S.backPrint && S.imgBack);
     const tabOrig  = _tbNoImg ? null : (_useBack ? (origBackEl || origFrontEl) : origFrontEl);
     const tabCrop  = _tbNoImg ? null : (_useBack ? (S.cropStateBack || S.cropStateFront) : S.cropStateFront);
     // レイヤー方式の全面合成（丸・四角・自由四角のはみ出し用）
