@@ -731,6 +731,11 @@ if(document.readyState!=='loading')w();else document.addEventListener('DOMConten
           <button onclick="stepBd(1)">＋</button>
         </div>
       </div>
+      <label style="display:flex;align-items:center;gap:8px;margin-top:12px;font-size:13px;cursor:pointer;">
+        <input type="checkbox" id="borderPrintChk" onchange="setBorderPrint(this.checked)" style="width:16px;height:16px;flex-shrink:0;">
+        縁（ふち）にも印刷する
+      </label>
+      <div class="att-hint" style="margin-top:4px;">ONにすると、挿入した画像が切り取りの縁まで印刷されます（画像が無い部分は無地アクリルのまま）。OFFは縁を無地アクリルにします。</div>
     </div>
     <div style="font-size:11px;color:var(--muted);margin-top:4px;line-height:1.6;">※ サイズはすべての形状で最小3cm・最大9cmです。自由四角は縦横それぞれ3〜9cm、ダイカットは9×9cmの枠に収まります。</div>
   </div>
@@ -1099,6 +1104,7 @@ const S = {
   attX:       50, attY: 10, attAngle: 0,
   holeCm:     0.5,     // 穴の直径(cm) ＝ 5mm 固定
   borderCm:   0.3,     // ダイカットの縁の厚さ(cm)
+  borderPrint: false,  // 縁にも印刷する（ON=印刷が縁まで届く／OFF=縁は無地アクリル）
   attMode:    'inside', // 'inside'(本体に穴) / 'outside'(外付けツメ)
   tabImage:   true,     // 外付けツメに本体画像のはみ出し部分を載せるか（初期ON）
   attachView: 'front',
@@ -2600,6 +2606,17 @@ function setBorderCm(mm) {
 }
 function onBdSlider() { setBorderCm(+document.getElementById('bdSlider').value); }
 function onBdInput()  { setBorderCm(+document.getElementById('bdN').value); }
+// 縁にも印刷する ON/OFF。マスクが変わるので合成を作り直して各プレビューを更新。
+function setBorderPrint(v) {
+  S.borderPrint = !!v;
+  const chk = document.getElementById('borderPrintChk'); if (chk) chk.checked = S.borderPrint;
+  if (S.shape !== 'diecut') return;
+  if (typeof leRecomposeAll === 'function') leRecomposeAll();   // imgFront/imgBack を作り直し
+  if (typeof leStageDraw === 'function') leStageDraw();
+  if (window._redrawAttach) window._redrawAttach();
+  if (typeof drawPreview === 'function') { drawPreview('front'); if (S.imgBack) drawPreview('back'); }
+  if (S.qr) { ['front','back'].forEach(s => { const c = document.getElementById('qrBg-'+s); if (c) drawQRBg(s, c, c.width||260, c.height||220); }); }
+}
 function stepBd(d)    { setBorderCm((+document.getElementById('bdN').value || 0) + d); }
 
 setSz(5); setTh(2.5); // 初期値（サイズは全形状5cm）
@@ -3177,6 +3194,8 @@ function doSubmit() {
     dieHolesBack:  S.dieHolesBack  || [],
     dieReinforce:  false,                  // 折れ防止は廃止：常に false（page3/worker へ送る注文データも固定）
     borderCm:      S.borderCm != null ? S.borderCm : 0.3,
+    borderPrint:   !!S.borderPrint,        // 縁にも印刷する
+
     // 複数画像レイヤー（記録用。表示は合成済みの imgFront/imgBack を使う）
     layersFront:   (typeof leSerialize === 'function') ? leSerialize('front') : [],
     layersBack:    (typeof leSerialize === 'function') ? leSerialize('back')  : [],
@@ -3370,6 +3389,17 @@ function leDrawLayer(c, l, W, H){
 }
 // 1面分の最終合成（出力用）。diecut は「土台のユニオン形」で切り抜く。
 // noClip=true：形でクリップせず、フレーム全体にレイヤーを描く（外付けツメのはみ出し用）
+// アルファ形状を r px だけ外側へ膨張（円状スタンプ方式・高解像度でも軽い）。縁にも印刷ON時にマスクを広げる用。
+function dilateAlphaCanvas(src, r){
+  const out = document.createElement('canvas'); out.width = src.width; out.height = src.height;
+  const c = out.getContext('2d');
+  const steps = 24;
+  for (let i = 0; i < steps; i++){ const a = i * 2 * Math.PI / steps; c.drawImage(src, Math.cos(a)*r, Math.sin(a)*r); }       // 外周
+  const r2 = r * 0.5;
+  for (let i = 0; i < steps; i++){ const a = i * 2 * Math.PI / steps; c.drawImage(src, Math.cos(a)*r2, Math.sin(a)*r2); }     // 中間リング（塗り残し防止）
+  c.drawImage(src, 0, 0);                                                                                                      // 中心
+  return out;
+}
 function lePaintSide(ctx, W, H, side, noClip){
   const sh = S.shape || 'circle';
   ctx.clearRect(0, 0, W, H);
@@ -3384,7 +3414,12 @@ function lePaintSide(ctx, W, H, side, noClip){
     const m = document.createElement('canvas'); m.width = W; m.height = H;
     const mc = m.getContext('2d'); mc.imageSmoothingEnabled = true; mc.imageSmoothingQuality = 'high';
     for (const l of baseArr) leDrawLayer(mc, l, W, H);    // 土台ユニオン＝マスク
-    tc.globalCompositeOperation = 'destination-in'; tc.drawImage(m, 0, 0);
+    let mask = m;
+    if (S.borderPrint) {                                  // 縁にも印刷：マスクを縁px分だけ膨張し印刷を縁まで残す
+      const bpx = (S.sizeCm ? (S.borderCm || 0) / S.sizeCm : 0) * W * DIE_FIT;
+      if (bpx > 0.5) mask = dilateAlphaCanvas(m, bpx);
+    }
+    tc.globalCompositeOperation = 'destination-in'; tc.drawImage(mask, 0, 0);
     ctx.drawImage(t, 0, 0);
     return;
   }
