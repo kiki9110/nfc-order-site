@@ -2043,8 +2043,12 @@ tr:hover td{background:#f7f9fb;}
 .bulk-del-btn{padding:8px 16px;border:1.5px solid #fca5a5;border-radius:9px;background:#fee2e2;color:#c0392b;font-weight:700;font-size:13px;cursor:pointer;white-space:nowrap;}
 .bulk-del-btn:hover:not(:disabled){background:#fecaca;}
 .bulk-del-btn:disabled{opacity:.5;cursor:default;}
-.row-chk{width:16px;height:16px;cursor:pointer;}
+.row-chk{width:16px;height:16px;pointer-events:none;}   /* クリックは行に通す（行クリックで選択） */
 #keychainsView:not(.select-mode) .chk-col{display:none;}   /* 通常時はチェック列を隠す（削除ボタンで選択モードに入ると表示） */
+#keychainsView.select-mode .sel-row{cursor:pointer;}
+#keychainsView.select-mode .sel-row:hover{background:#f6f4ef;}
+#keychainsView.select-mode #listBody tr:has(.row-chk:checked){background:#e8eefc;}
+#keychainsView.select-mode .op-cell button{pointer-events:none;opacity:.4;}   /* 選択中は他のボタンを無効化 */
 .del-actions{display:flex;justify-content:space-between;align-items:center;gap:12px;margin-top:16px;flex-wrap:wrap;}
 .del-group{margin-bottom:12px;border:1.5px solid var(--border);border-radius:10px;overflow:hidden;background:#fff;}
 .del-group-head{padding:12px 14px;background:#f4f2ee;cursor:pointer;font-weight:700;font-size:14px;color:var(--ink);user-select:none;}
@@ -3163,14 +3167,14 @@ function renderList() {
           ? '<span class="st-badge st-made">作成済み</span>'
           : (hasOrder ? '<span class="st-badge st-new">新しい注文</span>' : '<span class="st-badge st-none">注文なし</span>'));
 
-    html += '<tr>';
+    html += '<tr class="sel-row" onclick="rowClick(\\'' + esc(oid) + '\\')">';
     const confB = (confirmed && !cancelled) ? '<span class="st-badge st-confirmed">🔒 確定済み</span>' : '';
-    html += '<td class="chk-col" style="text-align:center;"><input type="checkbox" class="row-chk" onchange="toggleSel(\\'' + esc(oid) + '\\',this.checked)"' + (SELECTED.has(oid) ? ' checked' : '') + '></td>';
+    html += '<td class="chk-col" style="text-align:center;"><input type="checkbox" class="row-chk" data-oid="' + esc(oid) + '"' + (SELECTED.has(oid) ? ' checked' : '') + '></td>';
     html += '<td>' + mark + shapeMark + '<span class="order-id">' + esc(oid) + '</span><div style="margin-top:5px;">' + stB + confB + '</div></td>';
     html += '<td style="font-size:12px;color:var(--muted);">' + esc(item.label || '—') + '</td>';
     html += '<td class="date-cell">' + fmtDate(item.lastUrlUpdate) + '</td>';
     html += '<td><span class="count-badge">📡' + (item.accessCount||0) + ' / 📷' + (item.qrAccessCount||0) + '</span></td>';
-    html += '<td style="white-space:nowrap;">';
+    html += '<td class="op-cell" style="white-space:nowrap;">';
     if (cancelled) {
       html += '<button class="edit-btn st-toggle" style="background:#fde2e1;border-color:#f5c2c0;color:#c0392b;" onclick="toggleCancel(\\'' + esc(oid) + '\\',false)">↩ キャンセル解除</button> ';
     } else if (hasOrder) {
@@ -3211,6 +3215,17 @@ function enterSelectMode() {
 }
 function exitSelectMode() { resetSelectMode(); renderList(); }
 function toggleSel(oid, on) { if (on) SELECTED.add(oid); else SELECTED.delete(oid); updateBulkBar(); }
+// 選択モード中は行のどこを押しても選択トグル（他のボタンは無効化＝pointer-events:none でここに届く）
+function inSelectMode() { var v = document.getElementById('keychainsView'); return !!(v && v.classList.contains('select-mode')); }
+function rowClick(oid) {
+  if (!inSelectMode()) return;
+  var on = !SELECTED.has(oid);
+  if (on) SELECTED.add(oid); else SELECTED.delete(oid);
+  var sel = (window.CSS && CSS.escape) ? CSS.escape(oid) : oid;
+  var box = document.querySelector('#listBody .row-chk[data-oid="' + sel + '"]');
+  if (box) box.checked = on;
+  updateBulkBar();
+}
 function toggleSelAll(on) {
   VISIBLE_IDS.forEach(function (id) { if (on) SELECTED.add(id); else SELECTED.delete(id); });
   var boxes = document.querySelectorAll('#listBody .row-chk');
