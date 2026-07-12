@@ -2044,6 +2044,7 @@ tr:hover td{background:#f7f9fb;}
 .bulk-del-btn:hover:not(:disabled){background:#fecaca;}
 .bulk-del-btn:disabled{opacity:.5;cursor:default;}
 .row-chk{width:16px;height:16px;cursor:pointer;}
+#keychainsView:not(.select-mode) .chk-col{display:none;}   /* 通常時はチェック列を隠す（削除ボタンで選択モードに入ると表示） */
 .del-actions{display:flex;justify-content:space-between;align-items:center;gap:12px;margin-top:16px;flex-wrap:wrap;}
 .del-group{margin-bottom:12px;border:1.5px solid var(--border);border-radius:10px;overflow:hidden;background:#fff;}
 .del-group-head{padding:12px 14px;background:#f4f2ee;cursor:pointer;font-weight:700;font-size:14px;color:var(--ink);user-select:none;}
@@ -2278,18 +2279,27 @@ tr:hover td{background:#f7f9fb;}
     </div>
 
     <div class="bulk-bar" id="bulkBar">
-      <label class="bulk-all"><input type="checkbox" id="bulkAllChk" onchange="toggleSelAll(this.checked)"> 表示中をすべて選択</label>
-      <span class="bulk-count"><strong id="bulkCount">0</strong> 件選択中</span>
-      <button class="bulk-del-btn" id="bulkDelBtn" onclick="goDeleteConfirm()" disabled>🗑 選択した注文を削除</button>
-      <span style="flex:1;"></span>
-      <button class="edit-btn" style="background:#f4f2ee;border-color:#e4dfd4;" onclick="showDeleted()">🗑 削除一覧を見る</button>
+      <!-- 通常時：削除を始めるボタン＋削除一覧 -->
+      <div id="bulkNormal" style="display:flex;align-items:center;gap:12px;flex:1;flex-wrap:wrap;">
+        <button class="bulk-del-btn" onclick="enterSelectMode()">🗑 注文を選んで削除</button>
+        <span style="flex:1;"></span>
+        <button class="edit-btn" style="background:#f4f2ee;border-color:#e4dfd4;" onclick="showDeleted()">🗑 削除一覧を見る</button>
+      </div>
+      <!-- 選択モード時：チェックで選んで確定／キャンセル -->
+      <div id="bulkSelect" style="display:none;align-items:center;gap:12px;flex:1;flex-wrap:wrap;">
+        <label class="bulk-all"><input type="checkbox" id="bulkAllChk" onchange="toggleSelAll(this.checked)"> 表示中をすべて選択</label>
+        <span class="bulk-count"><strong id="bulkCount">0</strong> 件選択中</span>
+        <span style="flex:1;"></span>
+        <button class="edit-btn" onclick="exitSelectMode()">キャンセル</button>
+        <button class="bulk-del-btn" id="bulkDelBtn" onclick="goDeleteConfirm()" disabled>選んだ注文を削除（確認へ）</button>
+      </div>
     </div>
 
     <div class="table-wrap">
       <table>
         <thead>
           <tr>
-            <th style="width:30px;"></th>
+            <th class="chk-col" style="width:30px;"></th>
             <th>注文番号</th>
             <th>メモ</th>
             <th>最終更新</th>
@@ -2749,6 +2759,7 @@ function showKeychains(push) {
   hideAll();
   document.getElementById('keychainsView').style.display = 'block';
   document.getElementById('homeNavBtn').style.display    = 'inline-block';
+  resetSelectMode();   // 一覧に来たら選択モードは解除（通常表示）
   loadList();
   nav('keychains', push);
 }
@@ -3154,7 +3165,7 @@ function renderList() {
 
     html += '<tr>';
     const confB = (confirmed && !cancelled) ? '<span class="st-badge st-confirmed">🔒 確定済み</span>' : '';
-    html += '<td style="text-align:center;"><input type="checkbox" class="row-chk" onchange="toggleSel(\\'' + esc(oid) + '\\',this.checked)"' + (SELECTED.has(oid) ? ' checked' : '') + '></td>';
+    html += '<td class="chk-col" style="text-align:center;"><input type="checkbox" class="row-chk" onchange="toggleSel(\\'' + esc(oid) + '\\',this.checked)"' + (SELECTED.has(oid) ? ' checked' : '') + '></td>';
     html += '<td>' + mark + shapeMark + '<span class="order-id">' + esc(oid) + '</span><div style="margin-top:5px;">' + stB + confB + '</div></td>';
     html += '<td style="font-size:12px;color:var(--muted);">' + esc(item.label || '—') + '</td>';
     html += '<td class="date-cell">' + fmtDate(item.lastUrlUpdate) + '</td>';
@@ -3184,6 +3195,21 @@ function renderList() {
 // ─── 一括削除の選択管理 ───
 var SELECTED = new Set();      // 選択中の注文ID
 var VISIBLE_IDS = [];          // いま一覧に表示中のID（「すべて選択」用）
+// 選択モード：削除ボタンを押してから初めてチェックボックスが出る（通常時は非表示）
+function resetSelectMode() {
+  SELECTED.clear();
+  var v = document.getElementById('keychainsView'); if (v) v.classList.remove('select-mode');
+  var n = document.getElementById('bulkNormal');    if (n) n.style.display = 'flex';
+  var s = document.getElementById('bulkSelect');    if (s) s.style.display = 'none';
+}
+function enterSelectMode() {
+  SELECTED.clear();
+  var v = document.getElementById('keychainsView'); if (v) v.classList.add('select-mode');
+  document.getElementById('bulkNormal').style.display = 'none';
+  document.getElementById('bulkSelect').style.display = 'flex';
+  renderList();
+}
+function exitSelectMode() { resetSelectMode(); renderList(); }
 function toggleSel(oid, on) { if (on) SELECTED.add(oid); else SELECTED.delete(oid); updateBulkBar(); }
 function toggleSelAll(on) {
   VISIBLE_IDS.forEach(function (id) { if (on) SELECTED.add(id); else SELECTED.delete(id); });
