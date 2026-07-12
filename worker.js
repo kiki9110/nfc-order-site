@@ -16,7 +16,7 @@ function adminBearer(env) {
 }
 
 export default {
-  async fetch(request, env) {
+  async fetch(request, env, ctx) {
     const url    = new URL(request.url);
     const path   = url.pathname;
     const origin = url.origin;
@@ -79,9 +79,11 @@ export default {
     if (path === '/api/set-made')          return handleSetMade(request, env, cors);   // 管理者：作成済み(製作完了)フラグ切替
     if (path === '/api/set-qr')            return handleSetQR(request, env, cors);
     if (path === '/api/get')               return handleGet(request, env, cors);
-    if (path === '/api/get-all')           return handleGetAll(request, env, cors);
+    if (path === '/api/get-all')           return handleGetAll(request, env, cors, ctx);
     if (path === '/api/get-qr-url')        return handleGetQRUrl(request, env, cors);
     if (path === '/api/delete')            return handleDelete(request, env, cors);
+    if (path === '/api/soft-delete')       return handleSoftDelete(request, env, cors);   // 一括ソフト削除（2週間猶予）
+    if (path === '/api/restore')           return handleRestore(request, env, cors);      // 猶予中の注文を復元
     if (path === '/api/register')          return handleRegister(request, env, cors);
     if (path === '/api/save-order')        return handleSaveOrder(request, env, cors);
     if (path === '/api/get-order')         return handleGetOrder(request, env, cors);
@@ -594,19 +596,26 @@ async function handleGet(request, env, cors) {
 }
 
 // NFC・QR・注文をまとめた一覧を取得（管理画面の新しい一覧用）
-async function handleGetAll(request, env, cors) {
+async function handleGetAll(request, env, cors, ctx) {
   const auth = request.headers.get('Authorization');
   if (auth !== adminBearer(env)) return json({ error: '認証エラー' }, 401, cors);
 
   const allKeys = await listAllKeys(env);
   const nfcKeys = allKeys.filter(k => isNfcOrderKey(k.name));
 
-  const items = await Promise.all(nfcKeys.map(async k => {
+  const items = (await Promise.all(nfcKeys.map(async k => {
     const orderId = k.name;
     const nfcRaw  = await env.NFC_URLS.get(orderId);
+    const nfc0 = nfcRaw ? JSON.parse(nfcRaw) : {};
+    // 猶予(14日)を過ぎたソフト削除は完全削除して一覧から除外（遅延purge。1件の失敗で全体を落とさない）
+    if (nfc0.deletedAt && (Date.now() - new Date(nfc0.deletedAt).getTime()) > DELETE_GRACE_MS) {
+      if (ctx && ctx.waitUntil) ctx.waitUntil(purgeOrder(env, orderId).catch(() => {}));
+      else { try { await purgeOrder(env, orderId); } catch (e) {} }
+      return null;
+    }
     const qrRaw   = await env.NFC_URLS.get('QR:' + orderId);
     const ordRaw  = await env.NFC_URLS.get('ORDER:' + orderId);
-    const nfc = nfcRaw ? JSON.parse(nfcRaw) : {};
+    const nfc = nfc0;
     const qr  = qrRaw  ? JSON.parse(qrRaw)  : {};
 
     // 土台の形・色だけを注文JSONから軽量抽出（巨大な画像を含むため丸ごと parse しない。両フィールドは先頭付近）
@@ -643,12 +652,13 @@ async function handleGetAll(request, env, cors) {
       cancelledAt:   nfc.cancelledAt || null,
       confirmed:     !!nfc.confirmed,      // お客様が注文を確定（キャンセル不可ロック）
       confirmedAt:   nfc.confirmedAt || null,
+      deletedAt:     nfc.deletedAt   || null,   // ソフト削除の日時（あれば削除一覧側に表示・一覧からは除外）
       lastUrlUpdate,
       // 購入オプションと追加枚数（管理画面で手動編集できるようにする）
       options:       nfc.options      || {},
       addonCount:    nfc.addonCount   || 0,
     };
-  }));
+  }))).filter(Boolean);
 
   return json({ items }, 200, cors);
 }
@@ -668,16 +678,71 @@ async function handleGetQRUrl(request, env, cors) {
 }
 
 // 削除（NFC・QR・注文データをまとめて削除）
+// 注文の完全削除（NFC/QR/ORDER の3キー）。即時削除・遅延purge の両方から使う共通処理。
+async function purgeOrder(env, orderId) {
+  await env.NFC_URLS.delete(orderId);
+  await env.NFC_URLS.delete('QR:'    + orderId);
+  await env.NFC_URLS.delete('ORDER:' + orderId);
+}
+
 async function handleDelete(request, env, cors) {
   const auth = request.headers.get('Authorization');
   if (auth !== adminBearer(env)) return json({ error: '認証エラー' }, 401, cors);
 
   const { orderId } = await request.json();
   if (!orderId) return json({ error: 'orderId が必要です' }, 400, cors);
-  await env.NFC_URLS.delete(orderId);
-  await env.NFC_URLS.delete('QR:'    + orderId);
-  await env.NFC_URLS.delete('ORDER:' + orderId);
+  await purgeOrder(env, orderId);
   return json({ ok: true }, 200, cors);
+}
+
+// ソフト削除の猶予（14日）。経過後に遅延purgeで完全削除される。
+const DELETE_GRACE_MS = 14 * 24 * 60 * 60 * 1000;
+
+// 一括ソフト削除：NFCレコードに deletedAt を付ける（既にあれば据え置き＝14日クロックを再スタートしない）。
+async function handleSoftDelete(request, env, cors) {
+  const auth = request.headers.get('Authorization');
+  if (auth !== adminBearer(env)) return json({ error: '認証エラー' }, 401, cors);
+
+  const body = await request.json();
+  let ids = Array.isArray(body.orderIds) ? body.orderIds : (body.orderId ? [body.orderId] : []);
+  ids = ids.filter(Boolean).slice(0, 500);   // 暴走対策の上限
+  if (!ids.length) return json({ error: 'orderIds が必要です' }, 400, cors);
+
+  const now = new Date().toISOString();
+  const updated = [], failed = [];
+  for (const id of ids) {
+    try {
+      const raw = await env.NFC_URLS.get(id);
+      if (!raw) { failed.push(id); continue; }
+      const rec = JSON.parse(raw);
+      if (!rec.deletedAt) { rec.deletedAt = now; await env.NFC_URLS.put(id, JSON.stringify(rec)); }
+      updated.push(id);
+    } catch (e) { failed.push(id); }
+  }
+  return json({ ok: true, updated, failed }, 200, cors);
+}
+
+// 復元：deletedAt を消して注文一覧へ戻す。無い/purge済みは skip。
+async function handleRestore(request, env, cors) {
+  const auth = request.headers.get('Authorization');
+  if (auth !== adminBearer(env)) return json({ error: '認証エラー' }, 401, cors);
+
+  const body = await request.json();
+  let ids = Array.isArray(body.orderIds) ? body.orderIds : (body.orderId ? [body.orderId] : []);
+  ids = ids.filter(Boolean).slice(0, 500);
+  if (!ids.length) return json({ error: 'orderIds が必要です' }, 400, cors);
+
+  const restored = [], skipped = [];
+  for (const id of ids) {
+    try {
+      const raw = await env.NFC_URLS.get(id);
+      if (!raw) { skipped.push(id); continue; }
+      const rec = JSON.parse(raw);
+      if (rec.deletedAt) { delete rec.deletedAt; await env.NFC_URLS.put(id, JSON.stringify(rec)); restored.push(id); }
+      else skipped.push(id);
+    } catch (e) { skipped.push(id); }
+  }
+  return json({ ok: true, restored, skipped }, 200, cors);
 }
 
 // Apps Script から注文送信時に自動登録
@@ -1971,6 +2036,21 @@ tr:hover td{background:#f7f9fb;}
 .edit-btn:hover{border-color:var(--ink);}
 .del-btn{padding:5px 11px;border:1.5px solid #fecaca;border-radius:7px;background:#fff;cursor:pointer;font-size:12px;color:#dc2626;}
 .del-btn:hover{background:#fee2e2;}
+/* 一括削除バー・削除確認・削除一覧 */
+.bulk-bar{display:flex;align-items:center;gap:12px;flex-wrap:wrap;margin:8px 0 4px;padding:9px 12px;background:#faf7f2;border:1.5px solid var(--border);border-radius:10px;font-size:13px;color:var(--ink);}
+.bulk-all{display:flex;align-items:center;gap:6px;cursor:pointer;white-space:nowrap;}
+.bulk-count{color:var(--muted);white-space:nowrap;}
+.bulk-del-btn{padding:8px 16px;border:1.5px solid #fca5a5;border-radius:9px;background:#fee2e2;color:#c0392b;font-weight:700;font-size:13px;cursor:pointer;white-space:nowrap;}
+.bulk-del-btn:hover:not(:disabled){background:#fecaca;}
+.bulk-del-btn:disabled{opacity:.5;cursor:default;}
+.row-chk{width:16px;height:16px;cursor:pointer;}
+.del-actions{display:flex;justify-content:space-between;align-items:center;gap:12px;margin-top:16px;flex-wrap:wrap;}
+.del-group{margin-bottom:12px;border:1.5px solid var(--border);border-radius:10px;overflow:hidden;background:#fff;}
+.del-group-head{padding:12px 14px;background:#f4f2ee;cursor:pointer;font-weight:700;font-size:14px;color:var(--ink);user-select:none;}
+.del-group-head:hover{background:#efe9df;}
+.del-caret{display:inline-block;width:14px;color:var(--muted);}
+.del-group-body{padding:4px 8px 8px;}
+.del-group-body table{width:100%;}
 .nfc-link{font-size:11px;color:var(--muted);margin-top:3px;word-break:break-all;}
 .nfc-link a{color:var(--accent);}
 .copy-btn{font-size:11px;padding:2px 8px;border:1px solid var(--border);border-radius:4px;background:#fff;cursor:pointer;margin-left:4px;}
@@ -2197,10 +2277,19 @@ tr:hover td{background:#f7f9fb;}
       </div>
     </div>
 
+    <div class="bulk-bar" id="bulkBar">
+      <label class="bulk-all"><input type="checkbox" id="bulkAllChk" onchange="toggleSelAll(this.checked)"> 表示中をすべて選択</label>
+      <span class="bulk-count"><strong id="bulkCount">0</strong> 件選択中</span>
+      <button class="bulk-del-btn" id="bulkDelBtn" onclick="goDeleteConfirm()" disabled>🗑 選択した注文を削除</button>
+      <span style="flex:1;"></span>
+      <button class="edit-btn" style="background:#f4f2ee;border-color:#e4dfd4;" onclick="showDeleted()">🗑 削除一覧を見る</button>
+    </div>
+
     <div class="table-wrap">
       <table>
         <thead>
           <tr>
+            <th style="width:30px;"></th>
             <th>注文番号</th>
             <th>メモ</th>
             <th>最終更新</th>
@@ -2209,10 +2298,34 @@ tr:hover td{background:#f7f9fb;}
           </tr>
         </thead>
         <tbody id="listBody">
-          <tr><td colspan="5" class="empty">読み込み中...</td></tr>
+          <tr><td colspan="6" class="empty">読み込み中...</td></tr>
         </tbody>
       </table>
     </div>
+  </div>
+
+  <!-- 削除の確認画面 -->
+  <div id="delConfirmView" class="wrap" style="display:none;">
+    <div class="section-title" style="margin-top:4px;">削除の確認</div>
+    <p style="font-size:13px;color:var(--muted);margin-bottom:14px;">下の注文を削除します。「詳細」で内容を確認できます。確定すると <strong>2週間の猶予</strong> のあと完全に削除されます（猶予中は「削除一覧」からいつでも元に戻せます）。</p>
+    <div class="table-wrap">
+      <table>
+        <thead><tr><th>注文番号</th><th>メモ</th><th>最終更新</th><th>確認</th></tr></thead>
+        <tbody id="delConfirmBody"></tbody>
+      </table>
+    </div>
+    <div class="del-actions">
+      <button class="edit-btn" onclick="showKeychains()">← キャンセル</button>
+      <button class="bulk-del-btn" id="delConfirmBtn" onclick="confirmSoftDelete()">🗑 削除を確定（<span id="delConfirmCount">0</span>件）</button>
+    </div>
+  </div>
+
+  <!-- 削除一覧画面 -->
+  <div id="deletedView" class="wrap" style="display:none;">
+    <div class="section-title" style="margin-top:4px;">🗑 削除一覧</div>
+    <p style="font-size:13px;color:var(--muted);margin-bottom:12px;">削除した注文を削除日ごとにまとめています（完全削除が近い＝古い順）。2週間で自動的に完全削除されます。日付をクリックすると内容が開きます。</p>
+    <div style="margin-bottom:12px;"><button class="edit-btn" onclick="showKeychains()">← 注文一覧に戻る</button></div>
+    <div id="deletedGroups"></div>
   </div>
 
   <!-- 在庫・メンテナンス画面 -->
@@ -2599,7 +2712,7 @@ function enterApp() {
 
 // ─── 画面切り替え（各画面にURLハッシュを割り当て、ブラウザの戻る/進むで行き来できる）───
 function hideAll() {
-  ['homeView','keychainsView','inventoryView','backupView','optStockView','messagesView','selfOptView','qrGenView','supportView'].forEach(function(id){
+  ['homeView','keychainsView','delConfirmView','deletedView','inventoryView','backupView','optStockView','messagesView','selfOptView','qrGenView','supportView'].forEach(function(id){
     document.getElementById(id).style.display = 'none';
   });
   document.getElementById('homeNavBtn').style.display = 'none';
@@ -2615,7 +2728,7 @@ function nav(view, push) {
 var ADMIN_ROUTES = {
   home: showHome, keychains: showKeychains, inventory: showInventory, backup: showBackup,
   optstock: showOptStock, messages: showMessages, selfopt: showSelfOpt, qrgen: showQrGen,
-  support: showSupport
+  support: showSupport, delconfirm: showDelConfirm, deleted: showDeleted
 };
 // 現在のURLハッシュに合わせて画面を表示する。
 function adminRoute(push) {
@@ -2638,6 +2751,131 @@ function showKeychains(push) {
   document.getElementById('homeNavBtn').style.display    = 'inline-block';
   loadList();
   nav('keychains', push);
+}
+
+// ─── 行の共通パーツ（一覧・確認・削除一覧で再利用）───
+function rowStatusMark(it) {
+  if (it.made && !it.cancelled) return '<span class="ord-mark made" title="作成済み">●</span>';
+  return it.hasOrder ? '<span class="ord-mark yes" title="注文あり">●</span>' : '<span class="ord-mark no" title="注文なし">✕</span>';
+}
+function rowShapeMark(it) {
+  var g = { circle:'●', square:'■', rect:'▬', diecut:'◆' }, nm = { circle:'丸', square:'四角', rect:'自由四角', diecut:'ダイカット' };
+  var sh = it.shape; if (!(it.hasOrder && sh && g[sh])) return '';
+  var col = /^#[0-9a-fA-F]{3,8}$/.test(it.colorHex || '') ? it.colorHex : '#b8b2a6';
+  return '<span class="shape-mark" title="土台の形：' + nm[sh] + '" style="color:' + col + ';">' + g[sh] + '</span>';
+}
+function rowBadges(it) {
+  var stB = it.cancelled ? '<span class="st-badge st-cancelled">キャンセル済み</span>'
+    : (it.made ? '<span class="st-badge st-made">作成済み</span>'
+      : (it.hasOrder ? '<span class="st-badge st-new">新しい注文</span>' : '<span class="st-badge st-none">注文なし</span>'));
+  var confB = (it.confirmed && !it.cancelled) ? '<span class="st-badge st-confirmed">🔒 確定済み</span>' : '';
+  return stB + confB;
+}
+
+// ─── 削除の確認ページ ───
+function showDelConfirm(push) {
+  hideAll();
+  document.getElementById('delConfirmView').style.display = 'block';
+  document.getElementById('homeNavBtn').style.display     = 'inline-block';
+  nav('delconfirm', push);
+  if (!ALL_ITEMS.length) loadList(renderDelConfirm); else renderDelConfirm();
+}
+function delSelIds() { try { return JSON.parse(sessionStorage.getItem('delSel') || '[]'); } catch (e) { return []; } }
+function renderDelConfirm() {
+  var sel = delSelIds();
+  if (!sel.length) { showKeychains(); return; }   // 空（リロード等）なら一覧へ戻す
+  var byId = {}; ALL_ITEMS.forEach(function (it) { byId[it.orderId] = it; });
+  var items = sel.map(function (id) { return byId[id]; }).filter(Boolean);
+  document.getElementById('delConfirmCount').textContent = items.length;
+  var html = '';
+  for (var i = 0; i < items.length; i++) {
+    var it = items[i], oid = it.orderId, oidEnc = encodeURIComponent(oid);
+    html += '<tr>';
+    html += '<td>' + rowStatusMark(it) + rowShapeMark(it) + '<span class="order-id">' + esc(oid) + '</span><div style="margin-top:5px;">' + rowBadges(it) + '</div></td>';
+    html += '<td style="font-size:12px;color:var(--muted);">' + esc(it.label || '—') + '</td>';
+    html += '<td class="date-cell">' + fmtDate(it.lastUrlUpdate) + '</td>';
+    html += '<td><button class="edit-btn" style="background:var(--blue-bg);border-color:#b8d9f0;color:var(--blue);" onclick="location.href=\\'/order/' + oidEnc + '?pw=\\'+encodeURIComponent(PW)">詳細</button></td>';
+    html += '</tr>';
+  }
+  document.getElementById('delConfirmBody').innerHTML = html || '<tr><td colspan="4" class="empty">対象がありません</td></tr>';
+}
+function confirmSoftDelete() {
+  var sel = delSelIds();
+  if (!sel.length) { showKeychains(); return; }
+  var btn = document.getElementById('delConfirmBtn'); if (btn) btn.disabled = true;
+  fetch(BASE + '/api/soft-delete', { method: 'POST', headers: { 'Content-Type': 'application/json', Authorization: 'Bearer ' + PW }, body: JSON.stringify({ orderIds: sel }) })
+    .then(function (r) { return r.json(); })
+    .then(function (d) {
+      if (d && d.ok) {
+        SELECTED.clear(); sessionStorage.removeItem('delSel');
+        toast((d.updated ? d.updated.length : 0) + '件を削除しました（2週間の猶予）');
+        loadList(function () { showDeleted(); });
+      } else { toast('エラー: ' + ((d && d.error) || '不明')); if (btn) btn.disabled = false; }
+    })
+    .catch(function () { toast('通信エラー'); if (btn) btn.disabled = false; });
+}
+
+// ─── 削除一覧ページ（削除日ごとにグループ表示・古い順＝完全削除が近い順）───
+function showDeleted(push) {
+  hideAll();
+  document.getElementById('deletedView').style.display = 'block';
+  document.getElementById('homeNavBtn').style.display  = 'inline-block';
+  nav('deleted', push);
+  if (!ALL_ITEMS.length) loadList(renderDeleted); else renderDeleted();
+}
+function jstDateKey(iso) {   // JST(UTC+9)基準の YYYY-MM-DD
+  var d = new Date(new Date(iso).getTime() + 9 * 3600 * 1000);
+  var mm = ('0' + (d.getUTCMonth() + 1)).slice(-2), dd = ('0' + d.getUTCDate()).slice(-2);
+  return d.getUTCFullYear() + '-' + mm + '-' + dd;
+}
+function renderDeleted() {
+  var dels = ALL_ITEMS.filter(function (it) { return it.deletedAt; });
+  var box = document.getElementById('deletedGroups');
+  if (!dels.length) { box.innerHTML = '<p style="color:var(--muted);font-size:13px;padding:20px 0;">削除した注文はありません。</p>'; return; }
+  var groups = {};
+  dels.forEach(function (it) { var k = jstDateKey(it.deletedAt); (groups[k] = groups[k] || []).push(it); });
+  var keys = Object.keys(groups).sort();   // 古い順＝完全削除が近い順
+  var GRACE = 14, html = '';
+  for (var gi = 0; gi < keys.length; gi++) {
+    var k = keys[gi], arr = groups[k];
+    arr.sort(function (a, b) { return new Date(a.deletedAt) - new Date(b.deletedAt); });
+    var gid = 'delgrp' + gi, open = (gi === 0);   // 一番古い（＝間近）グループは開いておく
+    html += '<div class="del-group">';
+    html += '<div class="del-group-head" onclick="toggleDelGroup(\\'' + gid + '\\')"><span class="del-caret" id="' + gid + '-c">' + (open ? '▼' : '▶') + '</span> ' + k + ' に削除 <span style="color:var(--muted);font-weight:400;">（' + arr.length + '件）</span></div>';
+    html += '<div class="del-group-body" id="' + gid + '"' + (open ? '' : ' style="display:none;"') + '>';
+    html += '<div class="table-wrap"><table><tbody>';
+    for (var i = 0; i < arr.length; i++) {
+      var it = arr[i], oid = it.orderId, oidEnc = encodeURIComponent(oid);
+      var daysLeft = Math.max(0, GRACE - Math.floor((Date.now() - new Date(it.deletedAt).getTime()) / 864e5));
+      html += '<tr>';
+      html += '<td>' + rowShapeMark(it) + '<span class="order-id">' + esc(oid) + '</span></td>';
+      html += '<td style="font-size:12px;color:var(--muted);">' + esc(it.label || '—') + '</td>';
+      html += '<td class="date-cell">削除:' + fmtDate(it.deletedAt) + '<br><span style="color:#c0392b;">あと' + daysLeft + '日で完全削除</span></td>';
+      html += '<td style="white-space:nowrap;">';
+      html += '<button class="edit-btn" style="background:var(--blue-bg);border-color:#b8d9f0;color:var(--blue);" onclick="location.href=\\'/order/' + oidEnc + '?pw=\\'+encodeURIComponent(PW)">詳細</button> ';
+      html += '<button class="edit-btn" style="background:#dcfce7;border-color:#bbf7d0;color:var(--green);" onclick="restoreEntry(\\'' + esc(oid) + '\\')">↩ 元に戻す</button> ';
+      html += '<button class="edit-btn" style="background:#eef9f0;border-color:#bfe3c6;color:var(--green);" onclick="openUrlList(\\'' + esc(oid) + '\\')">URL一覧</button>';
+      html += '</td></tr>';
+    }
+    html += '</tbody></table></div></div></div>';
+  }
+  box.innerHTML = html;
+}
+function toggleDelGroup(gid) {
+  var b = document.getElementById(gid), c = document.getElementById(gid + '-c');
+  if (!b) return;
+  var open = b.style.display !== 'none';
+  b.style.display = open ? 'none' : 'block';
+  if (c) c.textContent = open ? '▶' : '▼';
+}
+function restoreEntry(oid) {
+  fetch(BASE + '/api/restore', { method: 'POST', headers: { 'Content-Type': 'application/json', Authorization: 'Bearer ' + PW }, body: JSON.stringify({ orderIds: [oid] }) })
+    .then(function (r) { return r.json(); })
+    .then(function (d) {
+      if (d && d.ok) { toast('元に戻しました'); loadList(function () { renderDeleted(); }); }
+      else toast('エラー: ' + ((d && d.error) || '不明'));
+    })
+    .catch(function () { toast('通信エラー'); });
 }
 function showInventory(push) {
   hideAll();
@@ -2769,11 +3007,11 @@ function delMsg(id) {
     .then(function () { loadMessages(); });
 }
 
-// ─── 一覧読み込み ───
-function loadList() {
+// ─── 一覧読み込み ───（cb: 取得後に呼ぶコールバック。削除/復元後の画面更新に使う）
+function loadList(cb) {
   fetch(BASE + '/api/get-all', { headers: { Authorization: 'Bearer ' + PW } })
     .then(function (r) { return r.json(); })
-    .then(function (d) { ALL_ITEMS = d.items || []; renderList(); })
+    .then(function (d) { ALL_ITEMS = d.items || []; renderList(); if (typeof cb === 'function') cb(); })
     .catch(function () { toast('一覧の取得に失敗しました'); });
 }
 
@@ -2855,6 +3093,7 @@ function renderList() {
   const sort  = document.getElementById('sortSelect').value;
 
   let items = ALL_ITEMS.filter(function (it) {
+    if (it.deletedAt) return false;   // ソフト削除済みは注文一覧に出さない（削除一覧側へ）
     if (!q) return true;
     return (it.orderId || '').toLowerCase().indexOf(q) >= 0
         || (it.label   || '').toLowerCase().indexOf(q) >= 0;
@@ -2877,9 +3116,11 @@ function renderList() {
     return 0;
   });
 
+  VISIBLE_IDS = items.map(function (it) { return it.orderId; });   // 「表示中をすべて選択」用
   if (!items.length) {
     var none = (q || stSel.length || dgSel.length) ? '条件に合う注文がありません' : 'まだ登録がありません';
-    tbody.innerHTML = '<tr><td colspan="5" class="empty">' + none + '</td></tr>';
+    tbody.innerHTML = '<tr><td colspan="6" class="empty">' + none + '</td></tr>';
+    updateBulkBar();
     return;
   }
 
@@ -2913,6 +3154,7 @@ function renderList() {
 
     html += '<tr>';
     const confB = (confirmed && !cancelled) ? '<span class="st-badge st-confirmed">🔒 確定済み</span>' : '';
+    html += '<td style="text-align:center;"><input type="checkbox" class="row-chk" onchange="toggleSel(\\'' + esc(oid) + '\\',this.checked)"' + (SELECTED.has(oid) ? ' checked' : '') + '></td>';
     html += '<td>' + mark + shapeMark + '<span class="order-id">' + esc(oid) + '</span><div style="margin-top:5px;">' + stB + confB + '</div></td>';
     html += '<td style="font-size:12px;color:var(--muted);">' + esc(item.label || '—') + '</td>';
     html += '<td class="date-cell">' + fmtDate(item.lastUrlUpdate) + '</td>';
@@ -2936,7 +3178,33 @@ function renderList() {
     html += '</tr>';
   }
   tbody.innerHTML = html;
+  updateBulkBar();
 }
+
+// ─── 一括削除の選択管理 ───
+var SELECTED = new Set();      // 選択中の注文ID
+var VISIBLE_IDS = [];          // いま一覧に表示中のID（「すべて選択」用）
+function toggleSel(oid, on) { if (on) SELECTED.add(oid); else SELECTED.delete(oid); updateBulkBar(); }
+function toggleSelAll(on) {
+  VISIBLE_IDS.forEach(function (id) { if (on) SELECTED.add(id); else SELECTED.delete(id); });
+  var boxes = document.querySelectorAll('#listBody .row-chk');
+  for (var i = 0; i < boxes.length; i++) boxes[i].checked = on;
+  updateBulkBar();
+}
+function updateBulkBar() {
+  var n = SELECTED.size;
+  var c = document.getElementById('bulkCount'); if (c) c.textContent = n;
+  var b = document.getElementById('bulkDelBtn'); if (b) b.disabled = (n === 0);
+  var a = document.getElementById('bulkAllChk');
+  if (a) a.checked = (VISIBLE_IDS.length > 0 && VISIBLE_IDS.every(function (id) { return SELECTED.has(id); }));
+}
+// 選択したものを確認ページへ（選択は sessionStorage に保持＝リロード耐性）
+function goDeleteConfirm() {
+  if (!SELECTED.size) return;
+  sessionStorage.setItem('delSel', JSON.stringify(Array.from(SELECTED)));
+  showDelConfirm();
+}
+
 // 作成済み（製作完了）フラグの切り替え
 function toggleMade(orderId, made) {
   fetch(BASE + '/api/set-made', {
@@ -3148,16 +3416,11 @@ function toggleOptUsed(orderId, used) {
   }).catch(function () { toast('通信エラーが発生しました'); });
 }
 
-// ─── 削除 ───
+// ─── 削除（確認ページ経由のソフト削除へ統一）───
+// 1件用の「削除」ボタン → その1件を選択して確認ページへ。実際の削除は確認ページの確定で行う（2週間の猶予）。
 function deleteEntry(orderId) {
-  if (!confirm(orderId + ' を削除しますか？\\n（注文・NFC・QR・履歴すべて消えます）')) return;
-  fetch(BASE + '/api/delete', {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json', Authorization: 'Bearer ' + PW },
-    body: JSON.stringify({ orderId }),
-  }).then(function (r) { return r.json(); }).then(function (d) {
-    if (d.ok) { toast('削除しました'); loadList(); }
-  });
+  sessionStorage.setItem('delSel', JSON.stringify([orderId]));
+  showDelConfirm();
 }
 
 // ─── 在庫管理 ───
