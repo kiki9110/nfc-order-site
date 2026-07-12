@@ -609,6 +609,13 @@ async function handleGetAll(request, env, cors) {
     const nfc = nfcRaw ? JSON.parse(nfcRaw) : {};
     const qr  = qrRaw  ? JSON.parse(qrRaw)  : {};
 
+    // 土台の形・色だけを注文JSONから軽量抽出（巨大な画像を含むため丸ごと parse しない。両フィールドは先頭付近）
+    let oShape = null, oColor = null;
+    if (ordRaw) {
+      const ps = ordRaw.indexOf('"shape":"');    if (ps >= 0) { const s = ps + 9,  e = ordRaw.indexOf('"', s); if (e > s) oShape = ordRaw.slice(s, e); }
+      const pc = ordRaw.indexOf('"colorHex":"'); if (pc >= 0) { const s = pc + 12, e = ordRaw.indexOf('"', s); if (e > s) oColor = ordRaw.slice(s, e); }
+    }
+
     // 最終URL更新日時（NFC/QRで新しい方）→ 更新日順ソートに使う
     const times = [nfc.updatedAt, qr.updatedAt].filter(Boolean).map(t => new Date(t).getTime());
     const lastUrlUpdate = times.length
@@ -629,6 +636,8 @@ async function handleGetAll(request, env, cors) {
       qrHistory:     qr.history       || [],
       qrAccessCount: qr.accessCount   || 0,
       hasOrder:      !!ordRaw,
+      shape:         oShape,               // 土台の形（circle/square/rect/diecut）
+      colorHex:      oColor,               // 土台の色（記号の色に使用）
       made:          !!nfc.made,           // 製作完了（作成済み）フラグ
       cancelled:     !!nfc.cancelled,      // キャンセル済みフラグ
       cancelledAt:   nfc.cancelledAt || null,
@@ -1926,6 +1935,8 @@ body{font-family:'Noto Sans JP',sans-serif;background:var(--paper);color:var(--i
 .ord-mark.yes{color:#16a34a;}
 .ord-mark.made{color:#3257d6;}
 .ord-mark.no{color:#cbd0d6;}
+/* 土台の形の記号（色は注文の土台色）。淡い色でも見えるよう薄い縁取り＋わずかな影 */
+.shape-mark{font-size:13px;margin-right:7px;vertical-align:middle;text-shadow:0 0 1px rgba(0,0,0,.5),0 0 2px rgba(0,0,0,.25);}
 .st-badge{display:inline-block;font-size:10px;font-weight:700;padding:2px 9px;border-radius:10px;}
 .st-made{background:#dcfce7;color:#15803d;}
 .st-new{background:var(--blue-bg);color:var(--blue);}
@@ -2886,6 +2897,14 @@ function renderList() {
       : (hasOrder
           ? '<span class="ord-mark yes" title="注文あり">●</span>'
           : '<span class="ord-mark no" title="注文なし">✕</span>');
+    // 土台の形を記号で（丸=● / 四角=■ / 自由四角=▬ / ダイカット=◆）、色は注文の土台色
+    const shapeGlyph = { circle:'●', square:'■', rect:'▬', diecut:'◆' };
+    const shapeName  = { circle:'丸', square:'四角', rect:'自由四角', diecut:'ダイカット' };
+    const sh = item.shape;
+    const shColor = /^#[0-9a-fA-F]{3,8}$/.test(item.colorHex || '') ? item.colorHex : '#b8b2a6';
+    const shapeMark = (hasOrder && sh && shapeGlyph[sh])
+      ? '<span class="shape-mark" title="土台の形：' + shapeName[sh] + '" style="color:' + shColor + ';">' + shapeGlyph[sh] + '</span>'
+      : '';
     const stB = cancelled
       ? '<span class="st-badge st-cancelled">キャンセル済み</span>'
       : (made
@@ -2894,7 +2913,7 @@ function renderList() {
 
     html += '<tr>';
     const confB = (confirmed && !cancelled) ? '<span class="st-badge st-confirmed">🔒 確定済み</span>' : '';
-    html += '<td>' + mark + '<span class="order-id">' + esc(oid) + '</span><div style="margin-top:5px;">' + stB + confB + '</div></td>';
+    html += '<td>' + mark + shapeMark + '<span class="order-id">' + esc(oid) + '</span><div style="margin-top:5px;">' + stB + confB + '</div></td>';
     html += '<td style="font-size:12px;color:var(--muted);">' + esc(item.label || '—') + '</td>';
     html += '<td class="date-cell">' + fmtDate(item.lastUrlUpdate) + '</td>';
     html += '<td><span class="count-badge">📡' + (item.accessCount||0) + ' / 📷' + (item.qrAccessCount||0) + '</span></td>';
