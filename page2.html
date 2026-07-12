@@ -1773,18 +1773,29 @@ function dieGridFromImage(imgEl, N) {
   return g;
 }
 function recomputeDie(face, cb) {
-  // 保存画像（applyCropでシルエットをフレームへフィット済み）から再トレース。サイズ/縁/折れ防止の変更時に呼ぶ
-  const src = face === 'back' ? S.imgBack : S.imgFront;
-  if (S.shape !== 'diecut' || !src) { if (cb) cb(); return; }
-  const im = new Image();
-  im.onload  = () => {
-    const res = dieMorphTrace(dieGridFromImage(im, 140), 140, S.sizeCm, S.borderCm != null ? S.borderCm : 0.3);
+  if (S.shape !== 'diecut') { if (cb) cb(); return; }
+  const applyRes = (res) => {
     if (face === 'back') { S.dieBack  = res ? res.outer : null; S.dieHolesBack  = res ? res.holes : []; }
     else                 { S.dieFront = res ? res.outer : null; S.dieHolesFront = res ? res.holes : []; }
     updateSizeUI();   // シルエット確定後、短辺6cm制約に合わせて長辺の上限を再適用
     if (S.nfc) { const wn=document.getElementById('nfcWrap'); if (wn && wn.offsetWidth>0) resyncNFC(); }
     if (cb) cb();
   };
+  // レイヤー土台がある場合：切り取り線は「土台ユニオン」だけから決める。
+  // （合成画像＝base+print や、縁にも印刷ONのマスク膨張に影響されないようにする＝縁が二重に膨張するのを防ぐ）
+  if (S.dieBase && S.dieBase.length) {
+    const fr = leFrameWH();
+    const cv = document.createElement('canvas'); cv.width = fr.w; cv.height = fr.h;
+    const cx = cv.getContext('2d'); cx.imageSmoothingEnabled = true; cx.imageSmoothingQuality = 'high';
+    for (const l of S.dieBase) leDrawLayer(cx, l, fr.w, fr.h);   // 土台ユニオン（印刷は含めない）
+    applyRes(dieMorphTrace(dieGridFromImage(cv, 140), 140, S.sizeCm, S.borderCm != null ? S.borderCm : 0.3));
+    return;
+  }
+  // 切り抜き経由（土台レイヤー無し）：従来どおり保存画像から再トレース
+  const src = face === 'back' ? S.imgBack : S.imgFront;
+  if (!src) { if (cb) cb(); return; }
+  const im = new Image();
+  im.onload  = () => { applyRes(dieMorphTrace(dieGridFromImage(im, 140), 140, S.sizeCm, S.borderCm != null ? S.borderCm : 0.3)); };
   im.onerror = () => { if (cb) cb(); };
   im.src = src;
 }
