@@ -1530,14 +1530,17 @@ function drawQRMini(containerId, qrData, imgSrc) {
   var isDie = (ORDER.shape==='diecut' && poly && poly.length>=3);
   var cachedImg = null;
 
-  // 任意キャンバスへ scale 倍率で描画
-  function paint(tcv, scale, img) {
+  // 任意キャンバスへ scale 倍率で描画。view={zoom,panX,panY}=拡大鏡内ズーム/パン（省略可）
+  function paint(tcv, scale, img, view) {
     var L=160; tcv.width=Math.round(L*scale); tcv.height=Math.round(L*scale);
     var ctx=tcv.getContext('2d'); ctx.setTransform(scale,0,0,scale,0,0);
     var aw=L, ah=L, m=18;                                                          // 外周に数字を置く余白
     var _box=Math.min(aw,ah)-m*2, kw=_box, kh=_box;
     if (ORDER.shape==='rect' && ORDER.widthCm && ORDER.heightCm) { var _ar=ORDER.widthCm/ORDER.heightCm; if(_ar>=1){kw=_box;kh=_box/_ar;}else{kh=_box;kw=_box*_ar;} }
     var ox=(aw-kw)/2, oy=(ah-kh)/2;
+    // 拡大鏡内ズーム/パン：本体・グリッド・枠をまとめて拡大し、数字を縁に固定（page2/穴と同じ）
+    var _Z=(view&&view.zoom>0)?view.zoom:1, _PX=(view&&view.panX)||0, _PY=(view&&view.panY)||0;
+    if(_Z!==1||_PX||_PY){ var _bcx=ox+kw/2, _bcy=oy+kh/2; kw*=_Z; kh*=_Z; ox=_bcx+_PX-kw/2; oy=_bcy+_PY-kh/2; }
     function khPath(){ ctx.beginPath(); if(isDie){ ctx.moveTo(ox+poly[0].x*kw, oy+poly[0].y*kh); for(var i=1;i<poly.length;i++) ctx.lineTo(ox+poly[i].x*kw, oy+poly[i].y*kh); ctx.closePath(); } else if(ORDER.shape==='circle') ctx.arc(ox+kw/2,oy+kh/2,kw/2,0,Math.PI*2); else rrect(ctx,ox,oy,kw,kh,8); }
     ctx.clearRect(0,0,aw,ah);
     ctx.fillStyle='#16161a'; ctx.fillRect(0,0,aw,ah);                              // 暗背景で視認性確保
@@ -1563,8 +1566,8 @@ function drawQRMini(containerId, qrData, imgSrc) {
     ctx.restore();
   }
 
-  // 拡大登録（クリック時に最新のキャッシュ画像で再描画）
-  ZOOM_QR[qrData.side] = { label: lbl.textContent + ' の QRコード位置', info: infoHTML, paint: function(tcv,scale){ paint(tcv,scale,cachedImg); } };
+  // 拡大登録（rerender=ズーム/パンのたびに再描画し、数字を縁に固定＝page2/穴と同じ）
+  ZOOM_QR[qrData.side] = { label: lbl.textContent + ' の QRコード位置', info: infoHTML, rerender: true, paint: function(tcv,scale,view){ paint(tcv,scale,cachedImg,view); } };
   zb.onclick = function(){ openZoom(ZOOM_QR[qrData.side]); };
 
   // 画像読込→等倍描画（拡大用に保持）
@@ -1593,12 +1596,15 @@ function drawNFCMini(containerId, np, imgSrc) {
   var poly = (ORDER.shape==='diecut') ? (ORDER.dieFront || ORDER.dieBack || null) : null;
   var isDie = (ORDER.shape==='diecut' && poly && poly.length>=3);
   var cachedImg = null;
-  function paint(tcv, scale, img) {
+  function paint(tcv, scale, img, view) {
     var L=160; tcv.width=Math.round(L*scale); tcv.height=Math.round(L*scale);
     var ctx=tcv.getContext('2d'); ctx.setTransform(scale,0,0,scale,0,0);
     var aw=L, ah=L, m=18; var _box=Math.min(aw,ah)-m*2, kw=_box, kh=_box;         // 外周に数字を置く余白
     if (ORDER.shape==='rect' && ORDER.widthCm && ORDER.heightCm) { var _ar=ORDER.widthCm/ORDER.heightCm; if(_ar>=1){kw=_box;kh=_box/_ar;}else{kh=_box;kw=_box*_ar;} }
     var ox=(aw-kw)/2, oy=(ah-kh)/2;
+    // 拡大鏡内ズーム/パン：本体・グリッド・枠をまとめて拡大し、数字を縁に固定（page2/穴と同じ）
+    var _Z=(view&&view.zoom>0)?view.zoom:1, _PX=(view&&view.panX)||0, _PY=(view&&view.panY)||0;
+    if(_Z!==1||_PX||_PY){ var _bcx=ox+kw/2, _bcy=oy+kh/2; kw*=_Z; kh*=_Z; ox=_bcx+_PX-kw/2; oy=_bcy+_PY-kh/2; }
     function khPath(){ ctx.beginPath(); if(isDie){ ctx.moveTo(ox+poly[0].x*kw, oy+poly[0].y*kh); for(var i=1;i<poly.length;i++) ctx.lineTo(ox+poly[i].x*kw, oy+poly[i].y*kh); ctx.closePath(); } else if(ORDER.shape==='circle') ctx.arc(ox+kw/2,oy+kh/2,kw/2,0,Math.PI*2); else rrect(ctx,ox,oy,kw,kh,8); }
     ctx.clearRect(0,0,aw,ah); ctx.fillStyle='#16161a'; ctx.fillRect(0,0,aw,ah);
     var dieOff = (ORDER.shape==='diecut' && ORDER.dieReinforce===false && img);
@@ -1621,7 +1627,7 @@ function drawNFCMini(containerId, np, imgSrc) {
     ctx.lineWidth=2.6;ctx.strokeStyle='rgba(0,0,0,.55)';ctx.strokeText('NFC',0,0);ctx.fillStyle='#cfd6ff';ctx.fillText('NFC',0,0);
     ctx.restore();
   }
-  ZOOM_NFC = { label: 'NFCタグの位置', info: infoHTML, paint: function(tcv,scale){ paint(tcv,scale,cachedImg); } };
+  ZOOM_NFC = { label: 'NFCタグの位置', info: infoHTML, rerender: true, paint: function(tcv,scale,view){ paint(tcv,scale,cachedImg,view); } };
   zb.onclick = function(){ openZoom(ZOOM_NFC); };
   if(imgSrc){ var im=new Image(); im.onload=function(){ cachedImg=im; paint(cv,1,im); }; im.onerror=function(){ cachedImg=null; paint(cv,1,null); }; im.src=imgSrc; }
   else paint(cv,1,null);
