@@ -2467,19 +2467,27 @@ function _pip(x,y,pts){ let c=false; for(let i=0,j=pts.length-1;i<pts.length;j=i
 function _minED(x,y,pts){ let m=Infinity; for(let i=0,j=pts.length-1;i<pts.length;j=i++) m=Math.min(m,_segD(x,y,pts[j].x,pts[j].y,pts[i].x,pts[i].y)); return m; }
 function nfcDiePoly(){ return (S.dieFront || S.dieBack || null); }
 
-// 枠（中心px,py / 半幅hw,hh px）がダイカット形状内＋縁マージンmを満たすか
-function nfcValidPx(px,py,geom,hw,hh,m){
+// 枠（中心px,py・角度rot度）がダイカット形状内＋縁マージン(2mm)を満たすか。
+// AABB（外接ボックス）だと斜め角度で過大評価するため、回転後の実長方形の四隅＋各辺中点で判定する。
+function nfcValidPx(px,py,geom,rot){
   const poly=nfcDiePoly(); if(!poly||poly.length<3) return true;
-  const { ox,oy,kw }=geom; const mN=m/kw;            // ダイカットは kw=kh（正方形領域）
-  const cs=[[px-hw,py-hh],[px+hw,py-hh],[px-hw,py+hh],[px+hw,py+hh],[px,py-hh],[px,py+hh],[px-hw,py],[px+hw,py]];
-  for(let k=0;k<cs.length;k++){ const nx=(cs[k][0]-ox)/kw, ny=(cs[k][1]-oy)/kw; if(!_pip(nx,ny,poly)) return false; if(_minED(nx,ny,poly)<mN) return false; }
+  const { ox,oy,kw,pxPerCm }=geom; const mN=(NFC_MARGIN*pxPerCm)/kw;   // ダイカットは kw=kh（正方形領域）
+  const hw=NFC_W*pxPerCm/2, hh=NFC_H*pxPerCm/2;                        // 実寸の半分（回転前）
+  const a=(rot||0)*Math.PI/180, ca=Math.cos(a), sa=Math.sin(a);
+  const local=[[-hw,-hh],[hw,-hh],[hw,hh],[-hw,hh],[0,-hh],[hw,0],[0,hh],[-hw,0]];   // 四隅＋辺中点
+  for(let k=0;k<local.length;k++){
+    const wx=px + local[k][0]*ca - local[k][1]*sa, wy=py + local[k][0]*sa + local[k][1]*ca;
+    const nx=(wx-ox)/kw, ny=(wy-oy)/kw;
+    if(!_pip(nx,ny,poly)) return false;
+    if(_minED(nx,ny,poly)<mN) return false;
+  }
   return true;
 }
-// ダイカット：有効な枠中心点をサンプリング（px座標で保持）
+// ダイカット：有効な枠中心点をサンプリング（px座標で保持）。判定は現在の角度で行う。
 function buildNFCGrid(geom,hw,hh,m){
   NFC_GRID=null; const poly=nfcDiePoly(); if(S.shape!=='diecut'||!poly||poly.length<3) return;
-  const { ox,oy,kw }=geom; const pts=[]; const N=44;
-  for(let i=0;i<=N;i++) for(let j=0;j<=N;j++){ const px=ox+kw*i/N, py=oy+kw*j/N; if(nfcValidPx(px,py,geom,hw,hh,m)) pts.push({x:px,y:py}); }
+  const { ox,oy,kw }=geom; const pts=[]; const N=44; const rot=NFCS.rot||0;
+  for(let i=0;i<=N;i++) for(let j=0;j<=N;j++){ const px=ox+kw*i/N, py=oy+kw*j/N; if(nfcValidPx(px,py,geom,rot)) pts.push({x:px,y:py}); }
   NFC_GRID=pts.length?pts:null;
 }
 function snapNFCGrid(px,py){ if(!NFC_GRID) return {x:px,y:py}; let b=NFC_GRID[0],bd=Infinity; for(let k=0;k<NFC_GRID.length;k++){ const d=(NFC_GRID[k].x-px)**2+(NFC_GRID[k].y-py)**2; if(d<bd){bd=d;b=NFC_GRID[k];} } return {x:b.x,y:b.y}; }
@@ -2490,7 +2498,7 @@ function clampNFCPx(px,py,geom,allowFree){
   const hw=nfcAW()*pxPerCm/2, hh=nfcAH()*pxPerCm/2, m=NFC_MARGIN*pxPerCm;   // 回転後の外接寸法
   if(S.shape==='diecut'){
     if(allowFree) return {x:px,y:py};
-    if(nfcValidPx(px,py,geom,hw,hh,m)) return {x:px,y:py};
+    if(nfcValidPx(px,py,geom,NFCS.rot||0)) return {x:px,y:py};
     return snapNFCGrid(px,py);
   }
   if(S.shape==='circle'){
@@ -2510,7 +2518,7 @@ function nfcCurValid(geom){
   const { ox,oy,kw,kh,pxPerCm }=geom;
   const hw=nfcAW()*pxPerCm/2, hh=nfcAH()*pxPerCm/2, m=NFC_MARGIN*pxPerCm;
   const cx=ox+kw*NFCS.x/100, cy=oy+kh*NFCS.y/100;
-  if(S.shape==='diecut') return nfcValidPx(cx,cy,geom,hw,hh,m);
+  if(S.shape==='diecut') return nfcValidPx(cx,cy,geom,NFCS.rot||0);
   if(S.shape==='circle'){ const R=kw/2-m, bx=ox+kw/2, by=oy+kh/2, cs=[[cx-hw,cy-hh],[cx+hw,cy-hh],[cx-hw,cy+hh],[cx+hw,cy+hh]]; for(const c of cs){ if(Math.hypot(c[0]-bx,c[1]-by)>R) return false; } return true; }
   return (cx-hw>=ox+m-0.5 && cx+hw<=ox+kw-m+0.5 && cy-hh>=oy+m-0.5 && cy+hh<=oy+kh-m+0.5);
 }
@@ -2523,17 +2531,16 @@ function nfcUpdateWarn(){
 // 指定角度で desired(px) に最も近い有効中心（ダイカット）。無ければ null。
 function nfcNearestForRot(rot, geom, dcx, dcy){
   const poly=nfcDiePoly(); if(!poly||poly.length<3) return null;
-  const a=rot*Math.PI/180, c=Math.abs(Math.cos(a)), s=Math.abs(Math.sin(a));
-  const hw=(NFC_W*c+NFC_H*s)*geom.pxPerCm/2, hh=(NFC_W*s+NFC_H*c)*geom.pxPerCm/2, m=NFC_MARGIN*geom.pxPerCm;
-  const { ox,oy,kw }=geom; const N=30; let best=null,bd=Infinity;
-  for(let i=0;i<=N;i++) for(let j=0;j<=N;j++){ const px=ox+kw*i/N, py=oy+kw*j/N; if(nfcValidPx(px,py,geom,hw,hh,m)){ const d=(px-dcx)**2+(py-dcy)**2; if(d<bd){bd=d;best={x:px,y:py};} } }
+  const { ox,oy,kw }=geom; const N=36; let best=null,bd=Infinity;
+  for(let i=0;i<=N;i++) for(let j=0;j<=N;j++){ const px=ox+kw*i/N, py=oy+kw*j/N; if(nfcValidPx(px,py,geom,rot)){ const d=(px-dcx)**2+(py-dcy)**2; if(d<bd){bd=d;best={x:px,y:py};} } }
   return best;
 }
-// かんたんモード：現在の角度で入ればそこへ（角度は変えない）、入らなければ角度を近い順に変えて近くに入れる。{x,y,rot,ok}
+// かんたんモード：現在の位置・角度で入ればそのまま、入らなければ近くの位置→それも無ければ角度を変えて近くに入れる。{x,y,rot,ok}
 function nfcEasyPlace(dcx,dcy,geom){
   const cur=NFCS.rot||0;
+  if(nfcValidPx(dcx,dcy,geom,cur)) return {x:dcx,y:dcy,rot:cur,ok:true};   // 今の位置・角度で入る → 動かさない
   const r0=nfcNearestForRot(cur,geom,dcx,dcy);
-  if(r0) return {x:r0.x,y:r0.y,rot:cur,ok:true};   // 今の角度で入る → 角度そのまま
+  if(r0) return {x:r0.x,y:r0.y,rot:cur,ok:true};   // 今の角度で近くに入る → 角度そのまま
   for(let da=15; da<=180; da+=15){                 // 入らない → 近い角度から順に試す
     for(const rc of [cur+da, cur-da]){ const rot=(((Math.round(rc))%360)+360)%360; const res=nfcNearestForRot(rot,geom,dcx,dcy); if(res) return {x:res.x,y:res.y,rot,ok:true}; }
   }
