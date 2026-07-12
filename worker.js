@@ -595,15 +595,40 @@ async function handleGet(request, env, cors) {
   return json({ items: items.filter(Boolean) }, 200, cors);
 }
 
+// 注文JSONの先頭だけをストリームで読む（巨大な印刷画像を含むため丸ごとメモリに載せない）。
+// shape/colorHex は保存時の先頭付近フィールドなので数KBで足りる。失敗時は読めた分/ null を返す。
+async function orderHead(env, orderId, maxBytes) {
+  let stream;
+  try { stream = await env.NFC_URLS.get('ORDER:' + orderId, { type: 'stream' }); }
+  catch (e) { return null; }
+  if (!stream) return null;
+  const reader = stream.getReader();
+  const chunks = []; let total = 0;
+  try {
+    while (total < maxBytes) {
+      const { done, value } = await reader.read();
+      if (done) break;
+      chunks.push(value); total += value.length;
+    }
+  } catch (e) { /* 途中失敗でも読めた分で処理 */ }
+  try { await reader.cancel(); } catch (e) {}
+  if (!chunks.length) return '';
+  const buf = new Uint8Array(total); let off = 0;
+  for (const c of chunks) { buf.set(c, off); off += c.length; }
+  return new TextDecoder().decode(buf);
+}
+
 // NFC・QR・注文をまとめた一覧を取得（管理画面の新しい一覧用）
 async function handleGetAll(request, env, cors, ctx) {
   const auth = request.headers.get('Authorization');
   if (auth !== adminBearer(env)) return json({ error: '認証エラー' }, 401, cors);
 
   const allKeys = await listAllKeys(env);
+  const keySet  = new Set(allKeys.map(k => k.name));   // ORDER: の存在確認に使う（blobを読まずに hasOrder 判定）
   const nfcKeys = allKeys.filter(k => isNfcOrderKey(k.name));
 
   const items = (await Promise.all(nfcKeys.map(async k => {
+   try {
     const orderId = k.name;
     const nfcRaw  = await env.NFC_URLS.get(orderId);
     const nfc0 = nfcRaw ? JSON.parse(nfcRaw) : {};
@@ -614,15 +639,18 @@ async function handleGetAll(request, env, cors, ctx) {
       return null;
     }
     const qrRaw   = await env.NFC_URLS.get('QR:' + orderId);
-    const ordRaw  = await env.NFC_URLS.get('ORDER:' + orderId);
     const nfc = nfc0;
     const qr  = qrRaw  ? JSON.parse(qrRaw)  : {};
 
-    // 土台の形・色だけを注文JSONから軽量抽出（巨大な画像を含むため丸ごと parse しない。両フィールドは先頭付近）
+    const hasOrder = keySet.has('ORDER:' + orderId);   // blobを読まずに存在判定（メモリ節約・503対策）
+    // 土台の形・色だけを注文JSONの先頭からストリームで軽量取得（巨大な画像を含むため丸ごと読まない）
     let oShape = null, oColor = null;
-    if (ordRaw) {
-      const ps = ordRaw.indexOf('"shape":"');    if (ps >= 0) { const s = ps + 9,  e = ordRaw.indexOf('"', s); if (e > s) oShape = ordRaw.slice(s, e); }
-      const pc = ordRaw.indexOf('"colorHex":"'); if (pc >= 0) { const s = pc + 12, e = ordRaw.indexOf('"', s); if (e > s) oColor = ordRaw.slice(s, e); }
+    if (hasOrder) {
+      const head = await orderHead(env, orderId, 4096);
+      if (head) {
+        const ps = head.indexOf('"shape":"');    if (ps >= 0) { const s = ps + 9,  e = head.indexOf('"', s); if (e > s) oShape = head.slice(s, e); }
+        const pc = head.indexOf('"colorHex":"'); if (pc >= 0) { const s = pc + 12, e = head.indexOf('"', s); if (e > s) oColor = head.slice(s, e); }
+      }
     }
 
     // 最終URL更新日時（NFC/QRで新しい方）→ 更新日順ソートに使う
@@ -644,7 +672,7 @@ async function handleGetAll(request, env, cors, ctx) {
       qrUpdatedAt:   qr.updatedAt     || null,
       qrHistory:     qr.history       || [],
       qrAccessCount: qr.accessCount   || 0,
-      hasOrder:      !!ordRaw,
+      hasOrder:      hasOrder,
       shape:         oShape,               // 土台の形（circle/square/rect/diecut）
       colorHex:      oColor,               // 土台の色（記号の色に使用）
       made:          !!nfc.made,           // 製作完了（作成済み）フラグ
@@ -658,6 +686,7 @@ async function handleGetAll(request, env, cors, ctx) {
       options:       nfc.options      || {},
       addonCount:    nfc.addonCount   || 0,
     };
+   } catch (e) { return null; }   // 1件の失敗で一覧全体を落とさない（filter(Boolean)で除外）
   }))).filter(Boolean);
 
   return json({ items }, 200, cors);
