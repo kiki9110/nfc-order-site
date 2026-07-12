@@ -44,7 +44,8 @@ export default {
     if (path.startsWith('/setup-qr/')) return Response.redirect(origin + '/portal?add=' + encodeURIComponent(path.replace('/setup-qr/', '').trim()), 302);
 
     // ── 注文詳細ページ（管理者）──
-    if (path.startsWith('/order/'))    return handleOrderDetail(path, request, env, origin);
+    if (path.startsWith('/order/'))       return handleOrderDetail(path, request, env, origin);
+    if (path.startsWith('/order-print/')) return handleOrderPrint(path, request, env);   // 印刷用高解像度画像を個別配信（詳細ページに埋め込まず軽量化）
 
     // ── お客さん向け API（認証不要・注文番号が鍵）──
     if (path === '/api/customer-get')      return handleCustomerGet(request, env, cors);
@@ -1061,6 +1062,14 @@ async function handleOrderDetail(path, request, env, origin) {
   }
   const order  = JSON.parse(stored);
 
+  // 詳細ページの埋め込みJSONから巨大フィールドを除去し、Worker のリソース上限（Error 1102）を回避する。
+  //  ・印刷用の高解像度画像（最大8192px＝数〜数十MB）は埋め込まず、/order-print エンドポイントから配信。
+  //  ・アップロード元画像を持つレイヤー配列・元画像・全面合成も詳細ページでは未使用なので除去。
+  // 表示は合成済みの imgFront/imgBack（長辺1000px）を使う。
+  delete order.imgPrintFront; delete order.imgPrintBack;
+  delete order.layersFront; delete order.layersBack; delete order.dieBaseLayers;
+  delete order.imgFrontSrc; delete order.imgBackSrc; delete order.imgFrontFull; delete order.imgBackFull;
+
   // NFC・QR レコード（URL履歴を含む）も取得して詳細ページへ渡す
   const nfcRaw = await env.NFC_URLS.get(orderId);
   const qrRaw  = await env.NFC_URLS.get('QR:' + orderId);
@@ -1070,6 +1079,39 @@ async function handleOrderDetail(path, request, env, origin) {
   return new Response(orderDetailHTML(order, origin, pw, nfcRec, qrRec), {
     headers: { 'Content-Type': 'text/html;charset=UTF-8' }
   });
+}
+
+// 印刷用高解像度画像を個別に配信（詳細ページに埋め込むと巨大でリソース上限に達するため分離）。
+// 巨大な注文JSONを丸ごと parse せず、必要な data URL だけを文字列抽出してメモリを節約する。
+async function handleOrderPrint(path, request, env) {
+  const url = new URL(request.url);
+  const pw  = url.searchParams.get('pw');
+  if (!env.ADMIN_PASSWORD || pw !== env.ADMIN_PASSWORD) return new Response('unauthorized', { status: 401 });
+  const parts = path.split('/').filter(Boolean);   // ['order-print', <id>, <front|back>]
+  const id   = decodeURIComponent(parts[1] || '');
+  const cap  = (parts[2] === 'back') ? 'Back' : 'Front';
+  if (!id) return new Response('bad request', { status: 400 });
+  const stored = await env.NFC_URLS.get('ORDER:' + id);
+  if (!stored) return new Response('not found', { status: 404 });
+  // "imgPrintFront":"data:...."（base64にダブルクォートは出ないので次の " まで）。無ければ img<cap> にフォールバック。
+  function pick(fieldKey){
+    const marker = '"' + fieldKey + '":"';
+    let s = stored.indexOf(marker); if (s < 0) return null;
+    s += marker.length; const e = stored.indexOf('"', s);
+    return (e > s) ? stored.slice(s, e) : null;
+  }
+  let dataUrl = pick('imgPrint' + cap) || pick('img' + cap);
+  if (!dataUrl || dataUrl.indexOf('base64,') < 0) return new Response('no image', { status: 404 });
+  const mime = dataUrl.slice(5, dataUrl.indexOf(';')) || 'image/png';
+  const b64  = dataUrl.slice(dataUrl.indexOf('base64,') + 7);
+  const bin  = atob(b64);
+  const bytes = new Uint8Array(bin.length);
+  for (let i = 0; i < bin.length; i++) bytes[i] = bin.charCodeAt(i);
+  return new Response(bytes, { headers: {
+    'Content-Type': mime,
+    'Cache-Control': 'private, max-age=300',
+    'Content-Disposition': 'inline; filename="keychain_' + id + '_' + (parts[2] === 'back' ? 'back' : 'front') + '.png"'
+  } });
 }
 
 // 注文詳細認証ページ
@@ -1262,7 +1304,7 @@ body{font-family:'Noto Sans JP',sans-serif;background:#f6f7f9;color:#1a1d23;padd
           ${order.backPrint ? '<label>おもて面</label>' : ''}
           <img src="${order.imgFront}" alt="おもて面">
           <div class="img-actions">
-            <button class="zoom-btn" onclick="openImgZoom(ORDER.imgPrintFront||ORDER.imgFront,'キーホルダー画像（おもて面）')">🔍 拡大</button>
+            <button class="zoom-btn" onclick="openImgZoom(printUrl('front'),'キーホルダー画像（おもて面）')">🔍 拡大</button>
             <a class="dl-btn" id="dlFront" download="front_${order.orderId}.png">⬇ ダウンロード</a>
           </div>
         </div>` : '<p style="color:#6b6860;font-size:13px;">画像なし</p>'}
@@ -1271,7 +1313,7 @@ body{font-family:'Noto Sans JP',sans-serif;background:#f6f7f9;color:#1a1d23;padd
           <label>うら面</label>
           <img src="${order.imgBack}" alt="うら面">
           <div class="img-actions">
-            <button class="zoom-btn" onclick="openImgZoom(ORDER.imgPrintBack||ORDER.imgBack,'キーホルダー画像（うら面）')">🔍 拡大</button>
+            <button class="zoom-btn" onclick="openImgZoom(printUrl('back'),'キーホルダー画像（うら面）')">🔍 拡大</button>
             <a class="dl-btn" id="dlBack" download="back_${order.orderId}.png">⬇ ダウンロード</a>
           </div>
         </div>` : ''}
@@ -1351,11 +1393,14 @@ const ORDER = ${JSON.stringify(order)};
 
 // （QRコードの生成・ダウンロードは管理一覧の「URL一覧」ボタンに集約したため、ここでは行わない）
 
-// ダウンロードリンクにhrefをセット（印刷用高解像度 imgPrint* があればそちらを優先）
+// 印刷用高解像度画像は詳細ページに埋め込まず、/order-print エンドポイントから取得（Error 1102 対策）。
+// エンドポイント側で imgPrint* が無ければ imgFront/imgBack にフォールバックする。
+const _PW = new URLSearchParams(location.search).get('pw') || '';
+function printUrl(side){ return '/order-print/' + encodeURIComponent(ORDER.orderId) + '/' + side + '?pw=' + encodeURIComponent(_PW); }
 const dlF = document.getElementById('dlFront');
-if (dlF && (ORDER.imgPrintFront || ORDER.imgFront)) dlF.href = ORDER.imgPrintFront || ORDER.imgFront;
+if (dlF && ORDER.imgFront) dlF.href = printUrl('front');
 const dlB = document.getElementById('dlBack');
-if (dlB && (ORDER.imgPrintBack || ORDER.imgBack)) dlB.href = ORDER.imgPrintBack || ORDER.imgBack;
+if (dlB && ORDER.imgBack) dlB.href = printUrl('back');
 
 // ── QR ミニマップ描画 ──
 function rrect(ctx,x,y,w,h,r){ctx.moveTo(x+r,y);ctx.lineTo(x+w-r,y);ctx.arcTo(x+w,y,x+w,y+r,r);ctx.lineTo(x+w,y+h-r);ctx.arcTo(x+w,y+h,x+w-r,y+h,r);ctx.lineTo(x+r,y+h);ctx.arcTo(x,y+h,x,y+h-r,r);ctx.lineTo(x,y+r);ctx.arcTo(x,y,x+r,y,r);ctx.closePath();}
