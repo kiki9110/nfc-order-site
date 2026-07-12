@@ -1302,7 +1302,7 @@ body{font-family:'Noto Sans JP',sans-serif;background:#f6f7f9;color:#1a1d23;padd
         ${order.imgFront ? `
         <div class="img-block">
           ${order.backPrint ? '<label>おもて面</label>' : ''}
-          <img src="${order.imgFront}" alt="おもて面">
+          <img id="detImgFront" alt="おもて面">
           <div class="img-actions">
             <button class="zoom-btn" onclick="openImgZoom(printUrl('front'),'キーホルダー画像（おもて面）')">🔍 拡大</button>
             <a class="dl-btn" id="dlFront" download="front_${order.orderId}.png">⬇ ダウンロード</a>
@@ -1311,7 +1311,7 @@ body{font-family:'Noto Sans JP',sans-serif;background:#f6f7f9;color:#1a1d23;padd
         ${order.backPrint && order.imgBack ? `
         <div class="img-block">
           <label>うら面</label>
-          <img src="${order.imgBack}" alt="うら面">
+          <img id="detImgBack" alt="うら面">
           <div class="img-actions">
             <button class="zoom-btn" onclick="openImgZoom(printUrl('back'),'キーホルダー画像（うら面）')">🔍 拡大</button>
             <a class="dl-btn" id="dlBack" download="back_${order.orderId}.png">⬇ ダウンロード</a>
@@ -1397,6 +1397,8 @@ const ORDER = ${JSON.stringify(order)};
 // エンドポイント側で imgPrint* が無ければ imgFront/imgBack にフォールバックする。
 const _PW = new URLSearchParams(location.search).get('pw') || '';
 function printUrl(side){ return '/order-print/' + encodeURIComponent(ORDER.orderId) + '/' + side + '?pw=' + encodeURIComponent(_PW); }
+// 表示用画像は ORDER から <img> に設定（HTMLへ二重に埋め込まず軽量化）
+(function(){ var f=document.getElementById('detImgFront'); if(f&&ORDER.imgFront) f.src=ORDER.imgFront; var b=document.getElementById('detImgBack'); if(b&&ORDER.imgBack) b.src=ORDER.imgBack; })();
 const dlF = document.getElementById('dlFront');
 if (dlF && ORDER.imgFront) dlF.href = printUrl('front');
 const dlB = document.getElementById('dlBack');
