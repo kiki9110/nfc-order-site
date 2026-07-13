@@ -2263,9 +2263,9 @@ tr:hover td{background:#f7f9fb;}
     <div class="controls">
       <div class="search-box">
         <span>🔍</span>
-        <input type="text" id="searchInput" placeholder="注文番号・メモで検索" oninput="renderList()">
+        <input type="text" id="searchInput" placeholder="注文番号・メモで検索" oninput="onListFilterChange()">
       </div>
-      <select class="sort-select" id="sortSelect" onchange="renderList()">
+      <select class="sort-select" id="sortSelect" onchange="onListFilterChange()">
         <option value="reg_desc">登録が新しい順</option>
         <option value="reg_asc">登録が古い順</option>
         <option value="upd_desc">更新が新しい順</option>
@@ -2792,7 +2792,8 @@ function showKeychains(push) {
   hideAll();
   document.getElementById('keychainsView').style.display = 'block';
   document.getElementById('homeNavBtn').style.display    = 'inline-block';
-  resetSelectMode();   // 一覧に来たら選択モードは解除（通常表示）
+  resetSelectMode();       // 一覧に来たら選択モードは解除（通常表示）
+  restoreListState();      // しぼり込み・検索・並びを復元（詳細から戻ったときも保持）
   loadList();
   nav('keychains', push);
 }
@@ -3117,7 +3118,26 @@ function chipVals(genre) {
   for (var i = 0; i < els.length; i++) out.push(els[i].getAttribute('data-val'));
   return out;
 }
-function toggleChip(btn) { btn.classList.toggle('active'); renderList(); }
+// しぼり込み状態（チップ・検索・並び）を保存/復元。詳細ページへ遷移して戻っても保持する。
+function saveListState() {
+  try {
+    var chips = [], els = document.querySelectorAll('.chip.active');
+    for (var i = 0; i < els.length; i++) chips.push(els[i].getAttribute('data-genre') + ':' + els[i].getAttribute('data-val'));
+    var s = document.getElementById('searchInput'), so = document.getElementById('sortSelect');
+    sessionStorage.setItem('kcListState', JSON.stringify({ q: s ? s.value : '', sort: so ? so.value : '', chips: chips }));
+  } catch (e) {}
+}
+function restoreListState() {
+  var st; try { st = JSON.parse(sessionStorage.getItem('kcListState') || 'null'); } catch (e) { st = null; }
+  if (!st) return;
+  var s = document.getElementById('searchInput'); if (s && typeof st.q === 'string') s.value = st.q;
+  var so = document.getElementById('sortSelect'); if (so && st.sort) so.value = st.sort;
+  var want = {}; (st.chips || []).forEach(function (c) { want[c] = true; });
+  var els = document.querySelectorAll('.chip');
+  for (var i = 0; i < els.length; i++) { els[i].classList.toggle('active', !!want[els[i].getAttribute('data-genre') + ':' + els[i].getAttribute('data-val')]); }
+}
+function onListFilterChange() { saveListState(); renderList(); }
+function toggleChip(btn) { btn.classList.toggle('active'); saveListState(); renderList(); }
 // 注文の状態：作成済み / 新しい注文（注文あり・未作成）/ 未完成（注文なし）
 function itemStatus(it) { if (it.cancelled) return 'cancelled'; if (it.made) return 'made'; if (it.hasOrder) return 'new'; return 'none'; }
 // 注文番号の桁数ジャンル：10桁 / 8桁 / その他
