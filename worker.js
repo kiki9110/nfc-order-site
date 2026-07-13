@@ -2820,7 +2820,7 @@ function showHome(push) {
 }
 function showKeychains(push) {
   hideAll();
-  document.getElementById('keychainsView').style.display = 'block';
+  document.getElementById('keychainsView').style.display = '';   // インラインblockを外しCSSに任せる（ワイドは.kc-layoutのgrid）
   document.getElementById('homeNavBtn').style.display    = 'inline-block';
   resetSelectMode();       // 一覧に来たら選択モードは解除（通常表示）
   restoreListState();      // しぼり込み・検索・並びを復元（詳細から戻ったときも保持）
