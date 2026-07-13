@@ -644,12 +644,13 @@ async function handleGetAll(request, env, cors, ctx) {
 
     const hasOrder = keySet.has('ORDER:' + orderId);   // blobを読まずに存在判定（メモリ節約・503対策）
     // 土台の形・色だけを注文JSONの先頭からストリームで軽量取得（巨大な画像を含むため丸ごと読まない）
-    let oShape = null, oColor = null;
+    let oShape = null, oColor = null, oColorName = null;
     if (hasOrder) {
       const head = await orderHead(env, orderId, 4096);
       if (head) {
         const ps = head.indexOf('"shape":"');    if (ps >= 0) { const s = ps + 9,  e = head.indexOf('"', s); if (e > s) oShape = head.slice(s, e); }
         const pc = head.indexOf('"colorHex":"'); if (pc >= 0) { const s = pc + 12, e = head.indexOf('"', s); if (e > s) oColor = head.slice(s, e); }
+        const pn = head.indexOf('"color":"');    if (pn >= 0) { const s = pn + 9,  e = head.indexOf('"', s); if (e > s) oColorName = head.slice(s, e); }
       }
     }
 
@@ -675,6 +676,7 @@ async function handleGetAll(request, env, cors, ctx) {
       hasOrder:      hasOrder,
       shape:         oShape,               // 土台の形（circle/square/rect/diecut）
       colorHex:      oColor,               // 土台の色（記号の色に使用）
+      colorName:     oColorName,           // 色の名前（「作るもの」集計の表示用）
       made:          !!nfc.made,           // 製作完了（作成済み）フラグ
       cancelled:     !!nfc.cancelled,      // キャンセル済みフラグ
       cancelledAt:   nfc.cancelledAt || null,
@@ -2078,6 +2080,19 @@ tr:hover td{background:#f7f9fb;}
 #keychainsView.select-mode .sel-row:hover{background:#f6f4ef;}
 #keychainsView.select-mode #listBody tr:has(.row-chk:checked){background:#e8eefc;}
 #keychainsView.select-mode .op-cell button{pointer-events:none;opacity:.4;}   /* 選択中は他のボタンを無効化 */
+/* 「作るもの」集計パネル（PC・ワイド画面のみ／一覧の右の空きに固定表示） */
+.make-summary{display:none;}
+@media(min-width:1450px){
+  .make-summary{display:block;position:fixed;top:84px;right:24px;width:250px;max-height:calc(100vh - 108px);overflow:auto;background:#fff;border:1.5px solid var(--border);border-radius:14px;padding:16px 16px 14px;box-shadow:0 8px 24px -14px rgba(0,0,0,.18);font-size:13px;color:var(--ink);z-index:50;}
+}
+.ms-title{font-weight:700;font-size:14px;margin-bottom:2px;}
+.ms-total{color:var(--muted);font-size:12px;margin-bottom:12px;}
+.ms-sec{font-weight:700;font-size:12px;color:var(--muted);margin:10px 0 4px;border-top:1px solid #eee;padding-top:8px;}
+.ms-row{display:flex;align-items:center;justify-content:space-between;gap:8px;padding:3px 0;}
+.ms-row span{display:flex;align-items:center;gap:7px;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;}
+.ms-row strong{font-variant-numeric:tabular-nums;}
+.ms-sw{display:inline-block;width:14px;height:14px;border-radius:3px;border:1px solid rgba(0,0,0,.2);flex-shrink:0;}
+.ms-empty{color:var(--muted);font-size:12px;padding:2px 0;}
 .del-actions{display:flex;justify-content:space-between;align-items:center;gap:12px;margin-top:16px;flex-wrap:wrap;}
 .del-group{margin-bottom:12px;border:1.5px solid var(--border);border-radius:10px;overflow:hidden;background:#fff;}
 .del-group-head{padding:12px 14px;background:#f4f2ee;cursor:pointer;font-weight:700;font-size:14px;color:var(--ink);user-select:none;}
@@ -2259,6 +2274,7 @@ tr:hover td{background:#f7f9fb;}
 
   <!-- キーホルダー一覧画面 -->
   <div id="keychainsView" class="wrap" style="display:none;">
+    <div id="makeSummary" class="make-summary"></div>
     <div class="section-title" style="margin-top:4px;">キーホルダー一覧</div>
     <div class="controls">
       <div class="search-box">
@@ -3243,6 +3259,39 @@ function renderList() {
   }
   tbody.innerHTML = html;
   updateBulkBar();
+  updateMakeSummary();
+}
+
+// 「作るもの」集計（PC・ワイド画面の右パネル）。新しい注文（注文あり・未作成・未キャンセル・未削除）を形と色で集計。
+// ※しぼり込みに関係なく「作るもの全体」を出す（ALL_ITEMS基準）。
+function updateMakeSummary(){
+  var el = document.getElementById('makeSummary'); if(!el) return;
+  var news = (ALL_ITEMS||[]).filter(function(it){ return it.hasOrder && !it.made && !it.cancelled && !it.deletedAt; });
+  var shapeName = { circle:'丸', square:'四角', rect:'自由四角', diecut:'ダイカット' };
+  var shapeGlyph = { circle:'●', square:'■', rect:'▬', diecut:'◆' };
+  var shapeCnt = {}, colorCnt = {}, colorLabel = {};
+  news.forEach(function(it){
+    var sh = it.shape || '?'; shapeCnt[sh] = (shapeCnt[sh]||0)+1;
+    var hex = /^#[0-9a-fA-F]{3,8}$/.test(it.colorHex||'') ? it.colorHex.toUpperCase() : '';
+    var key = hex || '?';
+    colorCnt[key] = (colorCnt[key]||0)+1;
+    if(!colorLabel[key]) colorLabel[key] = it.colorName || hex || '未設定';
+  });
+  var html = '<div class="ms-title">🛠 作るもの（新しい注文）</div>';
+  html += '<div class="ms-total">合計 <strong>'+news.length+'</strong> 件</div>';
+  html += '<div class="ms-sec">形の種類</div>';
+  var order = ['circle','square','rect','diecut'], anyShape=false;
+  order.forEach(function(k){ if(shapeCnt[k]){ anyShape=true; html += '<div class="ms-row"><span>'+(shapeGlyph[k]||'')+' '+shapeName[k]+'</span><strong>'+shapeCnt[k]+'</strong></div>'; } });
+  Object.keys(shapeCnt).forEach(function(k){ if(order.indexOf(k)<0){ anyShape=true; html += '<div class="ms-row"><span>'+esc(k)+'</span><strong>'+shapeCnt[k]+'</strong></div>'; } });
+  if(!anyShape) html += '<div class="ms-empty">なし</div>';
+  html += '<div class="ms-sec">色</div>';
+  var cols = Object.keys(colorCnt).sort(function(a,b){ return colorCnt[b]-colorCnt[a]; });
+  if(!cols.length) html += '<div class="ms-empty">なし</div>';
+  cols.forEach(function(c){
+    var sw = (c==='?') ? '' : '<span class="ms-sw" style="background:'+c+';"></span>';
+    html += '<div class="ms-row"><span>'+sw+esc(colorLabel[c])+'</span><strong>'+colorCnt[c]+'</strong></div>';
+  });
+  el.innerHTML = html;
 }
 
 // ─── 一括削除の選択管理 ───
