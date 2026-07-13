@@ -1322,7 +1322,7 @@ body{font-family:'Noto Sans JP',sans-serif;background:#f6f7f9;color:#1a1d23;padd
 <body>
 <div class="topbar">
   <div class="logo">NFC ADMIN</div>
-  <a href="/admin#keychains" class="back-btn">← 一覧に戻る</a>
+  <a href="/admin#keychains" target="_top" class="back-btn">← 一覧に戻る</a>
 </div>
 <div class="wrap">
 
@@ -2080,11 +2080,17 @@ tr:hover td{background:#f7f9fb;}
 #keychainsView.select-mode .sel-row:hover{background:#f6f4ef;}
 #keychainsView.select-mode #listBody tr:has(.row-chk:checked){background:#e8eefc;}
 #keychainsView.select-mode .op-cell button{pointer-events:none;opacity:.4;}   /* 選択中は他のボタンを無効化 */
-/* 「作るもの」集計パネル（PC・ワイド画面のみ／一覧の右の空きに固定表示） */
-.make-summary{display:none;}
-@media(min-width:1450px){
-  .make-summary{display:block;position:fixed;top:84px;right:24px;width:250px;max-height:calc(100vh - 108px);overflow:auto;background:#fff;border:1.5px solid var(--border);border-radius:14px;padding:16px 16px 14px;box-shadow:0 8px 24px -14px rgba(0,0,0,.18);font-size:13px;color:var(--ink);z-index:50;}
+/* フル画面(ワイド)レイアウト：左＝一覧/検索、右上＝作るもの、右下＝注文詳細(インライン) */
+.kc-right{display:none;}
+@media(min-width:1250px){
+  .kc-layout{max-width:1640px;display:grid;grid-template-columns:minmax(0,1fr) 480px;gap:24px;align-items:start;margin:0 auto;}
+  .kc-left{min-width:0;}
+  .kc-right{display:block;position:sticky;top:80px;max-height:calc(100vh - 96px);overflow:auto;}
 }
+.make-summary{background:#fff;border:1.5px solid var(--border);border-radius:14px;padding:16px 16px 14px;box-shadow:0 6px 20px -14px rgba(0,0,0,.15);font-size:13px;color:var(--ink);}
+.detail-pane{margin-top:16px;background:#fff;border:1.5px solid var(--border);border-radius:14px;overflow:hidden;box-shadow:0 8px 24px -14px rgba(0,0,0,.18);}
+.detail-pane-head{display:flex;align-items:center;justify-content:space-between;padding:9px 14px;background:#f4f2ee;font-weight:700;font-size:13px;}
+#detailFrame{display:block;width:100%;height:72vh;border:none;background:#fff;}
 .ms-title{font-weight:700;font-size:14px;margin-bottom:2px;}
 .ms-total{color:var(--muted);font-size:12px;margin-bottom:12px;}
 .ms-sec{font-weight:700;font-size:12px;color:var(--muted);margin:10px 0 4px;border-top:1px solid #eee;padding-top:8px;}
@@ -2273,8 +2279,8 @@ tr:hover td{background:#f7f9fb;}
   </div>
 
   <!-- キーホルダー一覧画面 -->
-  <div id="keychainsView" class="wrap" style="display:none;">
-    <div id="makeSummary" class="make-summary"></div>
+  <div id="keychainsView" class="wrap kc-layout" style="display:none;">
+    <div class="kc-left">
     <div class="section-title" style="margin-top:4px;">キーホルダー一覧</div>
     <div class="controls">
       <div class="search-box">
@@ -2360,6 +2366,14 @@ tr:hover td{background:#f7f9fb;}
           <tr><td colspan="6" class="empty">読み込み中...</td></tr>
         </tbody>
       </table>
+    </div>
+    </div><!-- /kc-left -->
+    <div class="kc-right">
+      <div id="makeSummary" class="make-summary"></div>
+      <div id="detailPane" class="detail-pane" style="display:none;">
+        <div class="detail-pane-head"><span>🔍 注文詳細</span><button class="edit-btn" onclick="closeDetailPane()">✕ 閉じる</button></div>
+        <iframe id="detailFrame" title="注文詳細"></iframe>
+      </div>
     </div>
   </div>
 
@@ -3251,7 +3265,7 @@ function renderList() {
     }
     html +=   '<button class="edit-btn" onclick="openEdit(\\'' + esc(oid) + '\\')">編集</button> ';
     html +=   '<button class="del-btn"  onclick="deleteEntry(\\'' + esc(oid) + '\\')">削除</button> ';
-    html +=   '<button class="edit-btn" style="background:var(--blue-bg);border-color:#b8d9f0;color:var(--blue);" onclick="location.href=\\'/order/' + oidEnc + '?pw=\\'+encodeURIComponent(PW)">詳細</button> ';
+    html +=   '<button class="edit-btn" style="background:var(--blue-bg);border-color:#b8d9f0;color:var(--blue);" onclick="openDetail(\\'' + esc(oid) + '\\')">詳細</button> ';
     html +=   '<button class="edit-btn" onclick="printLabel(\\'' + esc(oid) + '\\')">ラベル保存</button> ';
     html +=   '<button class="edit-btn" style="background:#eef9f0;border-color:#bfe3c6;color:var(--green);" onclick="openUrlList(\\'' + esc(oid) + '\\')">URL一覧</button>';
     html += '</td>';
@@ -3260,6 +3274,20 @@ function renderList() {
   tbody.innerHTML = html;
   updateBulkBar();
   updateMakeSummary();
+}
+
+// 詳細を開く：ワイド画面なら右下のインラインパネル(iframe)で表示、狭い画面なら従来どおり別ページへ。
+function openDetail(oid){
+  var url = '/order/' + encodeURIComponent(oid) + '?pw=' + encodeURIComponent(PW);
+  if (window.matchMedia && window.matchMedia('(min-width:1250px)').matches){
+    var pane = document.getElementById('detailPane'), fr = document.getElementById('detailFrame');
+    if (pane && fr){ fr.src = url; pane.style.display = 'block'; try{ pane.scrollIntoView({behavior:'smooth',block:'nearest'}); }catch(e){} return; }
+  }
+  location.href = url;   // 狭い画面：新しいページで開く
+}
+function closeDetailPane(){
+  var p = document.getElementById('detailPane'); if (p) p.style.display = 'none';
+  var fr = document.getElementById('detailFrame'); if (fr) fr.src = 'about:blank';
 }
 
 // 「作るもの」集計（PC・ワイド画面の右パネル）。新しい注文（注文あり・未作成・未キャンセル・未削除）を形と色で集計。
