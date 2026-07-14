@@ -2016,6 +2016,12 @@ function orderDetailHTML(order, origin, pw, nfcRec = {}, qrRec = {}) {
     } catch(e) { return iso; }
   };
 
+  // こだわり・備考欄（友人注文の自由入力なのでHTMLエスケープして改行を活かす）
+  const escHtml = (s) => String(s == null ? '' : s).replace(/[&<>"']/g, c => ({ '&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;' })[c]);
+  const noteRow = order.note
+    ? `<div class="row"><span class="row-label">こだわり・備考欄</span><span class="row-val" style="font-size:12px;white-space:pre-wrap;">${escHtml(order.note)}</span></div>`
+    : '';
+
   // URL履歴を HTML に変換（最大3件）
   const histRows = (hist) => {
     if (!hist || !hist.length) return '<div style="font-size:12px;color:#6b6860;padding:4px 0;">変更履歴はまだありません</div>';
@@ -2094,6 +2100,7 @@ body{font-family:'Noto Sans JP',sans-serif;background:#f6f7f9;color:#1a1d23;padd
       <div class="row"><span class="row-label">サイズ</span><span class="row-val">${sizeText}</span></div>
       <div class="row"><span class="row-label">厚さ</span><span class="row-val">${order.thickCm||'—'} mm</span></div>
       ${order.shape === 'diecut' ? `<div class="row"><span class="row-label">縁の厚さ（ダイカット枠）</span><span class="row-val">${order.borderCm != null ? Math.round(order.borderCm*10) : '—'} mm</span></div>` : ''}
+      ${noteRow}
     </div>
   </div>
 

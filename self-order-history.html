@@ -26,6 +26,13 @@ body::before{content:'';position:fixed;inset:0;background-image:radial-gradient(
 .oh-top{display:flex;align-items:center;justify-content:space-between;gap:10px;flex-wrap:wrap;}
 .oh-num{font-family:monospace;font-size:15px;font-weight:700;letter-spacing:.04em;word-break:break-all;}
 .oh-badge{font-size:11px;font-weight:700;padding:4px 12px;border-radius:20px;white-space:nowrap;}
+/* 状態を色でも示すドット（ピル型バッジの左に並べる。管理画面の●マークと同系統） */
+.st-dot{display:inline-block;width:10px;height:10px;border-radius:50%;margin-right:6px;vertical-align:middle;}
+.st-dot.none      { background:#9ca3af; }  /* 注文なし：グレー */
+.st-dot.draft     { background:#f5c542; }  /* 注文中：黄色 */
+.st-dot.new       { background:#22c55e; }  /* 新しい注文（注文済み）：緑 */
+.st-dot.made      { background:#3b82f6; }  /* 作成済み：青 */
+.st-dot.cancelled { background:#ef4444; }  /* キャンセル：赤 */
 /* 3段階＋キャンセル済みのステータスバッジ */
 .ph-drafting{background:#fef3c7;color:#92400e;}
 :root[data-theme="night"] .ph-drafting{background:rgba(255,207,122,.16);color:#ffcf7a;}
@@ -198,10 +205,10 @@ function fmtDate(iso) {
 }
 
 const STATUS_DEF = {
-  drafting:  { label: '注文中',       cls: 'ph-drafting' },
-  ordered:   { label: '注文済み',     cls: 'ph-ordered' },
-  made:      { label: '制作済み',     cls: 'ph-made' },
-  cancelled: { label: 'キャンセル済み', cls: 'ph-cancelled' },
+  drafting:  { label: '注文中',       cls: 'ph-drafting',  dot: 'draft' },
+  ordered:   { label: '注文済み',     cls: 'ph-ordered',   dot: 'new' },
+  made:      { label: '制作済み',     cls: 'ph-made',      dot: 'made' },
+  cancelled: { label: 'キャンセル済み', cls: 'ph-cancelled', dot: 'cancelled' },
 };
 
 function render() {
@@ -235,7 +242,7 @@ function render() {
     return '<div class="oh-card" id="card-' + esc(o.orderId) + '">'
       + '<div class="oh-top">'
       +   '<span class="oh-num">' + esc(o.orderId) + '</span>'
-      +   '<span class="oh-badge ' + st.cls + '">' + st.label + '</span>'
+      +   '<span style="white-space:nowrap;"><span class="st-dot ' + (st.dot || 'none') + '"></span><span class="oh-badge ' + st.cls + '">' + st.label + '</span></span>'
       + '</div>'
       + '<div class="oh-note">' + noteLines.join('　') + '</div>'
       + '<div class="oh-actions">' + btns + '</div>'

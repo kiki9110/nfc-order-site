@@ -1014,7 +1014,7 @@ document.addEventListener('DOMContentLoaded', function () {
 
 </div><!-- /form-col -->
 
-<!-- 注文サマリー -->
+<!-- 注文サマリー＋製作枚数（右カラムに縦積み。3カラム化してフォーム列を狭めないよう preview-col 内に置く） -->
 <div class="preview-col">
   <div class="prev-card">
     <div class="prev-head">
@@ -1028,21 +1028,21 @@ document.addEventListener('DOMContentLoaded', function () {
       <div class="pill"><div class="pill-label">カラー</div><div class="pill-val" id="pd-color">—</div></div>
     </div>
   </div>
-</div>
-<!-- 製作枚数（10桁番号のときだけ表示）-->
-<div class="sec" id="qtySec" style="display:none;">
-  <div class="sec-head" style="cursor:default;">
-    <div class="sec-num" style="background:var(--accent);color:#fff;">📦</div>
-    <div class="sec-title">製作枚数</div>
-    <div class="ss" id="ssQty">1枚</div>
-  </div>
-  <div class="sec-body" style="display:block;">
-    <div style="font-size:13px;color:var(--muted);margin-bottom:14px;line-height:1.6;">同じデザインを何枚作りますか？</div>
-    <div style="display:flex;align-items:center;gap:14px;">
-      <button type="button" onclick="stepQty(-1)" style="width:44px;height:44px;border:2px solid var(--border);border-radius:11px;background:var(--surface);font-size:22px;font-weight:700;cursor:pointer;color:var(--accent);line-height:1;">−</button>
-      <input type="number" id="qtyInput" min="1" max="99" value="1" inputmode="numeric" oninput="setQty(this.value)" style="width:74px;text-align:center;font-size:20px;font-weight:700;padding:9px;border:2px solid var(--border);border-radius:11px;font-family:inherit;color:var(--ink);background:var(--surface);">
-      <span style="font-size:15px;color:var(--ink);">枚</span>
-      <button type="button" onclick="stepQty(1)" style="width:44px;height:44px;border:2px solid var(--border);border-radius:11px;background:var(--surface);font-size:22px;font-weight:700;cursor:pointer;color:var(--accent);line-height:1;">＋</button>
+  <!-- 製作枚数（10桁番号のときだけ表示）-->
+  <div class="sec" id="qtySec" style="display:none;margin-top:14px;">
+    <div class="sec-head" style="cursor:default;">
+      <div class="sec-num" style="background:var(--accent);color:#fff;">📦</div>
+      <div class="sec-title">製作枚数</div>
+      <div class="ss" id="ssQty">1枚</div>
+    </div>
+    <div class="sec-body" style="display:block;">
+      <div style="font-size:13px;color:var(--muted);margin-bottom:14px;line-height:1.6;">同じデザインを何枚作りますか？</div>
+      <div style="display:flex;align-items:center;gap:14px;">
+        <button type="button" onclick="stepQty(-1)" style="width:44px;height:44px;border:2px solid var(--border);border-radius:11px;background:var(--surface);font-size:22px;font-weight:700;cursor:pointer;color:var(--accent);line-height:1;">−</button>
+        <input type="number" id="qtyInput" min="1" max="99" value="1" inputmode="numeric" oninput="setQty(this.value)" style="width:74px;text-align:center;font-size:20px;font-weight:700;padding:9px;border:2px solid var(--border);border-radius:11px;font-family:inherit;color:var(--ink);background:var(--surface);">
+        <span style="font-size:15px;color:var(--ink);">枚</span>
+        <button type="button" onclick="stepQty(1)" style="width:44px;height:44px;border:2px solid var(--border);border-radius:11px;background:var(--surface);font-size:22px;font-weight:700;cursor:pointer;color:var(--accent);line-height:1;">＋</button>
+      </div>
     </div>
   </div>
 </div>
