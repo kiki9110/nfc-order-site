@@ -2785,9 +2785,12 @@ body{font-family:'Noto Sans JP',sans-serif;background:var(--paper);color:var(--i
 
 /* ── 一覧の注文有無マーク・状態バッジ ── */
 .ord-mark{font-size:13px;font-weight:700;margin-right:7px;vertical-align:middle;}
-.ord-mark.yes{color:#16a34a;}
-.ord-mark.made{color:#3257d6;}
-.ord-mark.no{color:#cbd0d6;}
+/* ステータスバッジ（ピル）と連動した5状態の配色。self-order-history.html の st-dot と同じ */
+.ord-mark.yes{color:#22c55e;}        /* 新しい注文：緑 */
+.ord-mark.draft{color:#f5c542;}      /* 注文中（友人の下書き）：黄 */
+.ord-mark.made{color:#3b82f6;}       /* 作成済み：青 */
+.ord-mark.cancelled{color:#ef4444;}  /* キャンセル済み：赤 */
+.ord-mark.no{color:#9ca3af;}         /* 注文なし：グレー */
 /* 土台の形の記号（色は注文の土台色）。淡い色でも見えるよう薄い縁取り＋わずかな影 */
 .shape-mark{font-size:13px;margin-right:7px;vertical-align:middle;text-shadow:0 0 1px rgba(0,0,0,.5),0 0 2px rgba(0,0,0,.25);}
 .st-badge{display:inline-block;font-size:10px;font-weight:700;padding:2px 9px;border-radius:10px;}
@@ -3624,8 +3627,11 @@ function showKeychains(push) {
 
 // ─── 行の共通パーツ（一覧・確認・削除一覧で再利用）───
 function rowStatusMark(it) {
-  if (it.made && !it.cancelled) return '<span class="ord-mark made" title="作成済み">●</span>';
-  return it.hasOrder ? '<span class="ord-mark yes" title="注文あり">●</span>' : '<span class="ord-mark no" title="注文なし">✕</span>';
+  // ステータスバッジ（rowBadges）と同じ優先順位で色を連動させる
+  if (it.cancelled) return '<span class="ord-mark cancelled" title="キャンセル済み">●</span>';
+  if (it.draft)     return '<span class="ord-mark draft" title="注文中">●</span>';
+  if (it.made)      return '<span class="ord-mark made" title="作成済み">●</span>';
+  return it.hasOrder ? '<span class="ord-mark yes" title="新しい注文">●</span>' : '<span class="ord-mark no" title="注文なし">✕</span>';
 }
 function rowShapeMark(it) {
   var g = { circle:'●', square:'■', rect:'▬', diecut:'◆' }, nm = { circle:'丸', square:'四角', rect:'自由四角', diecut:'ダイカット' };
@@ -4022,11 +4028,16 @@ function renderList() {
     const made      = !!item.made;
     const cancelled = !!item.cancelled;
     const confirmed = !!item.confirmed;
-    const mark = (made && !cancelled)
-      ? '<span class="ord-mark made" title="作成済み">●</span>'
-      : (hasOrder
-          ? '<span class="ord-mark yes" title="注文あり">●</span>'
-          : '<span class="ord-mark no" title="注文なし">✕</span>');
+    // ステータスバッジ（stB）と同じ優先順位で●の色を連動させる
+    const mark = cancelled
+      ? '<span class="ord-mark cancelled" title="キャンセル済み">●</span>'
+      : (item.draft
+          ? '<span class="ord-mark draft" title="注文中">●</span>'
+          : (made
+              ? '<span class="ord-mark made" title="作成済み">●</span>'
+              : (hasOrder
+                  ? '<span class="ord-mark yes" title="新しい注文">●</span>'
+                  : '<span class="ord-mark no" title="注文なし">✕</span>')));
     // 土台の形を記号で（丸=● / 四角=■ / 自由四角=▬ / ダイカット=◆）、色は注文の土台色
     const shapeGlyph = { circle:'●', square:'■', rect:'▬', diecut:'◆' };
     const shapeName  = { circle:'丸', square:'四角', rect:'自由四角', diecut:'ダイカット' };
