@@ -2725,6 +2725,9 @@ function adminHTML() {
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width,initial-scale=1">
 <title>NFC管理画面</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Shippori+Mincho:wght@700&display=swap" rel="stylesheet">
 <style>
 @import url('https://fonts.googleapis.com/css2?family=Inter:wght@500;600;700&family=Noto+Sans+JP:wght@400;500;700&display=swap');
 :root{
@@ -3499,6 +3502,31 @@ tr:hover td{background:#f7f9fb;}
   </div>
 </div>
 
+<!-- ===== ラベル保存モーダル（商品ラベル＋サンクステープ） ===== -->
+<div class="modal-bg" id="labelModal">
+  <div class="modal">
+    <h3 id="labelTitle">ラベル保存</h3>
+
+    <div style="text-align:center;margin-top:14px;">
+      <div style="font-size:12px;font-weight:600;margin-bottom:6px;">🏷️ 商品ラベル（QR入り）</div>
+      <img id="lbLabelImg" alt="商品ラベル" style="display:none;max-width:100%;height:auto;border:1px solid var(--border);border-radius:8px;background:#fff;">
+      <div id="lbLabelWait" style="font-size:12px;color:var(--muted);padding:14px 0;">生成中...</div>
+      <div><button class="copy-btn" style="margin:8px 0 0;" onclick="saveLabelImg()">⬇ 保存</button></div>
+    </div>
+
+    <div style="text-align:center;margin-top:20px;">
+      <div style="font-size:12px;font-weight:600;margin-bottom:6px;">🎀 サンクステープ（24mm幅テープ用・注文番号入り）</div>
+      <img id="lbTapeImg" alt="サンクステープ" style="display:none;max-width:100%;height:auto;border:1px solid var(--border);border-radius:8px;background:#fff;">
+      <div id="lbTapeWait" style="font-size:12px;color:var(--muted);padding:14px 0;">生成中...</div>
+      <div><button class="copy-btn" style="margin:8px 0 0;" onclick="saveTapeImg()">⬇ 保存</button></div>
+    </div>
+
+    <div class="modal-foot">
+      <button class="modal-cancel" onclick="closeLabelModal()">閉じる</button>
+    </div>
+  </div>
+</div>
+
 <div class="toast" id="toast"></div>
 
 <script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"></script>
@@ -3920,27 +3948,134 @@ function saveImage(dataUrl, filename, title) {
   document.body.appendChild(a); a.click(); a.remove();
 }
 
-// ─── ラベル保存（注文番号専用QR入りの黒枠ラベルを生成して保存）───
-function printLabel(oid) {
-  if (!window.QRCode) { alert('QRライブラリの読み込み中です。少し待ってからもう一度押してください。'); return; }
-  var setupUrl = location.origin + '/setup/' + encodeURIComponent(oid);
-  var tmp = document.createElement('div');
-  new QRCode(tmp, { text: setupUrl, width: 240, height: 240, correctLevel: QRCode.CorrectLevel.M });
-  setTimeout(function () {
-    var qrEl = tmp.querySelector('canvas') || tmp.querySelector('img');
-    var cv = document.createElement('canvas'); cv.width = 930; cv.height = 300;
-    var ctx = cv.getContext('2d'); var W = cv.width, H = cv.height, INK = '#000';
-    ctx.fillStyle = '#fff'; ctx.fillRect(0, 0, W, H);
-    ctx.strokeStyle = INK; ctx.lineWidth = 4; ctx.strokeRect(5, 5, W - 10, H - 10);
-    var q = 240; ctx.imageSmoothingEnabled = false; ctx.drawImage(qrEl, 34, (H - q) / 2, q, q);
-    ctx.fillStyle = INK; ctx.textBaseline = 'alphabetic';
-    ctx.font = '900 80px sans-serif'; ctx.fillText('BUKI製作所', 322, 150);
-    ctx.lineWidth = 5; ctx.beginPath(); ctx.moveTo(326, 180); ctx.lineTo(900, 180); ctx.stroke();
-    ctx.fillStyle = '#000'; ctx.font = '700 46px sans-serif'; ctx.fillText('QRを読み取って登録', 326, 244);
-    var dataUrl = cv.toDataURL('image/png');
-    saveImage(dataUrl, 'label_' + oid + '.png', 'ラベル ' + oid);
-  }, 80);
+// ─── ラベル保存（商品ラベル＋サンクステープのモーダル）───
+// 商品ラベル：注文番号専用QR入りの黒枠ラベル（旧 printLabel のcanvas生成をdataURL返却に分離）
+function buildLabelDataUrl(oid) {
+  return new Promise(function (resolve, reject) {
+    if (!window.QRCode) { reject(new Error('QRライブラリの読み込み中です。少し待ってからもう一度開いてください。')); return; }
+    var setupUrl = location.origin + '/setup/' + encodeURIComponent(oid);
+    var tmp = document.createElement('div');
+    new QRCode(tmp, { text: setupUrl, width: 240, height: 240, correctLevel: QRCode.CorrectLevel.M });
+    setTimeout(function () {
+      try {
+        var qrEl = tmp.querySelector('canvas') || tmp.querySelector('img');
+        var cv = document.createElement('canvas'); cv.width = 930; cv.height = 300;
+        var ctx = cv.getContext('2d'); var W = cv.width, H = cv.height, INK = '#000';
+        ctx.fillStyle = '#fff'; ctx.fillRect(0, 0, W, H);
+        ctx.strokeStyle = INK; ctx.lineWidth = 4; ctx.strokeRect(5, 5, W - 10, H - 10);
+        var q = 240; ctx.imageSmoothingEnabled = false; ctx.drawImage(qrEl, 34, (H - q) / 2, q, q);
+        ctx.fillStyle = INK; ctx.textBaseline = 'alphabetic';
+        ctx.font = '900 80px sans-serif'; ctx.fillText('BUKI製作所', 322, 150);
+        ctx.lineWidth = 5; ctx.beginPath(); ctx.moveTo(326, 180); ctx.lineTo(900, 180); ctx.stroke();
+        ctx.fillStyle = '#000'; ctx.font = '700 46px sans-serif'; ctx.fillText('QRを読み取って登録', 326, 244);
+        resolve(cv.toDataURL('image/png'));
+      } catch (e) { reject(e); }
+    }, 80);
+  });
 }
+
+// サンクステープ：Brother TZe（幅24mm・長さ290mm）想定。300dpiのcanvasで実寸生成。
+// 本文は将来変更しやすいよう先頭で変数化しておく。
+var TAPE_MAIN_TEXT = 'ご購入ありがとうございました';
+var TAPE_SHOP_TEXT = 'BUKI 製作所';
+
+async function buildTapeDataUrl(oid) {
+  // フォント読み込み前にcanvasへ描くと標準フォントで確定してしまうので必ず待つ
+  try {
+    await document.fonts.load('700 100px "Shippori Mincho"');
+    await document.fonts.ready;
+  } catch (e) { /* フォント取得に失敗しても標準フォントで続行 */ }
+
+  var mm = function (x) { return Math.round(x * 300 / 25.4); };
+  var W = 3425, H = 283;              // 24mm × 290mm @300dpi
+  var cv = document.createElement('canvas'); cv.width = W; cv.height = H;
+  var ctx = cv.getContext('2d');
+  ctx.fillStyle = '#fff'; ctx.fillRect(0, 0, W, H);
+  ctx.fillStyle = '#000';
+
+  var FONT = '"Shippori Mincho", serif';
+  var margin     = mm(6);             // 左右余白 各6mm
+  var printableH = mm(18);            // 印刷可能高さ18mm（上下に約3mmずつ余白）
+  var centerY    = H / 2;
+
+  // 右下の注文番号（高さ約4mm）。先に幅を測って右側にスペースを確保する
+  var numSize = mm(4);
+  ctx.font = '700 ' + numSize + 'px ' + FONT;
+  var numW   = ctx.measureText(oid).width;
+  var numGap = mm(4);
+
+  // メイン＋区切り線＋店名は、注文番号ぶんを除いた領域に収める
+  var areaX = margin;
+  var areaW = W - margin * 2 - numW - numGap;
+  var lineW = Math.max(1, mm(0.7));   // 区切り線の太さ 約0.7mm
+  var gap   = mm(3);                  // 要素間の間隔
+
+  // 印刷可能域（18mmの85%）を上限に、確保領域へ収まるまで縮小
+  var size = Math.round(printableH * 0.85);
+  var mainW, shopW, total;
+  for (var i = 0; i < 40; i++) {
+    ctx.font = '700 ' + size + 'px ' + FONT;
+    mainW = ctx.measureText(TAPE_MAIN_TEXT).width;
+    ctx.font = '700 ' + Math.round(size * 0.82) + 'px ' + FONT;
+    shopW = ctx.measureText(TAPE_SHOP_TEXT).width;
+    total = mainW + gap + lineW + gap + shopW;
+    if (total <= areaW || size <= 20) break;
+    size = Math.round(size * 0.95);
+  }
+
+  var x = areaX + Math.max(0, (areaW - total) / 2);   // 確保領域内で中央寄せ
+  ctx.textBaseline = 'middle';
+  ctx.font = '700 ' + size + 'px ' + FONT;
+  ctx.fillText(TAPE_MAIN_TEXT, x, centerY);
+  x += mainW + gap;
+  // 区切りは「│」等の文字ではなく線として描く（フォントに無く豆腐化するため）
+  var lineH = size * 0.95;
+  ctx.fillRect(Math.round(x), Math.round(centerY - lineH / 2), Math.round(lineW), Math.round(lineH));
+  x += lineW + gap;
+  ctx.font = '700 ' + Math.round(size * 0.82) + 'px ' + FONT;
+  ctx.fillText(TAPE_SHOP_TEXT, x, centerY);
+
+  // 注文番号：右下（下端＝印刷可能域の下端）。数字だけで「No.」等は付けない
+  ctx.font = '700 ' + numSize + 'px ' + FONT;
+  ctx.textBaseline = 'alphabetic';
+  ctx.fillText(oid, W - margin - numW, (H + printableH) / 2);
+
+  return cv.toDataURL('image/png');
+}
+
+// ラベル保存モーダル（URL一覧モーダルと同じ流儀：開く → 中身を非同期で埋める）
+var LB_OID = '', LB_LABEL_URL = '', LB_TAPE_URL = '';
+function openLabelModal(oid) {
+  LB_OID = oid; LB_LABEL_URL = ''; LB_TAPE_URL = '';
+  document.getElementById('labelTitle').textContent = 'ラベル保存 — ' + oid;
+  var li = document.getElementById('lbLabelImg'), ti = document.getElementById('lbTapeImg');
+  var lw = document.getElementById('lbLabelWait'), tw = document.getElementById('lbTapeWait');
+  li.style.display = 'none'; li.removeAttribute('src');
+  ti.style.display = 'none'; ti.removeAttribute('src');
+  lw.style.display = 'block'; lw.textContent = '生成中...';
+  tw.style.display = 'block'; tw.textContent = '生成中...';
+  document.getElementById('labelModal').classList.add('open');
+
+  buildLabelDataUrl(oid).then(function (d) {
+    if (LB_OID !== oid) return;   // 生成中に別の注文で開き直された場合は破棄
+    LB_LABEL_URL = d; li.src = d; li.style.display = 'inline-block'; lw.style.display = 'none';
+  }).catch(function (e) {
+    if (LB_OID !== oid) return;
+    lw.textContent = (e && e.message) || '生成に失敗しました';
+  });
+
+  buildTapeDataUrl(oid).then(function (d) {
+    if (LB_OID !== oid) return;
+    LB_TAPE_URL = d; ti.src = d; ti.style.display = 'inline-block'; tw.style.display = 'none';
+  }).catch(function () {
+    if (LB_OID !== oid) return;
+    tw.textContent = '生成に失敗しました';
+  });
+}
+function closeLabelModal() { document.getElementById('labelModal').classList.remove('open'); }
+// 保存はどちらも既存の saveImage（スマホは共有シート→「写真に保存」、PCはダウンロード）
+function saveLabelImg() { if (LB_LABEL_URL) saveImage(LB_LABEL_URL, 'label_' + LB_OID + '.png', 'ラベル ' + LB_OID); }
+function saveTapeImg()  { if (LB_TAPE_URL)  saveImage(LB_TAPE_URL,  'tape_'  + LB_OID + '.png', 'サンクステープ ' + LB_OID); }
 
 // ─── 絞り込みチップ・状態判定 ───
 // アクティブなチップの値を取得（ジャンル別）
@@ -4074,7 +4209,7 @@ function renderList() {
     html +=   '<button class="edit-btn" onclick="openEdit(\\'' + esc(oid) + '\\')">編集</button> ';
     html +=   '<button class="del-btn"  onclick="deleteEntry(\\'' + esc(oid) + '\\')">削除</button> ';
     html +=   '<button class="edit-btn" style="background:var(--blue-bg);border-color:#b8d9f0;color:var(--blue);" onclick="openDetail(\\'' + esc(oid) + '\\')">詳細</button> ';
-    html +=   '<button class="edit-btn" onclick="printLabel(\\'' + esc(oid) + '\\')">ラベル保存</button> ';
+    html +=   '<button class="edit-btn" onclick="openLabelModal(\\'' + esc(oid) + '\\')">ラベル保存</button> ';
     html +=   '<button class="edit-btn" style="background:#eef9f0;border-color:#bfe3c6;color:var(--green);" onclick="openUrlList(\\'' + esc(oid) + '\\')">URL一覧</button>';
     html += '</td>';
     html += '</tr>';
@@ -4900,6 +5035,7 @@ function toast(msg) {
 }
 document.getElementById('editModal').addEventListener('click', function (e) { if (e.target === e.currentTarget) closeEdit(); });
 document.getElementById('urlListModal').addEventListener('click', function (e) { if (e.target === e.currentTarget) closeUrlList(); });
+document.getElementById('labelModal').addEventListener('click', function (e) { if (e.target === e.currentTarget) closeLabelModal(); });
 </script>
 </body>
 </html>`;
