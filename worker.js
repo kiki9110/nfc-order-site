@@ -66,11 +66,37 @@ export default {
 
     // ── 在庫・メンテナンス（公開・認証不要）──
     if (path === '/api/get-inventory')     return handleGetInventory(request, env, cors);
+    if (path === '/api/maintenance-bypass-auth') return handleMaintenanceBypassAuth(request, env, cors);
 
     // ── 自己登録ページ（URLを知る人のみ）──
     if (path === '/api/self-register')     return handleSelfRegister(request, env, cors);  // 公開：番号を自己登録
     if (path === '/api/self-opt-get')      return handleSelfOptGet(request, env, cors);    // 公開：デフォルト設定取得
     if (path === '/api/self-opt-set')      return handleSelfOptSet(request, env, cors);    // 管理者：デフォルト設定保存
+
+    // ── 友人アカウント：登録・ログイン（公開）──
+    if (path === '/api/friend-check-id')        return handleFriendCheckId(request, env, cors);       // 公開：ID重複チェック
+    if (path === '/api/friend-register')        return handleFriendRegister(request, env, cors);      // 公開：アカウント新規登録
+    if (path === '/api/friend-login')           return handleFriendLogin(request, env, cors);         // 公開：ログイン → トークン発行
+    if (path === '/api/friend-forgot-question') return handleFriendForgotQuestion(request, env, cors);// 公開：秘密の質問を取得
+    if (path === '/api/friend-forgot-verify')   return handleFriendForgotVerify(request, env, cors);  // 公開：答え確認＋新パスワード設定
+
+    // ── 友人アカウント：ログイン中ユーザー向け（要セッショントークン）──
+    if (path === '/api/friend-logout')          return handleFriendLogout(request, env, cors);
+    if (path === '/api/friend-save-draft')      return handleFriendSaveDraft(request, env, cors);
+    if (path === '/api/friend-get-draft')       return handleFriendGetDraft(request, env, cors);
+    if (path === '/api/friend-submit-order')    return handleFriendSubmitOrder(request, env, cors);
+    if (path === '/api/friend-order-history')   return handleFriendOrderHistory(request, env, cors);
+    if (path === '/api/friend-cancel-order')    return handleFriendCancelOrder(request, env, cors);
+    if (path === '/api/friend-change-id')       return handleFriendChangeId(request, env, cors);
+    if (path === '/api/friend-change-password') return handleFriendChangePassword(request, env, cors);
+    if (path === '/api/friend-change-question') return handleFriendChangeQuestion(request, env, cors);
+    if (path === '/api/friend-delete-account')  return handleFriendDeleteAccount(request, env, cors);
+
+    // ── 友人アカウント：管理者向け（要 ADMIN_PASSWORD）──
+    if (path === '/api/admin-friend-list')      return handleAdminFriendList(request, env, cors);
+    if (path === '/api/admin-friend-detail')    return handleAdminFriendDetail(request, env, cors);
+    if (path === '/api/admin-friend-delete')    return handleAdminFriendDelete(request, env, cors);
+    if (path === '/api/admin-friend-reveal')    return handleAdminFriendReveal(request, env, cors);
 
     // ── 管理者向け API（要パスワード）──
     if (path === '/admin' || path === '/admin/') return new Response(adminHTML(origin), { headers: htmlHdr });
@@ -374,6 +400,698 @@ async function handleSelfOptSet(request, env, cors) {
   return json({ ok: true, options: opt }, 200, cors);
 }
 
+// ═══════════════════════════════════════════════
+// 友人アカウント＆注文システム
+// ═══════════════════════════════════════════════
+// KV キー：
+//   FRIEND:<loginId>        … アカウント本体 { loginId, name, passwordEnc, question, answerEnc, createdAt, ordersIndex }
+//   FRIEND_SESSION:<token>  … セッション { loginId }（expirationTtl 30日）
+//   FRIEND_INDEX            … 登録済み loginId の配列（list() を使わないためのインデックス）
+// 注文は既存の ORDER:<orderId>（+素の <orderId> NFCレコード）を拡張して使う：
+//   friendOwner … 所有アカウントの loginId（素のNFCレコードと ORDER: の両方に持つ）
+//   draft       … true=下書き（注文中）/ false=送信済み（素のNFCレコードと ORDER: の両方に持つ）
+//   note        … こだわり・備考欄
+//   draftData   … self-page2 の画面状態（S オブジェクト丸ごと）
+// ※ パスワード・秘密の答えは管理画面で「表示」できる要件のため、AES-GCM の可逆暗号化で保存する
+//   （鍵は Cloudflare Secret の ACCOUNT_ENCRYPTION_KEY。base64 の32バイト値）。
+
+const FRIEND_SESSION_TTL = 60 * 60 * 24 * 30; // 30日
+
+// 秘密の質問の固定リスト（self.html / self-settings.html のプルダウンと揃える）
+const SECRET_QUESTIONS = [
+  '初恋の人の名前は？',
+  '出身小学校の名前は？',
+  '子供の頃に飼っていたペットの名前は？',
+  '好きな食べ物は？',
+  '母親の旧姓は？',
+  '初めて行った旅行先は？',
+];
+
+// パスワード要件：大文字・小文字・数字を含む8文字以上
+function isValidPassword(pw) {
+  return typeof pw === 'string'
+    && pw.length >= 8
+    && /[A-Z]/.test(pw)
+    && /[a-z]/.test(pw)
+    && /[0-9]/.test(pw);
+}
+
+// ログインIDの形式：空白・コロン抜きの1〜30文字（日本語可。KVキー FRIEND:<id> がきれいに保てる範囲）
+function isValidLoginId(id) {
+  return typeof id === 'string' && /^[^\s:]{1,30}$/.test(id);
+}
+
+// 文字列 → AES-GCMで暗号化して { iv, data }（両方base64）を返す
+async function encryptText(env, plainText) {
+  const keyRaw = Uint8Array.from(atob(env.ACCOUNT_ENCRYPTION_KEY), c => c.charCodeAt(0));
+  const key = await crypto.subtle.importKey('raw', keyRaw, 'AES-GCM', false, ['encrypt']);
+  const iv = crypto.getRandomValues(new Uint8Array(12));
+  const enc = new TextEncoder().encode(plainText);
+  const cipher = await crypto.subtle.encrypt({ name: 'AES-GCM', iv }, key, enc);
+  return {
+    iv:   btoa(String.fromCharCode(...iv)),
+    data: btoa(String.fromCharCode(...new Uint8Array(cipher))),
+  };
+}
+
+// { iv, data } → 元の文字列に復号
+async function decryptText(env, encObj) {
+  const keyRaw = Uint8Array.from(atob(env.ACCOUNT_ENCRYPTION_KEY), c => c.charCodeAt(0));
+  const key = await crypto.subtle.importKey('raw', keyRaw, 'AES-GCM', false, ['decrypt']);
+  const iv   = Uint8Array.from(atob(encObj.iv),   c => c.charCodeAt(0));
+  const data = Uint8Array.from(atob(encObj.data), c => c.charCodeAt(0));
+  const plain = await crypto.subtle.decrypt({ name: 'AES-GCM', iv }, key, data);
+  return new TextDecoder().decode(plain);
+}
+
+// 保存された暗号文と平文入力を照合（AES-GCM は毎回暗号文が変わるので「復号して比較」する）
+async function matchesEncrypted(env, encObj, plain) {
+  if (!encObj || !encObj.iv || !encObj.data) return false;
+  try { return (await decryptText(env, encObj)) === String(plain); }
+  catch (e) { return false; }
+}
+
+// 暗号化鍵が未設定なら友人アカウント機能を安全側で全停止する
+function encryptionReady(env) { return !!(env && env.ACCOUNT_ENCRYPTION_KEY); }
+function encryptionNotReady(cors) {
+  return json({ error: 'server_config', message: 'サーバー設定が未完了です（管理者にご連絡ください）' }, 500, cors);
+}
+
+async function getFriend(env, loginId) {
+  if (!loginId) return null;
+  const raw = await env.NFC_URLS.get('FRIEND:' + loginId);
+  if (!raw) return null;
+  try { return JSON.parse(raw); } catch (e) { return null; }
+}
+
+async function putFriend(env, friend) {
+  await env.NFC_URLS.put('FRIEND:' + friend.loginId, JSON.stringify(friend));
+}
+
+// FRIEND_INDEX（loginId の配列）を get()/put() だけで読み書きする（list() は使わない）
+async function getFriendIndex(env) {
+  const raw = await env.NFC_URLS.get('FRIEND_INDEX');
+  if (!raw) return [];
+  try { const a = JSON.parse(raw); return Array.isArray(a) ? a : []; } catch (e) { return []; }
+}
+async function putFriendIndex(env, arr) {
+  await env.NFC_URLS.put('FRIEND_INDEX', JSON.stringify(arr));
+}
+
+// リクエストヘッダーのBearerトークンから loginId を解決する。
+// トークンが無効・期限切れなら null を返す（呼び出し側は401を返すこと）。
+async function resolveFriendSession(request, env) {
+  const auth = request.headers.get('Authorization') || '';
+  const token = auth.startsWith('Bearer ') ? auth.slice(7) : '';
+  if (!token) return null;
+  const raw = await env.NFC_URLS.get('FRIEND_SESSION:' + token);
+  if (!raw) return null;
+  try { return JSON.parse(raw).loginId; } catch (e) { return null; }
+}
+
+function friendSessionToken(request) {
+  const auth = request.headers.get('Authorization') || '';
+  return auth.startsWith('Bearer ') ? auth.slice(7) : '';
+}
+
+// セッション＋アカウント実在の両方を確認するヘルパー（削除済みアカウントの残トークン対策）
+async function requireFriend(request, env) {
+  const loginId = await resolveFriendSession(request, env);
+  if (!loginId) return null;
+  const friend = await getFriend(env, loginId);
+  if (!friend) return null;
+  return friend;
+}
+
+async function issueFriendSession(env, loginId) {
+  const token = crypto.randomUUID();
+  await env.NFC_URLS.put('FRIEND_SESSION:' + token, JSON.stringify({ loginId }), {
+    expirationTtl: FRIEND_SESSION_TTL,
+  });
+  return token;
+}
+
+// ── 公開：ID重複チェック ──
+async function handleFriendCheckId(request, env, cors) {
+  if (!await rateLimitOK(env, request, 'fr-chk', 30, 60))
+    return json({ error: 'rate_limited', message: '試行が多すぎます。少し待ってからお試しください。' }, 429, cors);
+  const body = await request.json().catch(() => ({}));
+  const loginId = (body.loginId || '').trim();
+  if (!isValidLoginId(loginId)) return json({ available: false, reason: 'invalid' }, 200, cors);
+  const exists = await env.NFC_URLS.get('FRIEND:' + loginId);
+  return json({ available: !exists }, 200, cors);
+}
+
+// ── 公開：アカウント新規登録（成功時はそのままログインさせてトークンを返す）──
+async function handleFriendRegister(request, env, cors) {
+  if (!encryptionReady(env)) return encryptionNotReady(cors);
+  if (!await rateLimitOK(env, request, 'fr-reg', 5, 60))
+    return json({ error: 'rate_limited', message: '試行が多すぎます。少し待ってからお試しください。' }, 429, cors);
+
+  const body = await request.json().catch(() => ({}));
+  const loginId  = (body.loginId  || '').trim();
+  const name     = (body.name     || '').trim().slice(0, 50);
+  const password = body.password || '';
+  const question = (body.question || '').trim();
+  const answer   = (body.answer   || '').trim().slice(0, 100);
+
+  if (!isValidLoginId(loginId)) return json({ error: 'invalid_id', message: 'ログインIDは空白を含まない30文字以内で入力してください' }, 400, cors);
+  if (!name)                    return json({ error: 'invalid_name', message: 'お名前を入力してください' }, 400, cors);
+  if (!isValidPassword(password))
+    return json({ error: 'password_weak', message: '条件が足りません（大文字・小文字・数字を含む8文字以上）' }, 400, cors);
+  if (!SECRET_QUESTIONS.includes(question))
+    return json({ error: 'invalid_question', message: '秘密の質問を選択してください' }, 400, cors);
+  if (!answer)                  return json({ error: 'invalid_answer', message: '秘密の答えを入力してください' }, 400, cors);
+
+  const exists = await env.NFC_URLS.get('FRIEND:' + loginId);
+  if (exists) return json({ error: 'id_taken', message: 'このログインIDはすでに使われています' }, 409, cors);
+
+  const friend = {
+    loginId,
+    name,
+    passwordEnc: await encryptText(env, password),
+    question,
+    answerEnc:   await encryptText(env, answer),
+    createdAt:   new Date().toISOString(),
+    ordersIndex: [],
+  };
+  await putFriend(env, friend);
+
+  const index = await getFriendIndex(env);
+  if (!index.includes(loginId)) { index.push(loginId); await putFriendIndex(env, index); }
+
+  const token = await issueFriendSession(env, loginId);
+  return json({ ok: true, token, name }, 200, cors);
+}
+
+// ── 公開：ログイン ──
+async function handleFriendLogin(request, env, cors) {
+  if (!encryptionReady(env)) return encryptionNotReady(cors);
+  if (!await rateLimitOK(env, request, 'fr-login', 10, 60))
+    return json({ error: 'rate_limited', message: '試行が多すぎます。少し待ってからお試しください。' }, 429, cors);
+
+  const body = await request.json().catch(() => ({}));
+  const loginId  = (body.loginId || '').trim();
+  const password = body.password || '';
+  const friend = await getFriend(env, loginId);
+  // IDの存在有無を教えない（ID・パスワードどちらの誤りでも同じメッセージ）
+  if (!friend || !(await matchesEncrypted(env, friend.passwordEnc, password))) {
+    return json({ error: 'auth_failed', message: 'IDまたはパスワードが違います' }, 401, cors);
+  }
+  const token = await issueFriendSession(env, loginId);
+  return json({ ok: true, token, name: friend.name || '' }, 200, cors);
+}
+
+// ── 公開：ログアウト（トークン削除。トークン無しでも ok を返す）──
+async function handleFriendLogout(request, env, cors) {
+  const token = friendSessionToken(request);
+  if (token) await env.NFC_URLS.delete('FRIEND_SESSION:' + token);
+  return json({ ok: true }, 200, cors);
+}
+
+// ── 公開：パスワードを忘れた場合① 秘密の質問を返す ──
+async function handleFriendForgotQuestion(request, env, cors) {
+  if (!await rateLimitOK(env, request, 'fr-forgot', 10, 60))
+    return json({ error: 'rate_limited', message: '試行が多すぎます。少し待ってからお試しください。' }, 429, cors);
+  const body = await request.json().catch(() => ({}));
+  const friend = await getFriend(env, (body.loginId || '').trim());
+  if (!friend) return json({ error: 'not_found', message: 'このログインIDは登録されていません' }, 404, cors);
+  return json({ ok: true, question: friend.question || '' }, 200, cors);
+}
+
+// ── 公開：パスワードを忘れた場合② 答えを確認して新パスワードを設定 ──
+async function handleFriendForgotVerify(request, env, cors) {
+  if (!encryptionReady(env)) return encryptionNotReady(cors);
+  if (!await rateLimitOK(env, request, 'fr-forgot', 10, 60))
+    return json({ error: 'rate_limited', message: '試行が多すぎます。少し待ってからお試しください。' }, 429, cors);
+
+  const body = await request.json().catch(() => ({}));
+  const friend = await getFriend(env, (body.loginId || '').trim());
+  if (!friend) return json({ error: 'not_found', message: 'このログインIDは登録されていません' }, 404, cors);
+  if (!(await matchesEncrypted(env, friend.answerEnc, (body.answer || '').trim())))
+    return json({ error: 'answer_mismatch', message: '答えが違います' }, 401, cors);
+  if (!isValidPassword(body.newPassword || ''))
+    return json({ error: 'password_weak', message: '条件が足りません（大文字・小文字・数字を含む8文字以上）' }, 400, cors);
+
+  friend.passwordEnc = await encryptText(env, body.newPassword);
+  await putFriend(env, friend);
+  return json({ ok: true }, 200, cors);
+}
+
+// ── 友人注文で使う10桁注文番号の自動採番（handleSelfRegister と同じロジック）──
+async function genFriendOrderId(env) {
+  for (let i = 0; i < 40; i++) {
+    const cand = String(Math.floor(1000000000 + Math.random() * 9000000000));
+    if (!(await env.NFC_URLS.get(cand))) return cand;
+  }
+  return null;
+}
+
+// ORDER: の先頭数百バイトから draft / updatedAt を軽量に読む（draftData の巨大画像を読まないため）。
+// friend-save-draft はこれらのキーを JSON 先頭側に書くので、512バイトで十分足りる。
+async function friendOrderHeadInfo(env, orderId) {
+  const head = await orderHead(env, orderId, 512);
+  if (head == null) return null;
+  const info = { draft: null, updatedAt: null };
+  if (head.indexOf('"draft":true') >= 0)  info.draft = true;
+  if (head.indexOf('"draft":false') >= 0) info.draft = false;
+  const pu = head.indexOf('"updatedAt":"');
+  if (pu >= 0) { const s = pu + 13, e = head.indexOf('"', s); if (e > s) info.updatedAt = head.slice(s, e); }
+  return info;
+}
+
+// ── 要ログイン：下書き保存（orderId 未指定なら新規採番して素のNFCレコードも作成）──
+async function handleFriendSaveDraft(request, env, cors) {
+  const friend = await requireFriend(request, env);
+  if (!friend) return json({ error: 'unauthorized', message: 'ログインが必要です' }, 401, cors);
+
+  const body = await request.json().catch(() => ({}));
+  let orderId = (body.orderId || '').trim();
+  const now = new Date().toISOString();
+  let isNew = false;
+
+  if (!orderId) {
+    orderId = await genFriendOrderId(env);
+    if (!orderId) return json({ error: 'busy', message: '番号の発行に失敗しました。もう一度お試しください。' }, 503, cors);
+    isNew = true;
+
+    // 素のNFCレコードを作成（自己登録と同様に SELF_OPT のデフォルトオプションを焼き付ける）
+    const optRaw = await env.NFC_URLS.get('SELF_OPT');
+    const defOpt = optRaw ? JSON.parse(optRaw) : { nfc: false, double: false };
+    await env.NFC_URLS.put(orderId, JSON.stringify({
+      orderId, url: '', label: friend.name || friend.loginId, history: [],
+      registeredAt: now, updatedAt: now, accessCount: 0, lastAccess: null,
+      options:    { nfc: !!defOpt.nfc, double: !!defOpt.double, diecut: true },
+      addonCount: 0, selfRegistered: true,
+      friendOwner: friend.loginId, draft: true,
+    }));
+  } else {
+    // 所有者チェック＋送信済みは上書き不可
+    const nfcRaw = await env.NFC_URLS.get(orderId);
+    if (!nfcRaw) return json({ error: 'not_found', message: '注文が見つかりません' }, 404, cors);
+    const nfc = JSON.parse(nfcRaw);
+    if (nfc.friendOwner !== friend.loginId) return json({ error: 'forbidden', message: 'この注文は編集できません' }, 403, cors);
+    if (nfc.draft === false) return json({ error: 'already_submitted', message: 'この注文はすでに送信済みのため下書き保存できません' }, 409, cors);
+  }
+
+  // ORDER: に下書きを保存。draft / updatedAt は先頭側に置く（friendOrderHeadInfo が軽量に読めるように）
+  const rec = {
+    orderId,
+    friendOwner: friend.loginId,
+    draft:       true,
+    updatedAt:   now,
+    savedAt:     now,
+    note:        String(body.note || '').slice(0, 5000),
+    draftData:   body.draftData || {},
+  };
+  await env.NFC_URLS.put('ORDER:' + orderId, JSON.stringify(rec));
+
+  if (isNew) {
+    friend.ordersIndex = friend.ordersIndex || [];
+    if (!friend.ordersIndex.includes(orderId)) { friend.ordersIndex.push(orderId); await putFriend(env, friend); }
+  }
+  return json({ ok: true, orderId }, 200, cors);
+}
+
+// ── 要ログイン：下書き取得（続きから編集）──
+async function handleFriendGetDraft(request, env, cors) {
+  const friend = await requireFriend(request, env);
+  if (!friend) return json({ error: 'unauthorized', message: 'ログインが必要です' }, 401, cors);
+
+  const url     = new URL(request.url);
+  const orderId = (url.searchParams.get('orderId') || '').trim();
+  if (!orderId) return json({ error: 'orderId が必要です' }, 400, cors);
+
+  const raw = await env.NFC_URLS.get('ORDER:' + orderId);
+  if (!raw) return json({ error: 'not_found', message: '下書きが見つかりません' }, 404, cors);
+  const rec = JSON.parse(raw);
+  if (rec.friendOwner !== friend.loginId) return json({ error: 'forbidden', message: 'この注文は表示できません' }, 403, cors);
+  return json({ ok: true, orderId, draft: rec.draft !== false, draftData: rec.draftData || {}, note: rec.note || '' }, 200, cors);
+}
+
+// ── 要ログイン：注文を正式送信（draft:false に確定）──
+// body.order に page2 互換の注文ペイロードを渡すと、それを ORDER: の内容として保存し
+// （管理画面の注文詳細がそのまま描画できる）、nfcUrl / qrUrl をリダイレクトレコードへ同期する。
+async function handleFriendSubmitOrder(request, env, cors) {
+  const friend = await requireFriend(request, env);
+  if (!friend) return json({ error: 'unauthorized', message: 'ログインが必要です' }, 401, cors);
+
+  const body = await request.json().catch(() => ({}));
+  const orderId = (body.orderId || '').trim();
+  if (!orderId) return json({ error: 'orderId が必要です' }, 400, cors);
+
+  const nfcRaw = await env.NFC_URLS.get(orderId);
+  if (!nfcRaw) return json({ error: 'not_found', message: '注文が見つかりません' }, 404, cors);
+  const nfc = JSON.parse(nfcRaw);
+  if (nfc.friendOwner !== friend.loginId) return json({ error: 'forbidden', message: 'この注文は送信できません' }, 403, cors);
+  if (nfc.cancelled) return json({ error: 'cancelled', message: 'キャンセル済みの注文は送信できません' }, 409, cors);
+
+  const now = new Date().toISOString();
+  let rec;
+  if (body.order && typeof body.order === 'object') {
+    // page2 互換ペイロードを本体として保存（friendOwner / draft / note は先頭側に固定）
+    rec = { orderId, friendOwner: friend.loginId, draft: false, updatedAt: now, submittedAt: now };
+    for (const k of Object.keys(body.order)) {
+      if (!(k in rec)) rec[k] = body.order[k];
+    }
+    if (body.note != null) rec.note = String(body.note).slice(0, 5000);
+    rec.savedAt = now;
+  } else {
+    // ペイロード無し：保存済みの下書きをそのまま確定
+    const raw = await env.NFC_URLS.get('ORDER:' + orderId);
+    if (!raw) return json({ error: 'not_found', message: '下書きが見つかりません' }, 404, cors);
+    rec = JSON.parse(raw);
+    rec.draft = false;
+    rec.updatedAt = now;
+    rec.submittedAt = now;
+    if (body.note != null) rec.note = String(body.note).slice(0, 5000);
+  }
+  await env.NFC_URLS.put('ORDER:' + orderId, JSON.stringify(rec));
+
+  // 素のNFCレコード側の draft フラグを下ろす（管理一覧のバッジが「新しい注文」に変わる）
+  nfc.draft = false;
+  nfc.updatedAt = now;
+  nfc.submittedAt = now;
+  await env.NFC_URLS.put(orderId, JSON.stringify(nfc));
+
+  // 転送先URLをリダイレクトレコードへ同期（save-order と同じ挙動：空文字は既存を保持）
+  if (body.order && typeof body.order.nfcUrl === 'string' && body.order.nfcUrl.trim() !== '') {
+    if (nfc.url !== body.order.nfcUrl) pushHistory(nfc, body.order.nfcUrl);
+    nfc.url = body.order.nfcUrl;
+    nfc.updatedAt = new Date().toISOString();
+    await env.NFC_URLS.put(orderId, JSON.stringify(nfc));
+  }
+  if (body.order && typeof body.order.qrUrl === 'string' && body.order.qrUrl.trim() !== '') {
+    const qrRaw = await env.NFC_URLS.get('QR:' + orderId);
+    const qr = qrRaw ? JSON.parse(qrRaw) : {
+      orderId, url: '', history: [],
+      registeredAt: new Date().toISOString(), accessCount: 0, lastAccess: null,
+    };
+    if (qr.url !== body.order.qrUrl) pushHistory(qr, body.order.qrUrl);
+    qr.url = body.order.qrUrl;
+    qr.updatedAt = new Date().toISOString();
+    await env.NFC_URLS.put('QR:' + orderId, JSON.stringify(qr));
+  }
+
+  // 管理者へメール通知：既存の MSG:（お問い合わせ）キューに積む → Code.gs が中継して送信
+  try {
+    const ts = Date.now();
+    const id = 'MSG:' + ts + '-' + Math.random().toString(36).slice(2, 8);
+    await env.NFC_URLS.put(id, JSON.stringify({
+      id, ts,
+      order:   orderId,
+      contact: '（自動通知）友人注文の送信',
+      text:    '友人アカウントから注文が送信されました。\nログインID：' + friend.loginId
+             + '\nお名前：' + (friend.name || '')
+             + '\n注文番号：' + orderId
+             + '\n送信日時：' + now,
+      emailed: false,
+      read:    false,
+    }));
+  } catch (e) { /* 通知失敗しても送信自体は成功扱い */ }
+
+  return json({ ok: true, orderId, submittedAt: now }, 200, cors);
+}
+
+// ── 要ログイン：自分の注文履歴（下書き・キャンセル含む。list() は使わず ordersIndex を辿る）──
+async function handleFriendOrderHistory(request, env, cors) {
+  const friend = await requireFriend(request, env);
+  if (!friend) return json({ error: 'unauthorized', message: 'ログインが必要です' }, 401, cors);
+
+  const ids = friend.ordersIndex || [];
+  const orders = (await Promise.all(ids.map(async orderId => {
+    try {
+      const nfcRaw = await env.NFC_URLS.get(orderId);
+      if (!nfcRaw) return null;                       // レコードごと消えた注文（下書きキャンセル等）は除外
+      const nfc = JSON.parse(nfcRaw);
+      if (nfc.friendOwner !== friend.loginId) return null;
+
+      const head = await friendOrderHeadInfo(env, orderId); // draft / updatedAt を軽量取得
+      const isDraft = head && head.draft != null ? head.draft : !!nfc.draft;
+
+      let status;
+      if (nfc.cancelled)     status = 'cancelled';
+      else if (isDraft)      status = 'drafting';
+      else if (nfc.made)     status = 'made';
+      else                   status = 'ordered';
+
+      return {
+        orderId,
+        status,
+        registeredAt: nfc.registeredAt || null,
+        updatedAt:    (head && head.updatedAt) || nfc.updatedAt || null,
+        submittedAt:  nfc.submittedAt || null,
+        madeAt:       nfc.madeAt      || null,
+        cancelledAt:  nfc.cancelledAt || null,
+      };
+    } catch (e) { return null; }
+  }))).filter(Boolean);
+
+  // 新しいものが上（更新日 → 登録日の順で比較）
+  orders.sort((a, b) => new Date(b.updatedAt || b.registeredAt || 0) - new Date(a.updatedAt || a.registeredAt || 0));
+  return json({ ok: true, name: friend.name || '', orders }, 200, cors);
+}
+
+// ── 要ログイン：注文キャンセル ──
+// 下書き（draft:true）… レコードごと削除（ORDER: / 素のNFC / QR: を消し ordersIndex からも除去）
+// 送信済み（draft:false）… cancelled フラグを立てる（made 開始後は不可。3日制限は友人には適用しない）
+async function handleFriendCancelOrder(request, env, cors) {
+  const friend = await requireFriend(request, env);
+  if (!friend) return json({ error: 'unauthorized', message: 'ログインが必要です' }, 401, cors);
+
+  const body = await request.json().catch(() => ({}));
+  const orderId = (body.orderId || '').trim();
+  if (!orderId) return json({ error: 'orderId が必要です' }, 400, cors);
+
+  const nfcRaw = await env.NFC_URLS.get(orderId);
+  if (!nfcRaw) return json({ error: 'not_found', message: '注文が見つかりません' }, 404, cors);
+  const nfc = JSON.parse(nfcRaw);
+  if (nfc.friendOwner !== friend.loginId) return json({ error: 'forbidden', message: 'この注文はキャンセルできません' }, 403, cors);
+  if (nfc.made) return json({ error: 'made', message: '制作済みのためキャンセルできません' }, 403, cors);
+  if (nfc.cancelled) return json({ ok: true, cancelled: true }, 200, cors); // 冪等
+
+  if (nfc.draft !== false) {
+    // 下書き：完全削除
+    await env.NFC_URLS.delete('ORDER:' + orderId);
+    await env.NFC_URLS.delete('QR:' + orderId);
+    await env.NFC_URLS.delete(orderId);
+    friend.ordersIndex = (friend.ordersIndex || []).filter(id => id !== orderId);
+    await putFriend(env, friend);
+    return json({ ok: true, deleted: true }, 200, cors);
+  }
+
+  // 送信済み：キャンセルフラグ
+  const now = new Date().toISOString();
+  nfc.cancelled   = true;
+  nfc.cancelledAt = now;
+  await env.NFC_URLS.put(orderId, JSON.stringify(nfc));
+
+  // 管理者へ自動通知（お客様キャンセルと同じ MSG: キュー）
+  try {
+    const ts = Date.now();
+    const id = 'MSG:' + ts + '-' + Math.random().toString(36).slice(2, 8);
+    await env.NFC_URLS.put(id, JSON.stringify({
+      id, ts,
+      order:   orderId,
+      contact: '（自動通知）友人注文のキャンセル',
+      text:    '友人アカウントの注文がキャンセルされました。\nログインID：' + friend.loginId
+             + '\n注文番号：' + orderId
+             + '\nキャンセル日時：' + now,
+      emailed: false,
+      read:    false,
+    }));
+  } catch (e) { /* 通知失敗してもキャンセル自体は成功扱い */ }
+
+  return json({ ok: true, cancelled: true, cancelledAt: now }, 200, cors);
+}
+
+// ── 要ログイン：ログインID変更（注文の friendOwner も付け替える）──
+async function handleFriendChangeId(request, env, cors) {
+  if (!encryptionReady(env)) return encryptionNotReady(cors);
+  const friend = await requireFriend(request, env);
+  if (!friend) return json({ error: 'unauthorized', message: 'ログインが必要です' }, 401, cors);
+
+  const body = await request.json().catch(() => ({}));
+  const newId = (body.newLoginId || '').trim();
+  if (!(await matchesEncrypted(env, friend.passwordEnc, body.currentPassword || '')))
+    return json({ error: 'auth_failed', message: '現在のパスワードが違います' }, 401, cors);
+  if (!isValidLoginId(newId)) return json({ error: 'invalid_id', message: 'ログインIDは空白を含まない30文字以内で入力してください' }, 400, cors);
+  if (newId === friend.loginId) return json({ error: 'same_id', message: '現在と同じIDです' }, 400, cors);
+  const exists = await env.NFC_URLS.get('FRIEND:' + newId);
+  if (exists) return json({ error: 'id_taken', message: 'このログインIDはすでに使われています' }, 409, cors);
+
+  const oldId = friend.loginId;
+  friend.loginId = newId;
+  await putFriend(env, friend);
+
+  // ordersIndex を辿って注文側の friendOwner を新IDへ付け替え（list() 不要）
+  for (const orderId of (friend.ordersIndex || [])) {
+    try {
+      const nfcRaw = await env.NFC_URLS.get(orderId);
+      if (nfcRaw) {
+        const nfc = JSON.parse(nfcRaw);
+        if (nfc.friendOwner === oldId) { nfc.friendOwner = newId; await env.NFC_URLS.put(orderId, JSON.stringify(nfc)); }
+      }
+      const ordRaw = await env.NFC_URLS.get('ORDER:' + orderId);
+      if (ordRaw) {
+        const ord = JSON.parse(ordRaw);
+        if (ord.friendOwner === oldId) { ord.friendOwner = newId; await env.NFC_URLS.put('ORDER:' + orderId, JSON.stringify(ord)); }
+      }
+    } catch (e) { /* 1件の失敗で全体を止めない */ }
+  }
+
+  await env.NFC_URLS.delete('FRIEND:' + oldId);
+  const index = await getFriendIndex(env);
+  const updated = index.filter(id => id !== oldId);
+  if (!updated.includes(newId)) updated.push(newId);
+  await putFriendIndex(env, updated);
+
+  // 旧IDを指す既存セッションは無効になる → 再ログインを促す
+  const token = friendSessionToken(request);
+  if (token) await env.NFC_URLS.delete('FRIEND_SESSION:' + token);
+  return json({ ok: true, loginId: newId, requireRelogin: true }, 200, cors);
+}
+
+// ── 要ログイン：パスワード変更 ──
+async function handleFriendChangePassword(request, env, cors) {
+  if (!encryptionReady(env)) return encryptionNotReady(cors);
+  const friend = await requireFriend(request, env);
+  if (!friend) return json({ error: 'unauthorized', message: 'ログインが必要です' }, 401, cors);
+
+  const body = await request.json().catch(() => ({}));
+  if (!(await matchesEncrypted(env, friend.passwordEnc, body.currentPassword || '')))
+    return json({ error: 'auth_failed', message: '現在のパスワードが違います' }, 401, cors);
+  if (!isValidPassword(body.newPassword || ''))
+    return json({ error: 'password_weak', message: '条件が足りません（大文字・小文字・数字を含む8文字以上）' }, 400, cors);
+
+  friend.passwordEnc = await encryptText(env, body.newPassword);
+  await putFriend(env, friend);
+  return json({ ok: true }, 200, cors);
+}
+
+// ── 要ログイン：秘密の質問・答えの変更 ──
+async function handleFriendChangeQuestion(request, env, cors) {
+  if (!encryptionReady(env)) return encryptionNotReady(cors);
+  const friend = await requireFriend(request, env);
+  if (!friend) return json({ error: 'unauthorized', message: 'ログインが必要です' }, 401, cors);
+
+  const body = await request.json().catch(() => ({}));
+  if (!(await matchesEncrypted(env, friend.passwordEnc, body.currentPassword || '')))
+    return json({ error: 'auth_failed', message: '現在のパスワードが違います' }, 401, cors);
+  const question = (body.question || '').trim();
+  const answer   = (body.answer   || '').trim().slice(0, 100);
+  if (!SECRET_QUESTIONS.includes(question))
+    return json({ error: 'invalid_question', message: '秘密の質問を選択してください' }, 400, cors);
+  if (!answer) return json({ error: 'invalid_answer', message: '秘密の答えを入力してください' }, 400, cors);
+
+  friend.question  = question;
+  friend.answerEnc = await encryptText(env, answer);
+  await putFriend(env, friend);
+  return json({ ok: true }, 200, cors);
+}
+
+// ── 要ログイン：アカウント削除（注文レコードは残す＝管理画面には引き続き表示される）──
+async function handleFriendDeleteAccount(request, env, cors) {
+  if (!encryptionReady(env)) return encryptionNotReady(cors);
+  const friend = await requireFriend(request, env);
+  if (!friend) return json({ error: 'unauthorized', message: 'ログインが必要です' }, 401, cors);
+
+  const body = await request.json().catch(() => ({}));
+  if (!(await matchesEncrypted(env, friend.passwordEnc, body.currentPassword || '')))
+    return json({ error: 'auth_failed', message: '現在のパスワードが違います' }, 401, cors);
+
+  await deleteFriendAccount(env, friend);
+  const token = friendSessionToken(request);
+  if (token) await env.NFC_URLS.delete('FRIEND_SESSION:' + token);
+  return json({ ok: true }, 200, cors);
+}
+
+// アカウント削除の共通処理（本人削除・管理者削除の両方から使う）
+async function deleteFriendAccount(env, friend) {
+  await env.NFC_URLS.delete('FRIEND:' + friend.loginId);
+  const index = await getFriendIndex(env);
+  await putFriendIndex(env, index.filter(id => id !== friend.loginId));
+}
+
+// ── 管理者：友人ユーザー一覧（FRIEND_INDEX ベース。list() は使わない）──
+async function handleAdminFriendList(request, env, cors) {
+  const auth = request.headers.get('Authorization');
+  if (auth !== adminBearer(env)) return json({ error: '認証エラー' }, 401, cors);
+
+  const index = await getFriendIndex(env);
+  const users = (await Promise.all(index.map(async loginId => {
+    const f = await getFriend(env, loginId);
+    if (!f) return null;
+    return { loginId: f.loginId, name: f.name || '', createdAt: f.createdAt || null, orderCount: (f.ordersIndex || []).length };
+  }))).filter(Boolean);
+  return json({ ok: true, users }, 200, cors);
+}
+
+// ── 管理者：友人ユーザー詳細（アカウント情報＋注文履歴。暗号化フィールドは返さない）──
+async function handleAdminFriendDetail(request, env, cors) {
+  const auth = request.headers.get('Authorization');
+  if (auth !== adminBearer(env)) return json({ error: '認証エラー' }, 401, cors);
+
+  const url = new URL(request.url);
+  const friend = await getFriend(env, (url.searchParams.get('loginId') || '').trim());
+  if (!friend) return json({ error: 'not_found', message: 'ユーザーが見つかりません' }, 404, cors);
+
+  const orders = (await Promise.all((friend.ordersIndex || []).map(async orderId => {
+    try {
+      const nfcRaw = await env.NFC_URLS.get(orderId);
+      if (!nfcRaw) return null;
+      const nfc = JSON.parse(nfcRaw);
+      const head = await friendOrderHeadInfo(env, orderId);
+      const isDraft = head && head.draft != null ? head.draft : !!nfc.draft;
+      let status;
+      if (nfc.cancelled)  status = 'cancelled';
+      else if (isDraft)   status = 'drafting';
+      else if (nfc.made)  status = 'made';
+      else                status = 'ordered';
+      return { orderId, status, registeredAt: nfc.registeredAt || null, updatedAt: (head && head.updatedAt) || nfc.updatedAt || null };
+    } catch (e) { return null; }
+  }))).filter(Boolean);
+
+  return json({
+    ok: true,
+    user: { loginId: friend.loginId, name: friend.name || '', question: friend.question || '', createdAt: friend.createdAt || null },
+    orders,
+  }, 200, cors);
+}
+
+// ── 管理者：友人ユーザー強制削除 ──
+async function handleAdminFriendDelete(request, env, cors) {
+  const auth = request.headers.get('Authorization');
+  if (auth !== adminBearer(env)) return json({ error: '認証エラー' }, 401, cors);
+
+  const body = await request.json().catch(() => ({}));
+  const friend = await getFriend(env, (body.loginId || '').trim());
+  if (!friend) return json({ error: 'not_found', message: 'ユーザーが見つかりません' }, 404, cors);
+  await deleteFriendAccount(env, friend);
+  return json({ ok: true }, 200, cors);
+}
+
+// ── 管理者：パスワード／秘密の答えの復号表示（「表示」ボタン押下時のみ呼ばれる）──
+async function handleAdminFriendReveal(request, env, cors) {
+  const auth = request.headers.get('Authorization');
+  if (auth !== adminBearer(env)) return json({ error: '認証エラー' }, 401, cors);
+  if (!encryptionReady(env)) return encryptionNotReady(cors);
+
+  const body = await request.json().catch(() => ({}));
+  const friend = await getFriend(env, (body.loginId || '').trim());
+  if (!friend) return json({ error: 'not_found', message: 'ユーザーが見つかりません' }, 404, cors);
+
+  const field = body.field === 'answer' ? 'answer' : 'password';
+  const encObj = field === 'answer' ? friend.answerEnc : friend.passwordEnc;
+  if (!encObj) return json({ error: 'no_data', message: 'データがありません' }, 404, cors);
+  try {
+    const value = await decryptText(env, encObj);
+    return json({ ok: true, field, value }, 200, cors);
+  } catch (e) {
+    return json({ error: 'decrypt_failed', message: '復号に失敗しました' }, 500, cors);
+  }
+}
+
 // NFC / QR URL をまとめて変更（マイページの保存ボタン）
 // body に nfcUrl があれば NFC を、qrUrl があれば QR を更新（片方だけも可）
 async function handleCustomerSetAll(request, env, cors) {
@@ -576,7 +1294,8 @@ async function handleSetQR(request, env, cors) {
 function isNfcOrderKey(name) {
   return !name.startsWith('QR:')    && !name.startsWith('ORDER:') && !name.startsWith('OPT:')
       && !name.startsWith('MSG:')   && !name.startsWith('SUP:')   && !name.startsWith('RL:')
-      && name !== 'INVENTORY'       && name !== 'SELF_OPT';
+      && !name.startsWith('FRIEND:') && !name.startsWith('FRIEND_SESSION:')
+      && name !== 'INVENTORY'       && name !== 'SELF_OPT'        && name !== 'FRIEND_INDEX';
 }
 
 async function handleGet(request, env, cors) {
@@ -678,6 +1397,8 @@ async function handleGetAll(request, env, cors, ctx) {
       colorHex:      oColor,               // 土台の色（記号の色に使用）
       colorName:     oColorName,           // 色の名前（「作るもの」集計の表示用）
       made:          !!nfc.made,           // 製作完了（作成済み）フラグ
+      draft:         !!nfc.draft,          // 友人アカウントの下書き（注文中）フラグ。customer注文は常にfalse
+      friendOwner:   nfc.friendOwner || null, // 友人アカウントの注文の場合のみ loginId
       cancelled:     !!nfc.cancelled,      // キャンセル済みフラグ
       cancelledAt:   nfc.cancelledAt || null,
       confirmed:     !!nfc.confirmed,      // お客様が注文を確定（キャンセル不可ロック）
@@ -1082,7 +1803,13 @@ async function handleGetOrder(request, env, cors) {
 
 // 在庫・メンテナンス設定を保存（管理者専用）
 // KV に INVENTORY キーで以下の構造を保存：
-//   { maintenance: bool, maintenanceMsg: string, colors: { "カラー名": { soldOut: bool, hidden: bool } } }
+//   {
+//     maintenance: {
+//       all:   { on: bool, msg: string },                       // 全体メンテナンス
+//       pages: { "<pageKey>": { on: bool, msg: string }, ... }, // ページ個別メンテナンス
+//     },
+//     colors: { "カラー名": { soldOut: bool, hidden: bool } },
+//   }
 async function handleInventory(request, env, cors) {
   const auth = request.headers.get('Authorization');
   if (auth !== adminBearer(env)) return json({ error: '認証エラー' }, 401, cors);
@@ -1096,11 +1823,34 @@ async function handleInventory(request, env, cors) {
   return json({ ok: true, inventory: updated }, 200, cors);
 }
 
-// 在庫・メンテナンス設定を取得（公開・認証不要 → page2 から参照）
+// メンテナンス対象ページの一覧（管理画面のページ別トグルと各ページの PAGE_KEY に対応）
+const MAINT_PAGE_KEYS = [
+  'page1', 'page2', 'page3', 'page4', 'home', 'message', 'order-history', 'self', 'self-login',
+  'self-home', 'self-page1', 'self-page2', 'self-page3', 'self-page4',
+  'self-message', 'self-order-history', 'self-settings',
+];
+
+function defaultMaintenance() {
+  const pages = {};
+  for (const k of MAINT_PAGE_KEYS) pages[k] = { on: false, msg: '' };
+  return { all: { on: false, msg: '' }, pages };
+}
+
+// 在庫・メンテナンス設定を取得（公開・認証不要 → 各ページから参照）
 async function handleGetInventory(request, env, cors) {
   const stored = await env.NFC_URLS.get('INVENTORY');
-  if (!stored) return json({ ok: true, inventory: { maintenance: false, maintenanceMsg: '', colors: {} } }, 200, cors);
+  if (!stored) return json({ ok: true, inventory: { maintenance: defaultMaintenance(), colors: {} } }, 200, cors);
   return json({ ok: true, inventory: JSON.parse(stored) }, 200, cors);
+}
+
+// メンテナンス・バイパス認証（公開・専用パスワードのみでチェック。ADMIN_PASSWORDとは別物）
+async function handleMaintenanceBypassAuth(request, env, cors) {
+  const body = await request.json().catch(() => ({}));
+  const pw = body.password || '';
+  if (!env.MAINTENANCE_BYPASS_PASSWORD || pw !== env.MAINTENANCE_BYPASS_PASSWORD) {
+    return json({ ok: false }, 401, cors);
+  }
+  return json({ ok: true }, 200, cors);
 }
 
 // 全データをエクスポート（バックアップ書き出し）
@@ -2038,6 +2788,7 @@ body{font-family:'Noto Sans JP',sans-serif;background:var(--paper);color:var(--i
 .st-new{background:var(--blue-bg);color:var(--blue);}
 .st-none{background:#f1f3f6;color:#9ca3af;}
 .st-cancelled{background:#fde2e1;color:#c0392b;}
+.st-draft{background:#fef3c7;color:#92400e;}
 .st-confirmed{background:#e7eefc;color:#2f5fd0;margin-left:5px;}
 /* 先頭の状態ボタンは幅を固定して、以降のボタン位置を揃える */
 .st-toggle{display:inline-block;min-width:128px;text-align:center;}
@@ -2178,6 +2929,12 @@ tr:hover td{background:#f7f9fb;}
 .maint-msg-wrap input{width:100%;padding:9px 12px;border:1.5px solid var(--border);border-radius:9px;font-size:13px;font-family:'Noto Sans JP',sans-serif;outline:none;}
 .maint-msg-wrap input:focus{border-color:var(--accent);}
 .color-inv-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(140px,1fr));gap:10px;}
+.page-maint-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(240px,1fr));gap:10px;}
+.page-maint-item{background:var(--paper);border:1.5px solid var(--border);border-radius:10px;padding:12px;display:flex;flex-direction:column;gap:8px;}
+.page-maint-name{font-size:13px;font-weight:500;}
+.page-maint-key{font-size:10px;color:var(--muted);font-weight:400;margin-left:6px;}
+.page-maint-item input[type=text]{width:100%;padding:7px 10px;border:1.5px solid var(--border);border-radius:8px;font-size:12px;font-family:'Noto Sans JP',sans-serif;outline:none;}
+.page-maint-item input[type=text]:focus{border-color:var(--accent);}
 .color-inv-item{background:var(--paper);border:1.5px solid var(--border);border-radius:10px;padding:12px;display:flex;flex-direction:column;gap:8px;}
 .color-inv-swatch{width:36px;height:36px;border-radius:8px;border:2px solid rgba(0,0,0,.1);}
 .color-inv-name{font-size:13px;font-weight:500;}
@@ -2248,7 +3005,7 @@ tr:hover td{background:#f7f9fb;}
       <button class="menu-card" onclick="showInventory()">
         <div class="menu-icon">📦</div>
         <div class="menu-name">在庫・メンテナンス</div>
-        <div class="menu-desc">カラーの在庫切れ設定・注文フォームのメンテナンスモード</div>
+        <div class="menu-desc">カラーの在庫切れ設定・全体／ページ別メンテナンスモード</div>
       </button>
       <button class="menu-card" onclick="showBackup()">
         <div class="menu-icon">💾</div>
@@ -2275,6 +3032,11 @@ tr:hover td{background:#f7f9fb;}
         <div class="menu-name">自己登録の設定</div>
         <div class="menu-desc">自己登録ページから作る番号に最初から付けるオプションの設定</div>
       </button>
+      <button class="menu-card" onclick="showFriendUsers()">
+        <div class="menu-icon">👥</div>
+        <div class="menu-name">友人ユーザー管理</div>
+        <div class="menu-desc">友人向けアカウントの一覧・注文履歴・削除</div>
+      </button>
     </div>
   </div>
 
@@ -2300,6 +3062,7 @@ tr:hover td{background:#f7f9fb;}
       <div class="filter-group">
         <span class="filter-glabel">状態でしぼり込み</span>
         <button class="chip" data-genre="status" data-val="none" onclick="toggleChip(this)">未完成（注文なし）</button>
+        <button class="chip" data-genre="status" data-val="draft" onclick="toggleChip(this)">注文中</button>
         <button class="chip" data-genre="status" data-val="new"  onclick="toggleChip(this)">新しい注文</button>
         <button class="chip" data-genre="status" data-val="made" onclick="toggleChip(this)">作成済み</button>
         <button class="chip" data-genre="status" data-val="cancelled" onclick="toggleChip(this)">キャンセル済み</button>
@@ -2405,12 +3168,12 @@ tr:hover td{background:#f7f9fb;}
   <div id="inventoryView" class="wrap" style="display:none;">
     <div class="section-title">在庫・メンテナンス管理</div>
 
-    <!-- メンテナンスモード -->
+    <!-- 全体メンテナンス -->
     <div class="inv-card">
-      <div class="inv-card-head">🚧 メンテナンスモード</div>
+      <div class="inv-card-head">🚧 全体メンテナンス</div>
       <div class="inv-card-body">
         <p style="font-size:12px;color:var(--muted);margin-bottom:14px;">
-          ONにすると注文フォーム（page2）にメンテナンスバナーが表示され、注文送信がブロックされます。
+          ONにすると <b>全ページ</b> にメンテナンスバナーが表示され、注文送信がブロックされます。
         </p>
         <div class="maint-row">
           <div class="toggle-wrap">
@@ -2424,6 +3187,17 @@ tr:hover td{background:#f7f9fb;}
             <input type="text" id="maintMsg" placeholder="メンテナンス中メッセージ（例：現在準備中です）" maxlength="100">
           </div>
         </div>
+      </div>
+    </div>
+
+    <!-- ページ別メンテナンス -->
+    <div class="inv-card">
+      <div class="inv-card-head">📄 ページ別メンテナンス</div>
+      <div class="inv-card-body">
+        <p style="font-size:12px;color:var(--muted);margin-bottom:14px;">
+          ページごとに個別にメンテナンスバナーを表示できます（全体メンテナンスがONの場合はそちらが優先されます）。
+        </p>
+        <div class="page-maint-grid" id="pageMaintGrid"></div>
       </div>
     </div>
 
@@ -2545,6 +3319,19 @@ tr:hover td{background:#f7f9fb;}
         <span id="selfOptMsg" style="font-size:12px;color:var(--accent);margin-left:10px;"></span></div>
       </div>
     </div>
+  </div>
+
+  <!-- 友人ユーザー管理 -->
+  <div id="friendUsersView" class="wrap" style="display:none;">
+    <div class="section-title" style="margin-top:4px;">友人ユーザー管理</div>
+    <div class="backup-note" style="margin-bottom:16px;">
+      友人向けアカウント（ID・パスワードでログインするユーザー）の一覧です。行をクリックすると詳細（注文履歴・パスワード表示・削除）を開きます。
+    </div>
+    <div class="controls">
+      <button class="reload-btn" onclick="loadFriendUsers()">↺ 更新</button>
+    </div>
+    <div id="friendListBox"><div class="empty">読み込み中...</div></div>
+    <div id="friendDetailBox" style="display:none;"></div>
   </div>
 
   <!-- QRコード生成（注文番号から・注文が無くても作れる） -->
@@ -2785,7 +3572,7 @@ function enterApp() {
 
 // ─── 画面切り替え（各画面にURLハッシュを割り当て、ブラウザの戻る/進むで行き来できる）───
 function hideAll() {
-  ['homeView','keychainsView','delConfirmView','deletedView','inventoryView','backupView','optStockView','messagesView','selfOptView','qrGenView','supportView'].forEach(function(id){
+  ['homeView','keychainsView','delConfirmView','deletedView','inventoryView','backupView','optStockView','messagesView','selfOptView','qrGenView','supportView','friendUsersView'].forEach(function(id){
     document.getElementById(id).style.display = 'none';
   });
   document.getElementById('homeNavBtn').style.display = 'none';
@@ -2801,7 +3588,7 @@ function nav(view, push) {
 var ADMIN_ROUTES = {
   home: showHome, keychains: showKeychains, inventory: showInventory, backup: showBackup,
   optstock: showOptStock, messages: showMessages, selfopt: showSelfOpt, qrgen: showQrGen,
-  support: showSupport, delconfirm: showDelConfirm, deleted: showDeleted
+  support: showSupport, delconfirm: showDelConfirm, deleted: showDeleted, friends: showFriendUsers
 };
 // 現在のURLハッシュに合わせて画面を表示する。
 function adminRoute(push) {
@@ -2841,8 +3628,9 @@ function rowShapeMark(it) {
 }
 function rowBadges(it) {
   var stB = it.cancelled ? '<span class="st-badge st-cancelled">キャンセル済み</span>'
-    : (it.made ? '<span class="st-badge st-made">作成済み</span>'
-      : (it.hasOrder ? '<span class="st-badge st-new">新しい注文</span>' : '<span class="st-badge st-none">注文なし</span>'));
+    : (it.draft ? '<span class="st-badge st-draft">注文中</span>'
+      : (it.made ? '<span class="st-badge st-made">作成済み</span>'
+        : (it.hasOrder ? '<span class="st-badge st-new">新しい注文</span>' : '<span class="st-badge st-none">注文なし</span>')));
   var confB = (it.confirmed && !it.cancelled) ? '<span class="st-badge st-confirmed">🔒 確定済み</span>' : '';
   return stB + confB;
 }
@@ -3169,7 +3957,7 @@ function restoreListState() {
 function onListFilterChange() { saveListState(); renderList(); }
 function toggleChip(btn) { btn.classList.toggle('active'); saveListState(); renderList(); }
 // 注文の状態：作成済み / 新しい注文（注文あり・未作成）/ 未完成（注文なし）
-function itemStatus(it) { if (it.cancelled) return 'cancelled'; if (it.made) return 'made'; if (it.hasOrder) return 'new'; return 'none'; }
+function itemStatus(it) { if (it.cancelled) return 'cancelled'; if (it.draft) return 'draft'; if (it.made) return 'made'; if (it.hasOrder) return 'new'; return 'none'; }
 // 注文番号の桁数ジャンル：10桁 / 8桁 / その他
 function digitCat(oid) {
   oid = String(oid || '');
@@ -3242,9 +4030,11 @@ function renderList() {
       : '';
     const stB = cancelled
       ? '<span class="st-badge st-cancelled">キャンセル済み</span>'
-      : (made
-          ? '<span class="st-badge st-made">作成済み</span>'
-          : (hasOrder ? '<span class="st-badge st-new">新しい注文</span>' : '<span class="st-badge st-none">注文なし</span>'));
+      : (item.draft
+          ? '<span class="st-badge st-draft">注文中</span>'
+          : (made
+              ? '<span class="st-badge st-made">作成済み</span>'
+              : (hasOrder ? '<span class="st-badge st-new">新しい注文</span>' : '<span class="st-badge st-none">注文なし</span>')));
 
     html += '<tr class="sel-row" onclick="rowClick(\\'' + esc(oid) + '\\')">';
     const confB = (confirmed && !cancelled) ? '<span class="st-badge st-confirmed">🔒 確定済み</span>' : '';
@@ -3597,14 +4387,48 @@ document.getElementById('maintToggle').addEventListener('change', function () {
   document.getElementById('maintLabel').style.color = on ? '#e84040' : '';
 });
 
+// メンテナンス対象ページ定義（key はサーバー側 MAINT_PAGE_KEYS・各ページの PAGE_KEY と揃える）
+const MAINT_PAGES_DEF = [
+  { key: 'page1',              name: '注文番号入力' },
+  { key: 'page2',              name: '注文フォーム' },
+  { key: 'page3',              name: '注文確認' },
+  { key: 'page4',              name: 'オプション割り当て' },
+  { key: 'home',               name: 'ホーム' },
+  { key: 'message',            name: 'お問い合わせ' },
+  { key: 'order-history',      name: '注文履歴' },
+  { key: 'self',               name: '友人登録' },
+  { key: 'self-login',         name: '友人ログイン' },
+  { key: 'self-home',          name: '友人ホーム' },
+  { key: 'self-page1',         name: '友人注文フォーム①' },
+  { key: 'self-page2',         name: '友人注文フォーム②' },
+  { key: 'self-page3',         name: '友人注文フォーム③' },
+  { key: 'self-page4',         name: '友人注文フォーム④' },
+  { key: 'self-message',       name: '友人お問い合わせ' },
+  { key: 'self-order-history', name: '友人注文履歴' },
+  { key: 'self-settings',      name: '友人設定' },
+];
+
 async function loadInventory() {
   const r = await fetch(BASE + '/api/get-inventory');
   const d = await r.json();
   const inv = d.inventory || {};
+  const maint = inv.maintenance || {};
+  const maintAll = (maint && typeof maint === 'object' && maint.all) ? maint.all : {};
+  const maintPages = (maint && typeof maint === 'object' && maint.pages) ? maint.pages : {};
   const chk = document.getElementById('maintToggle');
-  chk.checked = !!inv.maintenance;
+  chk.checked = !!maintAll.on;
   chk.dispatchEvent(new Event('change'));
-  document.getElementById('maintMsg').value = inv.maintenanceMsg || '';
+  document.getElementById('maintMsg').value = maintAll.msg || '';
+
+  document.getElementById('pageMaintGrid').innerHTML = MAINT_PAGES_DEF.map(function (p) {
+    const st = maintPages[p.key] || {};
+    return '<div class="page-maint-item">' +
+      '<div class="inv-toggle-row"><span class="page-maint-name">' + esc(p.name) + '<span class="page-maint-key">' + esc(p.key) + '</span></span>' +
+        '<label class="toggle"><input type="checkbox" id="pm-on-' + esc(p.key) + '" ' + (st.on ? 'checked' : '') + '><span class="toggle-slider"></span></label>' +
+      '</div>' +
+      '<input type="text" id="pm-msg-' + esc(p.key) + '" placeholder="' + esc(p.name) + 'のメンテナンスメッセージ" maxlength="100" value="' + esc(st.msg || '') + '">' +
+    '</div>';
+  }).join('');
 
   const colorStates = inv.colors || {};
   document.getElementById('colorInvGrid').innerHTML = COLORS_DEF.map(function (c) {
@@ -3662,8 +4486,22 @@ async function saveInventory() {
       method: 'POST',
       headers: { 'Content-Type': 'application/json', Authorization: 'Bearer ' + PW },
       body: JSON.stringify({
-        maintenance:    document.getElementById('maintToggle').checked,
-        maintenanceMsg: document.getElementById('maintMsg').value.trim(),
+        maintenance: {
+          all: {
+            on:  document.getElementById('maintToggle').checked,
+            msg: document.getElementById('maintMsg').value.trim(),
+          },
+          pages: (function () {
+            const pages = {};
+            MAINT_PAGES_DEF.forEach(function (p) {
+              pages[p.key] = {
+                on:  !!(document.getElementById('pm-on-'  + p.key)?.checked),
+                msg: (document.getElementById('pm-msg-' + p.key)?.value || '').trim(),
+              };
+            });
+            return pages;
+          })(),
+        },
         colors,
       }),
     });
@@ -3672,6 +4510,134 @@ async function saveInventory() {
     else      toast('エラー: ' + (d.error||'不明'));
   } catch(e) { toast('通信エラー'); }
   btn.disabled = false; btn.textContent = '在庫設定を保存する';
+}
+
+// ─── 友人ユーザー管理 ───
+function showFriendUsers(push) {
+  hideAll();
+  document.getElementById('friendUsersView').style.display = 'block';
+  document.getElementById('homeNavBtn').style.display = 'inline-block';
+  nav('friends', push);
+  loadFriendUsers();
+}
+
+async function loadFriendUsers() {
+  var box = document.getElementById('friendListBox');
+  document.getElementById('friendDetailBox').style.display = 'none';
+  box.style.display = 'block';
+  box.innerHTML = '<div class="empty">読み込み中...</div>';
+  try {
+    const r = await fetch(BASE + '/api/admin-friend-list', { headers: { Authorization: 'Bearer ' + PW } });
+    const d = await r.json();
+    const users = (d && d.users) || [];
+    if (!users.length) { box.innerHTML = '<div class="empty">友人ユーザーはまだ登録されていません</div>'; return; }
+    box.innerHTML = '<div class="inv-card"><div class="inv-card-head">👥 登録ユーザー（' + users.length + '人）</div>'
+      + users.map(function (u) {
+          return '<div style="display:flex;align-items:center;justify-content:space-between;gap:10px;padding:14px 16px;border-bottom:1px solid var(--border);cursor:pointer;" onclick="openFriendDetail(\\'' + esc(u.loginId) + '\\')">'
+            + '<div><div style="font-size:14px;font-weight:700;">' + esc(u.name || '（名前なし）') + '</div>'
+            + '<div style="font-size:12px;color:var(--muted);margin-top:2px;">ID: ' + esc(u.loginId) + '</div></div>'
+            + '<div style="text-align:right;font-size:11px;color:var(--muted);">注文 ' + (u.orderCount || 0) + '件<br>' + (u.createdAt ? fmtDate(u.createdAt) + ' 登録' : '') + '</div>'
+            + '</div>';
+        }).join('')
+      + '</div>';
+  } catch (e) {
+    box.innerHTML = '<div class="empty">読み込みに失敗しました</div>';
+  }
+}
+
+var FRIEND_STATUS_BADGE = {
+  drafting:  '<span class="st-badge st-draft">注文中</span>',
+  ordered:   '<span class="st-badge st-new">注文済み</span>',
+  made:      '<span class="st-badge st-made">制作済み</span>',
+  cancelled: '<span class="st-badge st-cancelled">キャンセル済み</span>',
+};
+
+async function openFriendDetail(loginId) {
+  var box = document.getElementById('friendDetailBox');
+  document.getElementById('friendListBox').style.display = 'none';
+  box.style.display = 'block';
+  box.innerHTML = '<div class="empty">読み込み中...</div>';
+  try {
+    const r = await fetch(BASE + '/api/admin-friend-detail?loginId=' + encodeURIComponent(loginId), { headers: { Authorization: 'Bearer ' + PW } });
+    const d = await r.json();
+    if (!d || !d.ok) { box.innerHTML = '<div class="empty">' + esc((d && d.message) || '取得に失敗しました') + '</div>'; return; }
+    const u = d.user;
+    const orders = d.orders || [];
+    var html = '<div style="margin-bottom:12px;"><button class="edit-btn" onclick="loadFriendUsers()">← ユーザー一覧に戻る</button></div>';
+    html += '<div class="inv-card"><div class="inv-card-head">👤 アカウント情報</div><div class="inv-card-body">';
+    html += '<div style="font-size:13px;line-height:2.1;">';
+    html += 'お名前：<b>' + esc(u.name || '—') + '</b><br>';
+    html += 'ログインID：<b>' + esc(u.loginId) + '</b><br>';
+    html += '登録日：' + (u.createdAt ? fmtDate(u.createdAt) : '—') + '<br>';
+    html += 'パスワード：<span id="frRevealPw">••••••••</span> <button class="edit-btn" id="frRevealPwBtn" onclick="toggleFriendReveal(\\'' + esc(u.loginId) + '\\',\\'password\\',\\'frRevealPw\\',\\'frRevealPwBtn\\')">表示</button><br>';
+    html += '秘密の質問：' + esc(u.question || '—') + '<br>';
+    html += '秘密の答え：<span id="frRevealAns">••••••••</span> <button class="edit-btn" id="frRevealAnsBtn" onclick="toggleFriendReveal(\\'' + esc(u.loginId) + '\\',\\'answer\\',\\'frRevealAns\\',\\'frRevealAnsBtn\\')">表示</button>';
+    html += '</div></div></div>';
+
+    html += '<div class="inv-card"><div class="inv-card-head">📦 注文履歴（' + orders.length + '件）</div>';
+    if (!orders.length) {
+      html += '<div class="inv-card-body"><div style="font-size:12px;color:var(--muted);">注文はまだありません</div></div>';
+    } else {
+      html += orders.map(function (o) {
+        return '<div style="display:flex;align-items:center;justify-content:space-between;gap:10px;padding:12px 16px;border-bottom:1px solid var(--border);">'
+          + '<div><span class="order-id" style="font-weight:700;">' + esc(o.orderId) + '</span> '
+          + (FRIEND_STATUS_BADGE[o.status] || '') + '</div>'
+          + '<div style="font-size:11px;color:var(--muted);">' + (o.updatedAt ? '更新 ' + fmtDate(o.updatedAt) : (o.registeredAt ? fmtDate(o.registeredAt) : '')) + '</div>'
+          + '</div>';
+      }).join('');
+    }
+    html += '</div>';
+
+    html += '<div style="display:flex;justify-content:flex-end;margin-top:8px;">'
+      + '<button class="del-btn" onclick="deleteFriendUser(\\'' + esc(u.loginId) + '\\')">🗑 このユーザーを削除</button></div>';
+    box.innerHTML = html;
+  } catch (e) {
+    box.innerHTML = '<div class="empty">通信エラーが発生しました</div>';
+  }
+}
+
+// パスワード／秘密の答えの表示・非表示（表示ボタンを押した時だけ復号APIを叩く。平文は画面に持ち続けない）
+async function toggleFriendReveal(loginId, field, spanId, btnId) {
+  var span = document.getElementById(spanId);
+  var btn  = document.getElementById(btnId);
+  if (!span || !btn) return;
+  if (btn.dataset.shown === '1') {
+    span.textContent = '••••••••';
+    btn.dataset.shown = '';
+    btn.textContent = '表示';
+    return;
+  }
+  btn.disabled = true;
+  try {
+    const r = await fetch(BASE + '/api/admin-friend-reveal', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', Authorization: 'Bearer ' + PW },
+      body: JSON.stringify({ loginId: loginId, field: field }),
+    });
+    const d = await r.json();
+    if (d && d.ok) {
+      span.textContent = d.value;
+      btn.dataset.shown = '1';
+      btn.textContent = '隠す';
+    } else {
+      toast('取得に失敗しました：' + ((d && d.message) || '不明'));
+    }
+  } catch (e) { toast('通信エラー'); }
+  btn.disabled = false;
+}
+
+async function deleteFriendUser(loginId) {
+  if (!confirm('本当に削除しますか？\\n「' + loginId + '」のアカウントは元に戻せません（注文レコードは残ります）。')) return;
+  try {
+    const r = await fetch(BASE + '/api/admin-friend-delete', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', Authorization: 'Bearer ' + PW },
+      body: JSON.stringify({ loginId: loginId }),
+    });
+    const d = await r.json();
+    if (d && d.ok) { toast('削除しました ✓'); loadFriendUsers(); }
+    else toast('削除に失敗しました：' + ((d && d.message) || '不明'));
+  } catch (e) { toast('通信エラー'); }
 }
 
 // ─── バックアップ ───

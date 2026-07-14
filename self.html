@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>番号登録</title>
+<title>アカウント新規登録</title>
 <style>
 @import url('https://fonts.googleapis.com/css2?family=Mochiy+Pop+One&family=Noto+Sans+JP:wght@300;400;500;700&display=swap');
 :root{
@@ -49,6 +49,25 @@ input[type="text"]:focus{border-color:var(--accent);box-shadow:0 0 0 4px rgba(25
 /* エラー */
 .error-msg{font-size:12px;color:#e0392b;margin-top:8px;display:none;line-height:1.6;}
 .footer{position:relative;z-index:1;text-align:center;padding:20px;font-size:11px;color:var(--muted);letter-spacing:.04em;}
+
+/* アカウント登録フォーム用の追加スタイル */
+.form-group{margin-bottom:20px;}
+input[type="password"]{width:100%;padding:15px 48px 15px 16px;background:var(--surface);border:2px solid var(--border);border-radius:14px;font-family:'Noto Sans JP',sans-serif;font-size:16px;letter-spacing:.06em;color:var(--ink);outline:none;transition:border-color .2s,box-shadow .2s;}
+input[type="password"]::placeholder{color:#c9c2bd;}
+input[type="password"]:focus{border-color:var(--accent);box-shadow:0 0 0 4px rgba(255,122,89,.18);}
+select{width:100%;padding:15px 16px;background:var(--surface);border:2px solid var(--border);border-radius:14px;font-family:'Noto Sans JP',sans-serif;font-size:14px;color:var(--ink);outline:none;transition:border-color .2s,box-shadow .2s;appearance:auto;}
+select:focus{border-color:var(--accent);box-shadow:0 0 0 4px rgba(255,122,89,.18);}
+:root[data-theme="night"] input[type="password"]{background:rgba(0,0,0,.26);}
+:root[data-theme="night"] input[type="password"]::placeholder{color:#6f6880;}
+:root[data-theme="night"] select{background:rgba(0,0,0,.26);}
+:root[data-theme="night"] select option{background:#1b1726;color:var(--ink);}
+.field-check{font-size:11px;margin-top:6px;line-height:1.6;display:none;}
+.field-check.ok{display:block;color:#15803d;}
+.field-check.ng{display:block;color:#e0392b;}
+.pw-rules{list-style:none;font-size:11px;color:var(--muted);margin-top:8px;line-height:1.8;}
+.pw-rules li::before{content:'✕ ';color:#e0392b;font-weight:700;}
+.pw-rules li.ok{color:#15803d;}
+.pw-rules li.ok::before{content:'✓ ';color:#15803d;}
 
 /* テーマ切替ボタン */
 .topbar{display:flex;align-items:center;justify-content:space-between;}
@@ -124,7 +143,7 @@ if(document.readyState!=='loading')w();else document.addEventListener('DOMConten
 </head>
 <body>
 <div class="float-cluster"><button id="themeToggle" class="theme-toggle" type="button" aria-label="ライト/ダーク表示を切り替え"><svg class="ic-moon" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M21 12.8A9 9 0 1 1 11.2 3a7 7 0 0 0 9.8 9.8Z"/></svg><svg class="ic-sun" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><circle cx="12" cy="12" r="4"/><path d="M12 3v1.5M12 19.5V21M3 12h1.5M19.5 12H21M5.6 5.6l1 1M17.4 17.4l1 1M18.4 5.6l-1 1M6.6 17.4l-1 1"/></svg></button><button id="navToggle" class="nav-toggle" type="button" aria-label="メニューを開く"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><path d="M3 6h18M3 12h18M3 18h18"/></svg></button></div>
-<div class="nav-overlay" id="navOverlay"></div><nav class="nav-drawer" id="navDrawer" aria-hidden="true"><div class="nav-dhead"><span class="nav-dtitle">メニュー</span><button class="nav-close" id="navClose" type="button" aria-label="閉じる"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><path d="M6 6l12 12M18 6L6 18"/></svg></button></div><a class="nav-link cur" href="self.html"><span class="nav-ic">🆕</span>番号を登録</a><a class="nav-link" href="self-login.html"><span class="nav-ic">🔄</span>登録済みでやり直す</a><a class="nav-link" href="order-history.html"><span class="nav-ic">📋</span>注文履歴</a></nav>
+<div class="nav-overlay" id="navOverlay"></div><nav class="nav-drawer" id="navDrawer" aria-hidden="true"><div class="nav-dhead"><span class="nav-dtitle">メニュー</span><button class="nav-close" id="navClose" type="button" aria-label="閉じる"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><path d="M6 6l12 12M18 6L6 18"/></svg></button></div><a class="nav-link cur" href="self.html"><span class="nav-ic">🆕</span>アカウント新規登録</a><a class="nav-link" href="self-login.html"><span class="nav-ic">🔑</span>ログイン</a></nav>
 
 <div class="wrap">
   <div class="logo-block">
@@ -141,27 +160,71 @@ if(document.readyState!=='loading')w();else document.addEventListener('DOMConten
   </div>
 
   <div class="card">
-    <div class="card-title">番号を登録</div>
-    <div class="card-desc">お名前を入力して登録すると、10桁の注文番号を<strong>自動で発行</strong>します。登録するとそのままカスタマイズに進めます。</div>
+    <div class="card-title">アカウント新規登録</div>
+    <div class="card-desc">アカウントを作ると、何度でもログインして注文の下書き保存・再開・履歴確認ができます。</div>
 
-    <label for="nameInput">お名前</label>
-    <div class="input-wrap">
-      <input type="text" id="nameInput" placeholder="例：山田さん" maxlength="30" autocomplete="off">
-      <span class="input-icon">🙂</span>
+    <div class="form-group">
+      <label for="nameInput">お名前</label>
+      <div class="input-wrap">
+        <input type="text" id="nameInput" placeholder="例：山田太郎" maxlength="30" autocomplete="off">
+        <span class="input-icon">🙂</span>
+      </div>
     </div>
+
+    <div class="form-group">
+      <label for="idInput">ログインID</label>
+      <div class="input-wrap">
+        <input type="text" id="idInput" placeholder="例：taro123" maxlength="30" autocomplete="off">
+        <span class="input-icon">🆔</span>
+      </div>
+      <div class="field-check" id="idCheck"></div>
+      <div class="input-hint">※ 空白なしの30文字以内。ログインのたびに使うので覚えやすいものにしてください。</div>
+    </div>
+
+    <div class="form-group">
+      <label for="pwInput">パスワード</label>
+      <div class="input-wrap">
+        <input type="password" id="pwInput" placeholder="8文字以上" maxlength="100" autocomplete="new-password">
+        <span class="input-icon">🔒</span>
+      </div>
+      <ul class="pw-rules" id="pwRules">
+        <li id="ruleLen">8文字以上</li>
+        <li id="ruleUpper">大文字（A-Z）を含む</li>
+        <li id="ruleLower">小文字（a-z）を含む</li>
+        <li id="ruleDigit">数字（0-9）を含む</li>
+      </ul>
+    </div>
+
+    <div class="form-group">
+      <label for="pwConfirm">パスワード（確認）</label>
+      <div class="input-wrap">
+        <input type="password" id="pwConfirm" placeholder="もう一度入力" maxlength="100" autocomplete="new-password">
+        <span class="input-icon">🔒</span>
+      </div>
+      <div class="field-check" id="pwMatch"></div>
+    </div>
+
+    <div class="form-group">
+      <label for="questionSelect">秘密の質問</label>
+      <select id="questionSelect"></select>
+      <div class="input-hint">※ パスワードを忘れたときの確認に使います。</div>
+    </div>
+
+    <div class="form-group">
+      <label for="answerInput">秘密の答え</label>
+      <div class="input-wrap">
+        <input type="text" id="answerInput" placeholder="答えを入力" maxlength="100" autocomplete="off">
+        <span class="input-icon">💡</span>
+      </div>
+    </div>
+
     <div class="error-msg" id="errorMsg">エラー</div>
-    <div class="input-hint">※ 注文番号は重複しないよう自動で発行されます。発行した番号は「注文履歴」にも自動で登録され、この端末から確認できます。</div>
 
     <button class="btn-next" onclick="register()">
-      番号を発行してカスタマイズへ
+      登録してはじめる
       <svg viewBox="0 0 16 16" fill="none"><path d="M3 8h10M9 4l4 4-4 4" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/></svg>
     </button>
-  </div>
-
-  <div class="steps-hint">
-    <div class="dot"></div>
-    <div class="dot dot-off"></div>
-    <span class="steps-hint-label">ステップ 1 / 2</span>
+    <div class="input-hint" style="text-align:center;margin-top:16px;">すでにアカウントをお持ちの方は <a href="self-login.html" style="color:var(--accent);font-weight:700;">ログイン</a></div>
   </div>
 </div>
 
@@ -169,60 +232,238 @@ if(document.readyState!=='loading')w();else document.addEventListener('DOMConten
 
 <script>
 const WORKER_ORIGIN = sessionStorage.getItem('workerOrigin') || 'https://buki-booth.com';
-function goNext(orderId) { sessionStorage.setItem('orderId', orderId); window.location.href = 'page2.html'; }
-// 注文番号を端末の「注文履歴」に自動登録（order-history.html と同じ localStorage キー）
-function addOrderToHistory(orderId) {
-  try {
-    var LS = 'buki_order_numbers';
-    var a = JSON.parse(localStorage.getItem(LS) || '[]');
-    if (a.indexOf(orderId) < 0) { a.unshift(orderId); localStorage.setItem(LS, JSON.stringify(a)); }
-  } catch (e) {}
-}
 
-// 10桁の番号を生成（先頭0を避ける）
-function gen10() { return String(Math.floor(1000000000 + Math.random() * 9000000000)); }
+// すでにログイン済みならホームへ
+if (localStorage.getItem('buki_friend_token')) { window.location.replace('self-home.html'); }
+
+// 秘密の質問の固定リスト（worker.js 側と揃える）
+const SECRET_QUESTIONS = [
+  '初恋の人の名前は？',
+  '出身小学校の名前は？',
+  '子供の頃に飼っていたペットの名前は？',
+  '好きな食べ物は？',
+  '母親の旧姓は？',
+  '初めて行った旅行先は？',
+];
+document.getElementById('questionSelect').innerHTML = SECRET_QUESTIONS
+  .map(function (q) { return '<option value="' + q + '">' + q + '</option>'; }).join('');
+
+function showErr(msg) { const e = document.getElementById('errorMsg'); e.textContent = msg; e.style.display = 'block'; }
+function hideErr()    { document.getElementById('errorMsg').style.display = 'none'; }
+
+// ── パスワード強度リアルタイム表示（worker側 isValidPassword と同じ条件）──
+function pwChecks(pw) {
+  return { len: pw.length >= 8, upper: /[A-Z]/.test(pw), lower: /[a-z]/.test(pw), digit: /[0-9]/.test(pw) };
+}
+function pwValid(pw) { const c = pwChecks(pw); return c.len && c.upper && c.lower && c.digit; }
+document.getElementById('pwInput').addEventListener('input', function () {
+  const c = pwChecks(this.value);
+  document.getElementById('ruleLen').className   = c.len   ? 'ok' : '';
+  document.getElementById('ruleUpper').className = c.upper ? 'ok' : '';
+  document.getElementById('ruleLower').className = c.lower ? 'ok' : '';
+  document.getElementById('ruleDigit').className = c.digit ? 'ok' : '';
+  updatePwMatch();
+  hideErr();
+});
+function updatePwMatch() {
+  const pw = document.getElementById('pwInput').value;
+  const cf = document.getElementById('pwConfirm').value;
+  const el = document.getElementById('pwMatch');
+  if (!cf) { el.className = 'field-check'; el.textContent = ''; return; }
+  if (pw === cf) { el.className = 'field-check ok'; el.textContent = '✓ 一致しています'; }
+  else           { el.className = 'field-check ng'; el.textContent = '✕ パスワードが一致しません'; }
+}
+document.getElementById('pwConfirm').addEventListener('input', function () { updatePwMatch(); hideErr(); });
+
+// ── ログインID重複チェック（debounce）──
+let idTimer = null;
+let idAvailable = false;
+document.getElementById('idInput').addEventListener('input', function () {
+  hideErr();
+  const el = document.getElementById('idCheck');
+  const v = this.value.trim();
+  idAvailable = false;
+  if (idTimer) clearTimeout(idTimer);
+  if (!v) { el.className = 'field-check'; el.textContent = ''; return; }
+  if (!/^[^\s:]{1,30}$/.test(v)) { el.className = 'field-check ng'; el.textContent = '✕ 空白を含まない30文字以内で入力してください'; return; }
+  el.className = 'field-check'; el.textContent = '';
+  idTimer = setTimeout(async function () {
+    try {
+      const r = await fetch(WORKER_ORIGIN + '/api/friend-check-id', {
+        method: 'POST', headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ loginId: v }),
+      });
+      const d = await r.json();
+      if (v !== document.getElementById('idInput').value.trim()) return; // 入力が変わっていたら破棄
+      if (d.available) { idAvailable = true; el.className = 'field-check ok'; el.textContent = '✓ 使用できます'; }
+      else             { el.className = 'field-check ng'; el.textContent = '✕ すでに使われています'; }
+    } catch (e) { /* チェック失敗時は登録時にサーバー側で弾かれる */ }
+  }, 400);
+});
 
 async function register() {
-  const nameI = document.getElementById('nameInput');
-  const btn   = document.querySelector('.btn-next');
-  const err   = document.getElementById('errorMsg');
-  const name  = nameI.value.trim();
-  if (!name) {
-    err.textContent = 'お名前を入力してください'; err.style.display = 'block'; nameI.style.borderColor = '#e05050'; return;
-  }
-  btn.disabled = true; const original = btn.textContent; btn.textContent = '番号を発行中...';
+  const btn      = document.querySelector('.btn-next');
+  const name     = document.getElementById('nameInput').value.trim();
+  const loginId  = document.getElementById('idInput').value.trim();
+  const password = document.getElementById('pwInput').value;
+  const confirm  = document.getElementById('pwConfirm').value;
+  const question = document.getElementById('questionSelect').value;
+  const answer   = document.getElementById('answerInput').value.trim();
+
+  if (!name)    return showErr('お名前を入力してください');
+  if (!/^[^\s:]{1,30}$/.test(loginId)) return showErr('ログインIDは空白を含まない30文字以内で入力してください');
+  if (!pwValid(password)) return showErr('パスワードの条件が足りません（大文字・小文字・数字を含む8文字以上）');
+  if (password !== confirm) return showErr('パスワード（確認）が一致しません');
+  if (!answer)  return showErr('秘密の答えを入力してください');
+
+  btn.disabled = true; const original = btn.textContent; btn.textContent = '登録中...';
   try {
-    // 端末側で10桁番号を自動生成して送る（旧/新どちらの worker でも動く）。
-    // 重複は worker が 'used' で弾くので、別番号で自動リトライ＝同じ番号は作られない。
-    let orderId = null, msg = '';
-    for (let i = 0; i < 8; i++) {
-      const cand = gen10();
-      const r = await fetch(WORKER_ORIGIN + '/api/self-register', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ orderId: cand, name: name }) });
-      const d = await r.json();
-      if (d && d.ok) { orderId = d.orderId || cand; break; }
-      if (d && d.error === 'used') continue;     // 衝突 → 別番号で再試行
-      msg = (d && d.message) || '';              // その他のエラーは中断
-      break;
+    const r = await fetch(WORKER_ORIGIN + '/api/friend-register', {
+      method: 'POST', headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ loginId: loginId, name: name, password: password, question: question, answer: answer }),
+    });
+    const d = await r.json();
+    if (d && d.ok && d.token) {
+      hideErr();
+      localStorage.setItem('buki_friend_token', d.token);
+      localStorage.setItem('buki_friend_name', d.name || name);
+      localStorage.setItem('buki_friend_login_id', loginId);
+      window.location.href = 'self-home.html';
+      return;
     }
-    if (orderId) {
-      err.style.display = 'none';
-      addOrderToHistory(orderId);   // 注文履歴に自動登録
-      goNext(orderId);
-    } else {
-      err.textContent = msg || '番号の発行に失敗しました。もう一度お試しください。'; err.style.display = 'block';
-      btn.disabled = false; btn.textContent = original;
-    }
+    showErr((d && d.message) || '登録に失敗しました。もう一度お試しください。');
   } catch (e) {
-    err.textContent = '通信エラーが発生しました。もう一度お試しください。'; err.style.display = 'block';
-    btn.disabled = false; btn.textContent = original;
+    showErr('通信エラーが発生しました。もう一度お試しください。');
   }
+  btn.disabled = false; btn.textContent = original;
 }
-document.getElementById('nameInput').addEventListener('input', () => { document.getElementById('errorMsg').style.display = 'none'; document.getElementById('nameInput').style.borderColor = ''; });
-document.getElementById('nameInput').addEventListener('keydown', e => { if (e.key === 'Enter') register(); });
+document.getElementById('answerInput').addEventListener('keydown', e => { if (e.key === 'Enter') register(); });
 </script>
 <script>
 (function(){var t=document.getElementById('navToggle'),d=document.getElementById('navDrawer'),o=document.getElementById('navOverlay'),c=document.getElementById('navClose');if(!t||!d)return;function op(){d.classList.add('open');if(o)o.classList.add('open');d.setAttribute('aria-hidden','false');}function cl(){d.classList.remove('open');if(o)o.classList.remove('open');d.setAttribute('aria-hidden','true');}t.addEventListener('click',op);if(c)c.addEventListener('click',cl);if(o)o.addEventListener('click',cl);document.addEventListener('keydown',function(e){if(e.key==='Escape')cl();});})();
 </script>
 
+
+<script>
+(function () {
+  const PAGE_KEY = 'self';
+  const WORKER_ORIGIN = sessionStorage.getItem('workerOrigin') || 'https://buki-booth.com';
+  const BYPASS_KEY = 'buki_maint_bypass_pw';
+
+  function setSubmitBlocked(blocked) { /* このページには送信ボタンなし */ }
+
+  function showBanner(msg) {
+    if (document.getElementById('maint-banner')) return;
+    const banner = document.createElement('div');
+    banner.id = 'maint-banner';
+    banner.style.cssText = 'position:fixed;inset:0;z-index:9999;background:rgba(10,10,20,.85);display:flex;align-items:center;justify-content:center;padding:24px;';
+    banner.innerHTML =
+      '<div style="background:#fff;border-radius:16px;padding:32px 24px;max-width:380px;width:100%;text-align:center;box-shadow:0 8px 40px rgba(0,0,0,.3);">' +
+        '<div style="font-size:40px;margin-bottom:12px;">🔧</div>' +
+        '<div style="font-size:18px;font-weight:700;margin-bottom:10px;">メンテナンス中</div>' +
+        '<div style="font-size:13px;color:#6b6860;line-height:1.7;">' + msg + '</div>' +
+      '</div>';
+    document.body.appendChild(banner);
+  }
+
+  function removeBanner() {
+    const b = document.getElementById('maint-banner');
+    if (b) b.remove();
+  }
+
+  function showBypassPrompt(onSuccess) {
+    if (document.getElementById('maint-bypass-modal')) return;
+    const wrap = document.createElement('div');
+    wrap.id = 'maint-bypass-modal';
+    wrap.style.cssText = 'position:fixed;inset:0;z-index:10000;background:rgba(0,0,0,.5);display:flex;align-items:center;justify-content:center;padding:24px;';
+    wrap.innerHTML =
+      '<div style="background:#fff;border-radius:14px;padding:24px;max-width:320px;width:100%;">' +
+        '<div style="font-weight:700;margin-bottom:12px;">管理者パスワード</div>' +
+        '<input type="password" id="maint-bypass-input" style="width:100%;padding:10px;border:1px solid #ccc;border-radius:8px;margin-bottom:8px;">' +
+        '<div id="maint-bypass-err" style="display:none;color:#e84040;font-size:12px;margin-bottom:8px;">パスワードが違います</div>' +
+        '<div style="display:flex;gap:8px;justify-content:flex-end;">' +
+          '<button id="maint-bypass-cancel" style="padding:8px 14px;">キャンセル</button>' +
+          '<button id="maint-bypass-ok" style="padding:8px 14px;">確認</button>' +
+        '</div>' +
+      '</div>';
+    document.body.appendChild(wrap);
+
+    document.getElementById('maint-bypass-cancel').onclick = function () { wrap.remove(); };
+    document.getElementById('maint-bypass-ok').onclick = async function () {
+      const pw = document.getElementById('maint-bypass-input').value;
+      try {
+        const r = await fetch(WORKER_ORIGIN + '/api/maintenance-bypass-auth', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ password: pw }),
+        });
+        const d = await r.json();
+        if (d.ok) {
+          localStorage.setItem(BYPASS_KEY, pw);
+          wrap.remove();
+          onSuccess();
+        } else {
+          document.getElementById('maint-bypass-err').style.display = 'block';
+        }
+      } catch (e) {
+        document.getElementById('maint-bypass-err').style.display = 'block';
+      }
+    };
+  }
+
+  async function checkBypassStored() {
+    const saved = localStorage.getItem(BYPASS_KEY);
+    if (!saved) return false;
+    try {
+      const r = await fetch(WORKER_ORIGIN + '/api/maintenance-bypass-auth', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ password: saved }),
+      });
+      const d = await r.json();
+      if (!d.ok) localStorage.removeItem(BYPASS_KEY);
+      return !!d.ok;
+    } catch (e) {
+      return false;
+    }
+  }
+
+  (async function initMaintenanceCheck() {
+    let isMaint = false;
+    let msg = 'ただいまメンテナンス中です。しばらくお待ちください。';
+    try {
+      const r = await fetch(WORKER_ORIGIN + '/api/get-inventory');
+      if (r.ok) {
+        const d = await r.json();
+        const m = (d.inventory && d.inventory.maintenance) || {};
+        const all = m.all || {};
+        const pg  = (m.pages && m.pages[PAGE_KEY]) || {};
+        isMaint = !!all.on || !!pg.on;
+        msg = (all.on && all.msg) || (pg.on && pg.msg) || msg;
+      }
+    } catch (e) { /* ネットワークエラー時は通常表示 */ }
+
+    if (!isMaint) return;
+
+    // すでにバイパス済みならバナーを出さない
+    const bypassed = await checkBypassStored();
+    if (bypassed) return;
+
+    showBanner(msg);
+    setSubmitBlocked(true);
+
+    // メンテ中のページだけ Ctrl+Shift+K を有効化
+    document.addEventListener('keydown', function (e) {
+      if (e.ctrlKey && e.shiftKey && (e.key === 'K' || e.key === 'k')) {
+        e.preventDefault();
+        showBypassPrompt(function () {
+          removeBanner();
+          setSubmitBlocked(false);
+        });
+      }
+    });
+  })();
+})();
+</script>
 </body>
 </html>

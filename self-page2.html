@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>NFC ORDER — カスタマイズ</title>
+<title>友人注文フォーム — BUKI BOOTH</title>
 <style>
 @import url('https://fonts.googleapis.com/css2?family=Mochiy+Pop+One&family=Noto+Sans+JP:wght@400;500;700;900&family=Syne:wght@700;800&display=swap');
 :root{
@@ -474,7 +474,44 @@ if(document.readyState!=='loading')w();else document.addEventListener('DOMConten
 </script>
 </head>
 <body>
-<div class="nav-overlay" id="navOverlay"></div><nav class="nav-drawer" id="navDrawer" aria-hidden="true"><div class="nav-dhead"><span class="nav-dtitle">メニュー</span><button class="nav-close" id="navClose" type="button" aria-label="閉じる"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><path d="M6 6l12 12M18 6L6 18"/></svg></button></div><a class="nav-link" href="home.html"><span class="nav-ic">🏠</span>ホーム</a><a class="nav-link" href="page1.html"><span class="nav-ic">📝</span>注文ページ</a><a class="nav-link" href="order-history.html"><span class="nav-ic">📋</span>注文履歴</a><a class="nav-link" href="https://buki-booth.com/portal"><span class="nav-ic">🔗</span>URL変更（マイページ）</a><a class="nav-link" href="page4.html"><span class="nav-ic">⚙️</span>オプション割り当て</a><a class="nav-link" href="message.html"><span class="nav-ic">✉️</span>お問い合わせ</a><a class="nav-link" href="https://buki-booth.com/support"><span class="nav-ic">🎫</span>サポート</a></nav>
+<script>
+// ── 友人アカウント共通：ログインチェック＋APIラッパー（各 self-* ページに同一コードを埋め込み）──
+const FRIEND_TOKEN_KEY = 'buki_friend_token';
+function friendToken() { return localStorage.getItem(FRIEND_TOKEN_KEY) || ''; }
+function friendLogoutLocal() {
+  localStorage.removeItem('buki_friend_token');
+  localStorage.removeItem('buki_friend_name');
+  localStorage.removeItem('buki_friend_login_id');
+}
+// 未ログインなら即ログインページへ
+if (!friendToken()) { window.location.replace('self-login.html'); }
+// Authorization ヘッダー付き fetch。401（トークン切れ）ならローカルを消してログインへ戻す
+async function friendFetch(url, opts) {
+  opts = opts || {};
+  opts.headers = Object.assign({}, opts.headers || {}, { 'Authorization': 'Bearer ' + friendToken() });
+  const r = await fetch(url, opts);
+  if (r.status === 401) {
+    friendLogoutLocal();
+    window.location.replace('self-login.html');
+    throw new Error('unauthorized');
+  }
+  return r;
+}
+async function friendLogout() {
+  try {
+    const WO = sessionStorage.getItem('workerOrigin') || 'https://buki-booth.com';
+    await fetch(WO + '/api/friend-logout', { method: 'POST', headers: { 'Authorization': 'Bearer ' + friendToken() } });
+  } catch (e) { /* 通信失敗してもローカルのログアウトは行う */ }
+  friendLogoutLocal();
+  window.location.href = 'self-login.html';
+}
+document.addEventListener('DOMContentLoaded', function () {
+  var lg = document.getElementById('navLogout');
+  if (lg) lg.addEventListener('click', function (ev) { ev.preventDefault(); friendLogout(); });
+});
+</script>
+
+<div class="nav-overlay" id="navOverlay"></div><nav class="nav-drawer" id="navDrawer" aria-hidden="true"><div class="nav-dhead"><span class="nav-dtitle">メニュー</span><button class="nav-close" id="navClose" type="button" aria-label="閉じる"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><path d="M6 6l12 12M18 6L6 18"/></svg></button></div><a class="nav-link" href="self-home.html"><span class="nav-ic">🏠</span>ホーム</a><a class="nav-link cur" href="self-page1.html"><span class="nav-ic">📝</span>新しく注文する</a><a class="nav-link" href="self-order-history.html"><span class="nav-ic">📋</span>注文履歴</a><a class="nav-link" href="self-page4.html"><span class="nav-ic">🧩</span>オプション割り当て</a><a class="nav-link" href="self-message.html"><span class="nav-ic">✉️</span>お問い合わせ</a><a class="nav-link" href="self-settings.html"><span class="nav-ic">⚙️</span>設定</a><a class="nav-link" href="#" id="navLogout"><span class="nav-ic">🚪</span>ログアウト</a></nav>
 <div class="bg-glow" aria-hidden="true"><div class="g g-top"></div><div class="g g-bot"></div></div>
 
 <div class="topbar">
@@ -490,7 +527,21 @@ if(document.readyState!=='loading')w();else document.addEventListener('DOMConten
 <div class="layout">
 <div class="form-col">
 
-<!-- 1. 土台カラー -->
+<!-- 0. こだわり・備考欄（友人アカウント専用） -->
+<div class="sec" id="secNote">
+  <div class="sec-head" style="cursor:default;">
+    <div class="sec-num">📝</div>
+    <div class="sec-title">こだわり・備考欄</div>
+    <div class="sec-status" id="ssNote">任意</div>
+  </div>
+  <div class="sec-body" id="sbNote">
+    <textarea id="noteInput" rows="3" maxlength="5000"
+      placeholder="サイズの細かい希望・色味のこだわり・その他伝えたいことがあれば自由にどうぞ"
+      style="width:100%;padding:12px 14px;border:1.5px solid var(--border);border-radius:12px;font-family:'Noto Sans JP',sans-serif;font-size:13px;line-height:1.7;background:var(--surface);color:var(--ink);outline:none;resize:vertical;"
+      oninput="S.note=this.value"></textarea>
+  </div>
+</div>
+
 <!-- 1. 土台カラー -->
 <div class="sec" id="sec1">
   <div class="sec-head" onclick="toggle(1)">
@@ -1003,6 +1054,8 @@ if(document.readyState!=='loading')w();else document.addEventListener('DOMConten
     <strong id="submitLabel">注文内容を確認して送信</strong>
     <span id="submitSub">全項目を設定してください</span>
   </div>
+  <button class="submit-btn" id="saveDraftBtn" onclick="friendSaveDraft(true)"
+    style="background:var(--surface);color:var(--accent);border:2px solid var(--accent);box-shadow:none;">保存する</button>
   <button class="submit-btn" id="submitBtn" onclick="doSubmit()">注文を送信 →</button>
 </div>
 
@@ -3300,7 +3353,15 @@ function showUrlWarning(warnings, callback) {
   document.getElementById('warnCancel').onclick = () => { d.remove(); callback(false); };
 }
 
-function submitOrder(orderData) {
+async function submitOrder(orderData) {
+  // 友人アカウント版：注文番号が未採番なら先に下書き保存で採番してから送信する
+  if (!/^[0-9]{10}$/.test(S.orderId)) {
+    const saved = await friendSaveDraft(false);
+    if (!saved) { toast('注文番号の発行に失敗しました。通信環境をご確認のうえ、もう一度お試しください。'); return; }
+  }
+  orderData.orderId = S.orderId;
+  orderData.note    = S.note || '';
+
   try {
     sessionStorage.setItem('orderData', JSON.stringify(orderData));
   } catch(e) {
@@ -3311,36 +3372,35 @@ function submitOrder(orderData) {
     try { sessionStorage.setItem('orderImgBack',  S.imgBack  || ''); } catch(_) {}
   }
 
-  const btn = document.querySelector('.submit-btn');
+  const btn = document.getElementById('submitBtn');
   if (btn) { btn.textContent = '送信中...'; btn.disabled = true; }
+  window.__friendSubmitting = true;   // 自動保存と競合しないように
 
   // 印刷用高解像度（実寸×1440dpi）の生成は重いので、ボタン表示を更新してから開始する
   setTimeout(function(){
     // KVの25MB制限に収まるよう、超える場合は印刷用を段階的に縮小（それでも無理なら添付なし＝従来どおり）
     const KV_SAFE = 20 * 1024 * 1024;
-    let body = JSON.stringify(orderData);
+    let payload = orderData;
     if (typeof leComposePrint === 'function') {
       for (const sk of [1, 0.7, 0.5]) {
         const pf = leComposePrint('front', sk);
         const pb = S.backPrint ? leComposePrint('back', sk) : null;
         if (!pf && !pb) break;
-        const b = JSON.stringify({ ...orderData, imgPrintFront: pf, imgPrintBack: pb });
-        if (b.length <= KV_SAFE) { body = b; break; }
+        const cand = { ...orderData, imgPrintFront: pf, imgPrintBack: pb };
+        if (JSON.stringify(cand).length <= KV_SAFE) { payload = cand; break; }
       }
     }
-    // 注文内容は公開APIの /api/save-order に保存する（登録済みの注文番号のみ許可）。
-    // 転送先URL(nfcUrl/qrUrl)も orderData に含めて送れば、Worker 側が NFC/QR レコードへ反映する。
-    // ※ 以前ここで管理者トークン付き /api/register を呼んでいたが、公開ページに管理者権限を
-    //   埋め込むのは重大な脆弱性だったため撤去した。page2 に管理者トークンは一切持たせない。
+    // 注文の確定は友人API /api/friend-submit-order で行う（draft:false になり管理画面に「新しい注文」で載る）。
+    // 注文内容（order）は customer 版 save-order と同じペイロードなので、管理画面の注文詳細もそのまま描画できる。
     Promise.race([
-      fetch(WORKER_ORIGIN + '/api/save-order', {
+      friendFetch(WORKER_ORIGIN + '/api/friend-submit-order', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: body,
+        body: JSON.stringify({ orderId: S.orderId, note: S.note || '', order: payload }),
       }).catch(() => {}),
-      new Promise(r => setTimeout(r, 30000))   // 高解像度画像のアップロードは時間がかかることがある（4秒だと途中で打ち切られる）
+      new Promise(r => setTimeout(r, 30000))   // 高解像度画像のアップロードは時間がかかることがある
     ]).then(() => {
-      window.location.href = 'page3.html';
+      window.location.href = 'self-page3.html';
     });
   }, 30);
 }
@@ -4555,8 +4615,221 @@ document.addEventListener('keydown', function(e){
 </script>
 
 <script>
+// ════════════════════════════════════════════════════════════
+// 友人アカウント：下書き保存・自動保存・ドラフト復元
+// - 保存：S を丸ごとシリアライズ（レイヤーは leSerialize で imgEl を除く）＋ QRS/NFCS/QTY
+// - 復元：Object.assign で S に書き戻し → レイヤーの imgEl を作り直し → UI 再構築
+// ════════════════════════════════════════════════════════════
+S.note = S.note || '';
+var lastSavedSnap = null;
+
+// S から保存用の draftData を組み立てる（imgEl などの生きた参照は含めない）
+function buildDraftData() {
+  const skip = { purchased: 1, layersFront: 1, layersBack: 1, dieBase: 1 };
+  const s = {};
+  Object.keys(S).forEach(function (k) { if (!skip[k]) s[k] = S[k]; });
+  s.layersFront = (typeof leSerialize    === 'function') ? leSerialize('front') : [];
+  s.layersBack  = (typeof leSerialize    === 'function') ? leSerialize('back')  : [];
+  s.dieBase     = (typeof leSerializeDie === 'function') ? leSerializeDie()     : [];
+  return {
+    S:    s,
+    QRS:  { front: { ...QRS.front }, back: { ...QRS.back } },
+    NFCS: { x: NFCS.x, y: NFCS.y, mode: NFCS.mode, rot: NFCS.rot },
+    QTY:  QTY,
+  };
+}
+
+function draftSnapshot() {
+  try { return JSON.stringify({ n: S.note || '', d: buildDraftData() }); }
+  catch (e) { return null; }
+}
+
+// 採番された注文番号を画面に反映する
+function applyOrderIdUi(orderId) {
+  sessionStorage.setItem('orderId', orderId);
+  var t = document.getElementById('topOrder'); if (t) t.textContent = orderId;
+  if (/^[0-9]{10}$/.test(orderId)) {
+    var q = document.getElementById('qtySec'); if (q) q.style.display = 'block';
+    document.body.classList.add('hide-price');
+  }
+}
+
+// 下書き保存。manual=true なら結果をトーストで知らせる。成功で true を返す。
+async function friendSaveDraft(manual) {
+  if (window.__friendSubmitting) return false;
+  if (window.__friendSavingP) return window.__friendSavingP;   // 保存の多重発火を防ぐ
+  const p = (async function () {
+    try {
+      const body = { note: S.note || '', draftData: buildDraftData() };
+      if (/^[0-9]{10}$/.test(S.orderId)) body.orderId = S.orderId;
+      const r = await friendFetch(WORKER_ORIGIN + '/api/friend-save-draft', {
+        method: 'POST', headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(body),
+      });
+      const d = await r.json();
+      if (!d || !d.ok) {
+        if (manual) toast('保存に失敗しました' + ((d && d.message) ? '：' + d.message : ''), 'alert');
+        return false;
+      }
+      if (d.orderId && d.orderId !== S.orderId) { S.orderId = d.orderId; applyOrderIdUi(d.orderId); }
+      lastSavedSnap = draftSnapshot();
+      if (manual) toast('保存しました ✓');
+      return true;
+    } catch (e) {
+      if (manual && e.message !== 'unauthorized') toast('保存に失敗しました。通信環境をご確認ください。', 'alert');
+      return false;
+    } finally {
+      window.__friendSavingP = null;
+    }
+  })();
+  window.__friendSavingP = p;
+  return p;
+}
+
+// シリアライズ済みレイヤー配列から imgEl を作り直す
+function reviveLayers(arr) {
+  return Promise.all((arr || []).map(function (l) {
+    return new Promise(function (res) {
+      var im = new Image();
+      im.onload  = function () { res({ id: l.id, src: l.src, x: l.x, y: l.y, scale: l.scale, rot: l.rot, imgEl: im }); };
+      im.onerror = function () { res(null); };
+      im.src = l.src;
+    });
+  })).then(function (a) { return a.filter(Boolean); });
+}
+
+// カラースウォッチは initColors（非同期）が作るので、できるまで待って選択状態を付ける
+function markColorSelected() {
+  if (!S.color) return;
+  var els = document.querySelectorAll('.csw');
+  if (!els.length) { setTimeout(markColorSelected, 200); return; }
+  els.forEach(function (el) { el.classList.toggle('sel', (el.title || '').indexOf(S.color) === 0); });
+  var cn = document.getElementById('colorName'); if (cn) cn.textContent = '選択中：' + S.color;
+  var s1 = document.getElementById('ss1');       if (s1) s1.textContent = S.color;
+  var pd = document.getElementById('pd-color');  if (pd) pd.textContent = S.color;
+  done(1); updateLock(); updateProg();
+}
+
+// draftData から S・QRS・NFCS を復元して画面全体を再構築する
+async function applyDraft(dd, note) {
+  dd = dd || {};
+  const sd = dd.S || {};
+  const skip = { purchased: 1, layersFront: 1, layersBack: 1, dieBase: 1 };
+  Object.keys(sd).forEach(function (k) { if (!skip[k]) S[k] = sd[k]; });
+  S.note = (note != null && note !== '') ? note : (sd.note || '');
+  var ni = document.getElementById('noteInput'); if (ni) ni.value = S.note;
+
+  if (dd.QRS) {
+    if (dd.QRS.front) Object.assign(QRS.front, dd.QRS.front);
+    if (dd.QRS.back)  Object.assign(QRS.back,  dd.QRS.back);
+  }
+  if (dd.NFCS) {
+    NFCS.x = dd.NFCS.x != null ? dd.NFCS.x : NFCS.x;
+    NFCS.y = dd.NFCS.y != null ? dd.NFCS.y : NFCS.y;
+    NFCS.mode = dd.NFCS.mode || NFCS.mode;
+    NFCS.rot  = dd.NFCS.rot || 0;
+  }
+  if (dd.QTY) setQty(dd.QTY);
+  applyOrderIdUi(S.orderId);
+
+  // レイヤーの imgEl を再構築
+  const revived = await Promise.all([reviveLayers(sd.layersFront), reviveLayers(sd.layersBack), reviveLayers(sd.dieBase)]);
+  S.layersFront = revived[0]; S.layersBack = revived[1]; S.dieBase = revived[2];
+  // レイヤーID採番の続きを合わせる（復元後に追加したレイヤーのIDが被らないように）
+  var maxId = 0;
+  S.layersFront.concat(S.layersBack, S.dieBase).forEach(function (l) { var n = parseInt(l.id, 10); if (n > maxId) maxId = n; });
+  if (typeof leIdSeq !== 'undefined' && maxId >= leIdSeq) leIdSeq = maxId + 1;
+
+  // ── UI 再構築 ──
+  markColorSelected();
+  if (S.shape) pickShape(S.shape);
+  setNFC(!!S.nfc);
+  var nu = document.getElementById('nfcUrl'); if (nu) nu.value = S.nfcUrl || '';
+  setBackPrint(!!S.backPrint);
+  setQR(!!S.qr);
+  if (S.qr && S.qrSide) setQRSide(S.qrSide);
+  var qu = document.getElementById('qrUrl'); if (qu) qu.value = S.qrUrl || '';
+  if (S.shape === 'rect') { setW(S.widthCm, true); setH(S.heightCm, true); }
+  else if (S.shape) setSz(S.sizeCm);
+  setTh(S.thickCm);
+  setBorderCm(Math.round(((S.borderCm != null) ? S.borderCm : 0.3) * 10));
+  setBorderPrint(!!S.borderPrint);
+
+  // 画像の再合成＆各エディタの再描画
+  var hasLayers = S.layersFront.length || S.layersBack.length || S.dieBase.length;
+  if (typeof applyImageMode === 'function') applyImageMode();
+  if (typeof leShow === 'function') leShow();
+  if (hasLayers) leRecomposeAll();
+  if (typeof leStageDraw === 'function') leStageDraw();
+  if (S.imgFront) drawPreview('front');
+  if (S.backPrint && S.imgBack) drawPreview('back');
+  if (window._redrawAttach) window._redrawAttach();
+  if (typeof syncQRAll === 'function') syncQRAll();
+  updateProg();
+}
+
+// 「続きから編集」：?orderId=xxx&resume=1 で遷移してきたら下書きを読み込む
+async function friendResume(orderId) {
+  try {
+    const r = await friendFetch(WORKER_ORIGIN + '/api/friend-get-draft?orderId=' + encodeURIComponent(orderId));
+    const d = await r.json();
+    if (!d || !d.ok) { toast('下書きの読み込みに失敗しました', 'alert'); return; }
+    S.orderId = orderId;
+    await applyDraft(d.draftData, d.note);
+    lastSavedSnap = draftSnapshot();
+    toast('下書きを復元しました ✓');
+  } catch (e) {
+    if (e.message !== 'unauthorized') toast('下書きの読み込みに失敗しました', 'alert');
+  }
+}
+
+(function initFriendDraft() {
+  var params = new URLSearchParams(window.location.search);
+  var resumeId = (params.get('orderId') || '').trim();
+  if (params.get('resume') === '1' && /^[0-9]{10}$/.test(resumeId)) {
+    friendResume(resumeId);
+  } else {
+    lastSavedSnap = draftSnapshot();   // 初期状態を基準にして「何か変えたときだけ」自動保存する
+  }
+
+  // 30秒おきの自動保存（前回保存から変更があるときだけ）
+  setInterval(function () {
+    if (window.__friendSubmitting || window.__friendSavingP) return;
+    var snap = draftSnapshot();
+    if (snap && snap !== lastSavedSnap) friendSaveDraft(false);
+  }, 30000);
+
+  // タブが隠れたときにも保存を試みる（スマホでのアプリ切替・タブ閉じ対策）
+  document.addEventListener('visibilitychange', function () {
+    if (document.visibilityState !== 'hidden') return;
+    if (window.__friendSubmitting) return;
+    var snap = draftSnapshot();
+    if (snap && snap !== lastSavedSnap) friendSaveDraft(false);
+  });
+
+  // ページ離脱時の最終保存（keepalive は約64KBの制限があるため小さい下書きのみ。自動保存が主、これは補助）
+  window.addEventListener('beforeunload', function () {
+    if (window.__friendSubmitting) return;
+    try {
+      var snap = draftSnapshot();
+      if (!snap || snap === lastSavedSnap) return;
+      var body = { note: S.note || '', draftData: buildDraftData() };
+      if (/^[0-9]{10}$/.test(S.orderId)) body.orderId = S.orderId;
+      var json = JSON.stringify(body);
+      if (json.length < 60000) {
+        fetch(WORKER_ORIGIN + '/api/friend-save-draft', {
+          method: 'POST', keepalive: true,
+          headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + friendToken() },
+          body: json,
+        });
+      }
+    } catch (e) { /* 離脱時の保存失敗は握りつぶす */ }
+  });
+})();
+</script>
+<script>
 (function () {
-  const PAGE_KEY = 'page2';
+  const PAGE_KEY = 'self-page2';
   const WORKER_ORIGIN = sessionStorage.getItem('workerOrigin') || 'https://buki-booth.com';
   const BYPASS_KEY = 'buki_maint_bypass_pw';
 

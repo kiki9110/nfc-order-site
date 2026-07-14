@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>ログイン</title>
+<title>新しく注文する — BUKI BOOTH</title>
 <style>
 @import url('https://fonts.googleapis.com/css2?family=Mochiy+Pop+One&family=Noto+Sans+JP:wght@300;400;500;700&display=swap');
 :root{
@@ -48,30 +48,6 @@ input[type="text"]:focus{border-color:var(--accent);box-shadow:0 0 0 4px rgba(25
 .notice{margin-top:20px;padding:12px 16px;background:rgba(242,177,52,.14);border:1.5px solid rgba(242,177,52,.4);border-radius:14px;font-size:12px;color:#9a6b08;line-height:1.6;}
 /* エラー */
 .error-msg{font-size:12px;color:#e0392b;margin-top:8px;display:none;line-height:1.6;}
-
-/* ログイン・パスワードリセット用の追加スタイル */
-.form-group{margin-bottom:20px;}
-input[type="password"]{width:100%;padding:15px 48px 15px 16px;background:var(--surface);border:2px solid var(--border);border-radius:14px;font-family:'Noto Sans JP',sans-serif;font-size:16px;letter-spacing:.06em;color:var(--ink);outline:none;transition:border-color .2s,box-shadow .2s;}
-input[type="password"]::placeholder{color:#c9c2bd;}
-input[type="password"]:focus{border-color:var(--accent);box-shadow:0 0 0 4px rgba(255,122,89,.18);}
-:root[data-theme="night"] input[type="password"]{background:rgba(0,0,0,.26);}
-:root[data-theme="night"] input[type="password"]::placeholder{color:#6f6880;}
-.forgot-link{display:inline-block;margin-top:14px;font-size:12px;color:var(--accent);font-weight:700;cursor:pointer;text-decoration:underline;}
-.success-msg{font-size:12px;color:#15803d;margin-bottom:14px;display:none;line-height:1.6;background:rgba(34,197,94,.12);border:1.5px solid rgba(34,197,94,.35);border-radius:10px;padding:10px 14px;}
-.fg-modal-overlay{position:fixed;inset:0;z-index:3000;background:rgba(10,8,16,.55);display:none;align-items:center;justify-content:center;padding:24px;}
-.fg-modal-overlay.open{display:flex;}
-.fg-modal{background:var(--paper);border:1.5px solid var(--border);border-radius:20px;padding:28px 24px;max-width:400px;width:100%;max-height:86vh;overflow-y:auto;}
-:root[data-theme="night"] .fg-modal{background:#1b1726;}
-.fg-title{font-family:var(--pop);font-size:17px;margin-bottom:16px;color:var(--ink);}
-.fg-q{font-size:13px;font-weight:700;background:var(--cream);border:1.5px solid var(--border);border-radius:10px;padding:12px 14px;margin-bottom:16px;line-height:1.6;color:var(--ink);}
-.fg-btn-row{display:flex;gap:10px;justify-content:flex-end;margin-top:20px;}
-.fg-btn{padding:11px 18px;border-radius:12px;border:1.5px solid var(--border);background:var(--surface);color:var(--ink);font-family:'Noto Sans JP',sans-serif;font-size:13px;font-weight:700;cursor:pointer;}
-.fg-btn.primary{background:var(--accent);border-color:var(--accent);color:#fff;}
-.fg-btn:disabled{opacity:.5;cursor:default;}
-.pw-rules{list-style:none;font-size:11px;color:var(--muted);margin-top:8px;line-height:1.8;}
-.pw-rules li::before{content:'✕ ';color:#e0392b;font-weight:700;}
-.pw-rules li.ok{color:#15803d;}
-.pw-rules li.ok::before{content:'✓ ';color:#15803d;}
 .footer{position:relative;z-index:1;text-align:center;padding:20px;font-size:11px;color:var(--muted);letter-spacing:.04em;}
 
 /* テーマ切替ボタン */
@@ -147,9 +123,45 @@ if(document.readyState!=='loading')w();else document.addEventListener('DOMConten
 </script>
 </head>
 <body>
-<div class="float-cluster"><button id="themeToggle" class="theme-toggle" type="button" aria-label="ライト/ダーク表示を切り替え"><svg class="ic-moon" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M21 12.8A9 9 0 1 1 11.2 3a7 7 0 0 0 9.8 9.8Z"/></svg><svg class="ic-sun" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><circle cx="12" cy="12" r="4"/><path d="M12 3v1.5M12 19.5V21M3 12h1.5M19.5 12H21M5.6 5.6l1 1M17.4 17.4l1 1M18.4 5.6l-1 1M6.6 17.4l-1 1"/></svg></button><button id="navToggle" class="nav-toggle" type="button" aria-label="メニューを開く"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><path d="M3 6h18M3 12h18M3 18h18"/></svg></button></div>
-<div class="nav-overlay" id="navOverlay"></div><nav class="nav-drawer" id="navDrawer" aria-hidden="true"><div class="nav-dhead"><span class="nav-dtitle">メニュー</span><button class="nav-close" id="navClose" type="button" aria-label="閉じる"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><path d="M6 6l12 12M18 6L6 18"/></svg></button></div><a class="nav-link" href="self.html"><span class="nav-ic">🆕</span>アカウント新規登録</a><a class="nav-link cur" href="self-login.html"><span class="nav-ic">🔑</span>ログイン</a></nav>
+<script>
+// ── 友人アカウント共通：ログインチェック＋APIラッパー（各 self-* ページに同一コードを埋め込み）──
+const FRIEND_TOKEN_KEY = 'buki_friend_token';
+function friendToken() { return localStorage.getItem(FRIEND_TOKEN_KEY) || ''; }
+function friendLogoutLocal() {
+  localStorage.removeItem('buki_friend_token');
+  localStorage.removeItem('buki_friend_name');
+  localStorage.removeItem('buki_friend_login_id');
+}
+// 未ログインなら即ログインページへ
+if (!friendToken()) { window.location.replace('self-login.html'); }
+// Authorization ヘッダー付き fetch。401（トークン切れ）ならローカルを消してログインへ戻す
+async function friendFetch(url, opts) {
+  opts = opts || {};
+  opts.headers = Object.assign({}, opts.headers || {}, { 'Authorization': 'Bearer ' + friendToken() });
+  const r = await fetch(url, opts);
+  if (r.status === 401) {
+    friendLogoutLocal();
+    window.location.replace('self-login.html');
+    throw new Error('unauthorized');
+  }
+  return r;
+}
+async function friendLogout() {
+  try {
+    const WO = sessionStorage.getItem('workerOrigin') || 'https://buki-booth.com';
+    await fetch(WO + '/api/friend-logout', { method: 'POST', headers: { 'Authorization': 'Bearer ' + friendToken() } });
+  } catch (e) { /* 通信失敗してもローカルのログアウトは行う */ }
+  friendLogoutLocal();
+  window.location.href = 'self-login.html';
+}
+document.addEventListener('DOMContentLoaded', function () {
+  var lg = document.getElementById('navLogout');
+  if (lg) lg.addEventListener('click', function (ev) { ev.preventDefault(); friendLogout(); });
+});
+</script>
 
+<div class="float-cluster"><button id="themeToggle" class="theme-toggle" type="button" aria-label="ライト/ダーク表示を切り替え"><svg class="ic-moon" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M21 12.8A9 9 0 1 1 11.2 3a7 7 0 0 0 9.8 9.8Z"/></svg><svg class="ic-sun" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><circle cx="12" cy="12" r="4"/><path d="M12 3v1.5M12 19.5V21M3 12h1.5M19.5 12H21M5.6 5.6l1 1M17.4 17.4l1 1M18.4 5.6l-1 1M6.6 17.4l-1 1"/></svg></button><button id="navToggle" class="nav-toggle" type="button" aria-label="メニューを開く"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><path d="M3 6h18M3 12h18M3 18h18"/></svg></button></div>
+<div class="nav-overlay" id="navOverlay"></div><nav class="nav-drawer" id="navDrawer" aria-hidden="true"><div class="nav-dhead"><span class="nav-dtitle">メニュー</span><button class="nav-close" id="navClose" type="button" aria-label="閉じる"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><path d="M6 6l12 12M18 6L6 18"/></svg></button></div><a class="nav-link" href="self-home.html"><span class="nav-ic">🏠</span>ホーム</a><a class="nav-link cur" href="self-page1.html"><span class="nav-ic">📝</span>新しく注文する</a><a class="nav-link" href="self-order-history.html"><span class="nav-ic">📋</span>注文履歴</a><a class="nav-link" href="self-page4.html"><span class="nav-ic">🧩</span>オプション割り当て</a><a class="nav-link" href="self-message.html"><span class="nav-ic">✉️</span>お問い合わせ</a><a class="nav-link" href="self-settings.html"><span class="nav-ic">⚙️</span>設定</a><a class="nav-link" href="#" id="navLogout"><span class="nav-ic">🚪</span>ログアウト</a></nav>
 <div class="wrap">
   <div class="logo-block">
     <div class="logo-mark">
@@ -160,223 +172,54 @@ if(document.readyState!=='loading')w();else document.addEventListener('DOMConten
         <rect x="16" y="16" width="10" height="10" rx="2" fill="rgba(44,39,64,.12)"/>
       </svg>
     </div>
-    <div class="logo-name">BUKI 製作所</div>
+    <div class="logo-name">NFC ORDER</div>
     <div class="logo-sub">Acrylic Keyholder Custom</div>
   </div>
 
   <div class="card">
-    <div class="card-title">ログイン</div>
-    <div class="card-desc">ログインIDとパスワードでログインすると、注文の作成・下書きの再開・履歴の確認ができます。</div>
+    <div class="card-title">新しく注文する</div>
+    <div class="card-desc">キーホルダーのカスタマイズを始めます。注文番号は最初の保存時に<strong>自動で発行</strong>されるので、入力は不要です。</div>
 
-    <div class="success-msg" id="successMsg"></div>
-
-    <div class="form-group">
-      <label for="idInput">ログインID</label>
-      <div class="input-wrap">
-        <input type="text" id="idInput" placeholder="ログインID" maxlength="30" autocomplete="username">
-        <span class="input-icon">🆔</span>
-      </div>
-    </div>
-
-    <div class="form-group">
-      <label for="pwInput">パスワード</label>
-      <div class="input-wrap">
-        <input type="password" id="pwInput" placeholder="パスワード" maxlength="100" autocomplete="current-password">
-        <span class="input-icon">🔒</span>
-      </div>
+    <div class="notice">
+      💾 編集内容は「保存する」ボタンや自動保存でいつでも下書き保存できます。途中でやめても「注文履歴」から続きを再開できます。
     </div>
 
     <div class="error-msg" id="errorMsg">エラー</div>
 
-    <button class="btn-next" onclick="login()">
-      ログイン
+    <button class="btn-next" onclick="proceed()">
+      カスタマイズを始める
       <svg viewBox="0 0 16 16" fill="none"><path d="M3 8h10M9 4l4 4-4 4" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/></svg>
     </button>
-
-    <span class="forgot-link" id="forgotLink">パスワードを忘れた場合</span>
-    <div class="input-hint" style="text-align:center;margin-top:16px;">アカウントをお持ちでない方は <a href="self.html" style="color:var(--accent);font-weight:700;">新規登録</a></div>
   </div>
-</div>
 
-<!-- パスワードを忘れた場合のモーダル -->
-<div class="fg-modal-overlay" id="fgOverlay">
-  <div class="fg-modal">
-    <!-- ステップ1：ID入力 -->
-    <div id="fgStep1">
-      <div class="fg-title">パスワードの再設定</div>
-      <div class="form-group">
-        <label for="fgIdInput">ログインID</label>
-        <input type="text" id="fgIdInput" placeholder="ログインID" maxlength="30" autocomplete="off">
-      </div>
-      <div class="error-msg" id="fgErr1">エラー</div>
-      <div class="fg-btn-row">
-        <button class="fg-btn" onclick="fgClose()">キャンセル</button>
-        <button class="fg-btn primary" id="fgNextBtn" onclick="fgFetchQuestion()">次へ</button>
-      </div>
-    </div>
-    <!-- ステップ2：秘密の質問＋新パスワード -->
-    <div id="fgStep2" style="display:none;">
-      <div class="fg-title">秘密の質問</div>
-      <div class="fg-q" id="fgQuestion"></div>
-      <div class="form-group">
-        <label for="fgAnswer">答え</label>
-        <input type="text" id="fgAnswer" placeholder="答えを入力" maxlength="100" autocomplete="off">
-      </div>
-      <div class="form-group">
-        <label for="fgNewPw">新しいパスワード</label>
-        <input type="password" id="fgNewPw" placeholder="8文字以上" maxlength="100" autocomplete="new-password">
-        <ul class="pw-rules" id="fgPwRules">
-          <li id="fgRuleLen">8文字以上</li>
-          <li id="fgRuleUpper">大文字（A-Z）を含む</li>
-          <li id="fgRuleLower">小文字（a-z）を含む</li>
-          <li id="fgRuleDigit">数字（0-9）を含む</li>
-        </ul>
-      </div>
-      <div class="form-group">
-        <label for="fgNewPw2">新しいパスワード（確認）</label>
-        <input type="password" id="fgNewPw2" placeholder="もう一度入力" maxlength="100" autocomplete="new-password">
-      </div>
-      <div class="error-msg" id="fgErr2">エラー</div>
-      <div class="fg-btn-row">
-        <button class="fg-btn" onclick="fgClose()">キャンセル</button>
-        <button class="fg-btn primary" id="fgResetBtn" onclick="fgReset()">パスワードを変更</button>
-      </div>
-    </div>
+  <div class="steps-hint">
+    <div class="dot"></div>
+    <div class="dot dot-off"></div>
+    <span class="steps-hint-label">ステップ 1 / 2</span>
   </div>
 </div>
 
 <div class="footer">© NFC Order System</div>
 
 <script>
+// Worker（バックエンド）のURL。self-page2 と同じものを使う。
 const WORKER_ORIGIN = sessionStorage.getItem('workerOrigin') || 'https://buki-booth.com';
 
-// すでにログイン済みならホームへ
-if (localStorage.getItem('buki_friend_token')) { window.location.replace('self-home.html'); }
-
-function showErr(msg) { const e = document.getElementById('errorMsg'); e.textContent = msg; e.style.display = 'block'; }
-function hideErr()    { document.getElementById('errorMsg').style.display = 'none'; }
-function pwValid(pw)  { return pw.length >= 8 && /[A-Z]/.test(pw) && /[a-z]/.test(pw) && /[0-9]/.test(pw); }
-
-async function login() {
-  const btn      = document.querySelector('.btn-next');
-  const loginId  = document.getElementById('idInput').value.trim();
-  const password = document.getElementById('pwInput').value;
-  if (!loginId || !password) return showErr('ログインIDとパスワードを入力してください');
-
-  btn.disabled = true; const original = btn.textContent; btn.textContent = 'ログイン中...';
-  try {
-    const r = await fetch(WORKER_ORIGIN + '/api/friend-login', {
-      method: 'POST', headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ loginId: loginId, password: password }),
-    });
-    const d = await r.json();
-    if (d && d.ok && d.token) {
-      hideErr();
-      localStorage.setItem('buki_friend_token', d.token);
-      localStorage.setItem('buki_friend_name', d.name || '');
-      localStorage.setItem('buki_friend_login_id', loginId);
-      window.location.href = 'self-home.html';
-      return;
-    }
-    showErr((d && d.message) || 'IDまたはパスワードが違います');
-  } catch (e) {
-    showErr('通信エラーが発生しました。もう一度お試しください。');
-  }
-  btn.disabled = false; btn.textContent = original;
-}
-document.getElementById('idInput').addEventListener('input', hideErr);
-document.getElementById('pwInput').addEventListener('input', hideErr);
-document.getElementById('pwInput').addEventListener('keydown', e => { if (e.key === 'Enter') login(); });
-
-// ── パスワードを忘れた場合 ──
-function fgShowErr(id, msg) { const e = document.getElementById(id); e.textContent = msg; e.style.display = 'block'; }
-function fgHideErrs() { document.getElementById('fgErr1').style.display = 'none'; document.getElementById('fgErr2').style.display = 'none'; }
-
-document.getElementById('forgotLink').addEventListener('click', function () {
-  fgHideErrs();
-  document.getElementById('fgStep1').style.display = 'block';
-  document.getElementById('fgStep2').style.display = 'none';
-  document.getElementById('fgIdInput').value = document.getElementById('idInput').value.trim();
-  document.getElementById('fgOverlay').classList.add('open');
-});
-
-function fgClose() { document.getElementById('fgOverlay').classList.remove('open'); }
-document.getElementById('fgOverlay').addEventListener('click', function (e) { if (e.target === this) fgClose(); });
-
-async function fgFetchQuestion() {
-  fgHideErrs();
-  const loginId = document.getElementById('fgIdInput').value.trim();
-  if (!loginId) return fgShowErr('fgErr1', 'ログインIDを入力してください');
-  const btn = document.getElementById('fgNextBtn');
-  btn.disabled = true;
-  try {
-    const r = await fetch(WORKER_ORIGIN + '/api/friend-forgot-question', {
-      method: 'POST', headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ loginId: loginId }),
-    });
-    const d = await r.json();
-    if (d && d.ok) {
-      document.getElementById('fgQuestion').textContent = d.question || '（質問が設定されていません）';
-      document.getElementById('fgStep1').style.display = 'none';
-      document.getElementById('fgStep2').style.display = 'block';
-    } else {
-      fgShowErr('fgErr1', (d && d.message) || 'このログインIDは登録されていません');
-    }
-  } catch (e) {
-    fgShowErr('fgErr1', '通信エラーが発生しました。もう一度お試しください。');
-  }
-  btn.disabled = false;
-}
-
-document.getElementById('fgNewPw').addEventListener('input', function () {
-  const pw = this.value;
-  document.getElementById('fgRuleLen').className   = pw.length >= 8     ? 'ok' : '';
-  document.getElementById('fgRuleUpper').className = /[A-Z]/.test(pw)   ? 'ok' : '';
-  document.getElementById('fgRuleLower').className = /[a-z]/.test(pw)   ? 'ok' : '';
-  document.getElementById('fgRuleDigit').className = /[0-9]/.test(pw)   ? 'ok' : '';
-});
-
-async function fgReset() {
-  fgHideErrs();
-  const loginId = document.getElementById('fgIdInput').value.trim();
-  const answer  = document.getElementById('fgAnswer').value.trim();
-  const pw1     = document.getElementById('fgNewPw').value;
-  const pw2     = document.getElementById('fgNewPw2').value;
-  if (!answer) return fgShowErr('fgErr2', '答えを入力してください');
-  if (!pwValid(pw1)) return fgShowErr('fgErr2', '条件が足りません（大文字・小文字・数字を含む8文字以上）');
-  if (pw1 !== pw2) return fgShowErr('fgErr2', '新しいパスワード（確認）が一致しません');
-  const btn = document.getElementById('fgResetBtn');
-  btn.disabled = true;
-  try {
-    const r = await fetch(WORKER_ORIGIN + '/api/friend-forgot-verify', {
-      method: 'POST', headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ loginId: loginId, answer: answer, newPassword: pw1 }),
-    });
-    const d = await r.json();
-    if (d && d.ok) {
-      fgClose();
-      const s = document.getElementById('successMsg');
-      s.textContent = 'パスワードを変更しました。ログインしてください。';
-      s.style.display = 'block';
-      document.getElementById('idInput').value = loginId;
-      document.getElementById('pwInput').value = '';
-    } else {
-      fgShowErr('fgErr2', (d && d.message) || '答えが違います');
-    }
-  } catch (e) {
-    fgShowErr('fgErr2', '通信エラーが発生しました。もう一度お試しください。');
-  }
-  btn.disabled = false;
+// 新しい注文を始める：前回の orderId をクリアして self-page2 へ。
+// 注文番号は self-page2 の最初の下書き保存時にサーバーが自動採番する。
+function proceed() {
+  sessionStorage.removeItem('orderId');
+  sessionStorage.removeItem('friendResume');
+  window.location.href = 'self-page2.html';
 }
 </script>
 <script>
 (function(){var t=document.getElementById('navToggle'),d=document.getElementById('navDrawer'),o=document.getElementById('navOverlay'),c=document.getElementById('navClose');if(!t||!d)return;function op(){d.classList.add('open');if(o)o.classList.add('open');d.setAttribute('aria-hidden','false');}function cl(){d.classList.remove('open');if(o)o.classList.remove('open');d.setAttribute('aria-hidden','true');}t.addEventListener('click',op);if(c)c.addEventListener('click',cl);if(o)o.addEventListener('click',cl);document.addEventListener('keydown',function(e){if(e.key==='Escape')cl();});})();
 </script>
 
-
 <script>
 (function () {
-  const PAGE_KEY = 'self-login';
+  const PAGE_KEY = 'self-page1';
   const WORKER_ORIGIN = sessionStorage.getItem('workerOrigin') || 'https://buki-booth.com';
   const BYPASS_KEY = 'buki_maint_bypass_pw';
 

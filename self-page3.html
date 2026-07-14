@@ -334,7 +334,44 @@ if(document.readyState!=='loading')w();else document.addEventListener('DOMConten
 </script>
 </head>
 <body>
-<div class="nav-overlay" id="navOverlay"></div><nav class="nav-drawer" id="navDrawer" aria-hidden="true"><div class="nav-dhead"><span class="nav-dtitle">メニュー</span><button class="nav-close" id="navClose" type="button" aria-label="閉じる"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><path d="M6 6l12 12M18 6L6 18"/></svg></button></div><a class="nav-link" href="home.html"><span class="nav-ic">🏠</span>ホーム</a><a class="nav-link" href="page1.html"><span class="nav-ic">📝</span>注文ページ</a><a class="nav-link" href="order-history.html"><span class="nav-ic">📋</span>注文履歴</a><a class="nav-link" href="https://buki-booth.com/portal"><span class="nav-ic">🔗</span>URL変更（マイページ）</a><a class="nav-link" href="page4.html"><span class="nav-ic">⚙️</span>オプション割り当て</a><a class="nav-link" href="message.html"><span class="nav-ic">✉️</span>お問い合わせ</a><a class="nav-link" href="https://buki-booth.com/support"><span class="nav-ic">🎫</span>サポート</a></nav>
+<script>
+// ── 友人アカウント共通：ログインチェック＋APIラッパー（各 self-* ページに同一コードを埋め込み）──
+const FRIEND_TOKEN_KEY = 'buki_friend_token';
+function friendToken() { return localStorage.getItem(FRIEND_TOKEN_KEY) || ''; }
+function friendLogoutLocal() {
+  localStorage.removeItem('buki_friend_token');
+  localStorage.removeItem('buki_friend_name');
+  localStorage.removeItem('buki_friend_login_id');
+}
+// 未ログインなら即ログインページへ
+if (!friendToken()) { window.location.replace('self-login.html'); }
+// Authorization ヘッダー付き fetch。401（トークン切れ）ならローカルを消してログインへ戻す
+async function friendFetch(url, opts) {
+  opts = opts || {};
+  opts.headers = Object.assign({}, opts.headers || {}, { 'Authorization': 'Bearer ' + friendToken() });
+  const r = await fetch(url, opts);
+  if (r.status === 401) {
+    friendLogoutLocal();
+    window.location.replace('self-login.html');
+    throw new Error('unauthorized');
+  }
+  return r;
+}
+async function friendLogout() {
+  try {
+    const WO = sessionStorage.getItem('workerOrigin') || 'https://buki-booth.com';
+    await fetch(WO + '/api/friend-logout', { method: 'POST', headers: { 'Authorization': 'Bearer ' + friendToken() } });
+  } catch (e) { /* 通信失敗してもローカルのログアウトは行う */ }
+  friendLogoutLocal();
+  window.location.href = 'self-login.html';
+}
+document.addEventListener('DOMContentLoaded', function () {
+  var lg = document.getElementById('navLogout');
+  if (lg) lg.addEventListener('click', function (ev) { ev.preventDefault(); friendLogout(); });
+});
+</script>
+
+<div class="nav-overlay" id="navOverlay"></div><nav class="nav-drawer" id="navDrawer" aria-hidden="true"><div class="nav-dhead"><span class="nav-dtitle">メニュー</span><button class="nav-close" id="navClose" type="button" aria-label="閉じる"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><path d="M6 6l12 12M18 6L6 18"/></svg></button></div><a class="nav-link" href="self-home.html"><span class="nav-ic">🏠</span>ホーム</a><a class="nav-link cur" href="self-page1.html"><span class="nav-ic">📝</span>新しく注文する</a><a class="nav-link" href="self-order-history.html"><span class="nav-ic">📋</span>注文履歴</a><a class="nav-link" href="self-page4.html"><span class="nav-ic">🧩</span>オプション割り当て</a><a class="nav-link" href="self-message.html"><span class="nav-ic">✉️</span>お問い合わせ</a><a class="nav-link" href="self-settings.html"><span class="nav-ic">⚙️</span>設定</a><a class="nav-link" href="#" id="navLogout"><span class="nav-ic">🚪</span>ログアウト</a></nav>
 
 <div class="topbar">
   <div class="topbar-logo">NFC ORDER</div>
@@ -465,8 +502,8 @@ if(document.readyState!=='loading')w();else document.addEventListener('DOMConten
   <!-- ACTIONS -->
   <div class="actions">
     <button class="btn btn-primary" onclick="window.print()">🖨 この内容を印刷・保存</button>
-    <a href="order-history.html" class="btn btn-secondary">📋 注文履歴へ</a>
-    <a href="page1.html" class="btn btn-secondary">← 最初からやり直す</a>
+    <a href="self-order-history.html" class="btn btn-secondary">📋 注文履歴へ</a>
+    <a href="self-page1.html" class="btn btn-secondary">← 最初からやり直す</a>
   </div>
   <div class="print-hint">※ 「印刷」→「PDFとして保存」でファイルに保存できます</div>
 
@@ -481,7 +518,7 @@ try {
 } catch(e) {}
 
 if (!O) {
-  document.body.innerHTML = '<div style="padding:40px;text-align:center;"><p>注文データが見つかりません。</p><a href="page1.html" style="color:#ff7a59;">最初からやり直す</a></div>';
+  document.body.innerHTML = '<div style="padding:40px;text-align:center;"><p>注文データが見つかりません。</p><a href="self-page1.html" style="color:#ff7a59;">最初からやり直す</a></div>';
   throw new Error('no order data');
 }
 
@@ -491,7 +528,7 @@ if (O.imgBack  === '__large__') O.imgBack  = sessionStorage.getItem('orderImgBac
 
 // ─── 注文確定・キャンセル案内 ───
 const WORKER_ORIGIN = sessionStorage.getItem('workerOrigin') || 'https://buki-booth.com';
-// この注文番号を端末の「注文履歴」に自動登録（order-history.html と同じキー）
+// この注文番号を端末の「注文履歴」に自動登録（self-order-history.html と同じキー）
 (function(){ try {
   if (O && O.orderId) {
     var LS = 'buki_order_numbers';
@@ -973,7 +1010,7 @@ var GUIDE_STEPS = [
   { title:'URL（リンク先）はあとから変更OK',
     fig:{ emoji:'🔗', note:'マイページからいつでも変更できます' },
     html:'<p>NFCタグ・QRコードのリンク先URLは、お手元に届いたあとも<strong>マイページ</strong>からいつでも変更できます。</p>'
-      + '<p><a href="https://buki-booth.com/portal" target="_blank" rel="noopener" style="color:var(--accent);font-weight:700;">🔗 buki-booth.com/portal</a>（メニューの「URL変更（マイページ）」からも開けます）</p>'
+      + '<p><a href="https://buki-booth.com/portal" target="_blank" rel="noopener" style="color:var(--accent);font-weight:700;">🔗 buki-booth.com/portal</a>（注文番号を入れるといつでもリンク先を変更できます）</p>'
       + '<p class="gd-note">変更の際は注文番号を使ってログインします。</p>' }
 ];
 
@@ -1057,7 +1094,7 @@ document.addEventListener('keydown', function(e){
 
 <script>
 (function () {
-  const PAGE_KEY = 'page3';
+  const PAGE_KEY = 'self-page3';
   const WORKER_ORIGIN = sessionStorage.getItem('workerOrigin') || 'https://buki-booth.com';
   const BYPASS_KEY = 'buki_maint_bypass_pw';
 

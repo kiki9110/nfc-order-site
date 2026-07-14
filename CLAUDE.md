@@ -64,9 +64,13 @@ The repo is three independent pieces that talk over HTTP. They are NOT one app.
    to each other with relative `*.html` hrefs and call the Worker via `WORKER_ORIGIN`
    (`sessionStorage.getItem('workerOrigin') || 'https://buki-booth.com'`). These are separate
    from the Worker's embedded `/portal`, `/admin`, `/support` HTML — don't confuse the two.
-   Files: `home`, `page1`–`page4`, `order-history`, `message`, `self`, `self-login`.
+   Files: `home`, `page1`–`page4`, `order-history`, `message`, `self`, `self-login`, plus the
+   **friend-account pages** `self-home`, `self-page1`–`self-page4`, `self-message`,
+   `self-order-history`, `self-settings` (see "Friend account system" below).
    (`home.html` and `page3.html` link to the Worker-hosted `/portal` and `/support` by absolute
    `buki-booth.com` URL.) `assets/guide/` holds images/GIFs used by page2's help modal.
+   Every customer/friend page embeds a per-page **maintenance-check script** (`PAGE_KEY` differs
+   per file; intentionally copy-pasted, not shared) — see "Maintenance mode" below.
 
 ### Customer page flow
 `home.html` → `page1` (enter order number; validated live via `/api/customer-get`) → `page2`
@@ -123,20 +127,23 @@ login with the new password works, `Kiki.n0825` is rejected). If you ever rotate
 
 Everything is one KV namespace partitioned by key prefix. Code that lists "NFC orders" filters keys
 with the shared `isNfcOrderKey(name)` helper (used by `handleGet` / `handleGetAll`), which excludes
-`QR:`/`ORDER:`/`OPT:`/`MSG:`/`SUP:`/`RL:` and the singletons `INVENTORY`/`SELF_OPT`. **Any new prefix
-you add must be added to `isNfcOrderKey()` too.**
+`QR:`/`ORDER:`/`OPT:`/`MSG:`/`SUP:`/`RL:`/`FRIEND:`/`FRIEND_SESSION:` and the singletons
+`INVENTORY`/`SELF_OPT`/`FRIEND_INDEX`. **Any new prefix you add must be added to `isNfcOrderKey()` too.**
 
 | Key pattern        | Holds                                                                       |
 |--------------------|-----------------------------------------------------------------------------|
-| `<orderId>`        | NFC tag record: `{ url, options, addonCount, accessCount, made, cancelled, confirmed, ... }` |
+| `<orderId>`        | NFC tag record: `{ url, options, addonCount, accessCount, made, cancelled, confirmed, ... }` (friend orders also carry `friendOwner`, `draft`) |
 | `QR:<orderId>`     | QR-code record (parallel to the NFC record)                                 |
-| `ORDER:<orderId>`  | Saved order/customization detail (from page2 `/api/save-order`)             |
+| `ORDER:<orderId>`  | Saved order/customization detail (from page2 `/api/save-order`). Friend orders add `friendOwner`/`draft`/`note`/`draftData` (whole `S` state; keys written head-first so `orderHead()` can read `draft`/`updatedAt` without loading the blob) |
 | `OPT:<orderId>`    | Option-only order stock (options bought standalone, no body)                |
 | `MSG:<ts>-<rand>`  | Contact-form message / auto-notifications (`pending=1` filters un-emailed)  |
 | `SUP:<6-digit>`    | Support ticket + chat: `{ number, token, subject, detail, contact, status, messages:[{from,text,ts}], emailed, autoResolved, ... }` (`token` = owner check) |
-| `RL:<bucket>:<ip>:<win>` | Rate-limit counter (support endpoints); auto-expires via `expirationTtl`  |
-| `INVENTORY`        | Single inventory/maintenance record (`maintenance`, `maintenanceMsg`, `colors`) |
-| `SELF_OPT`         | Default option config for the self-registration page                        |
+| `RL:<bucket>:<ip>:<win>` | Rate-limit counter (support + friend-auth endpoints); auto-expires via `expirationTtl` |
+| `FRIEND:<loginId>` | Friend account: `{ loginId, name, passwordEnc, question, answerEnc, createdAt, ordersIndex:[orderId] }` (`*Enc` = AES-GCM `{iv,data}`, reversible so admin can reveal) |
+| `FRIEND_SESSION:<uuid>` | Friend login session `{ loginId }`, `expirationTtl` 30 days           |
+| `FRIEND_INDEX`     | Array of all friend loginIds (so friend listing never needs KV `list()`)    |
+| `INVENTORY`        | Inventory/maintenance record: `{ maintenance: { all:{on,msg}, pages:{<pageKey>:{on,msg}} }, colors }` (old flat `maintenance:bool` shape retired) |
+| `SELF_OPT`         | Default option config for the self-registration page (also baked into new friend drafts) |
 
 Backup/restore (`/api/export`, `/api/import`) use `listAllKeys()` (cursor-paginated) and cover
 **every** key regardless of prefix.
@@ -152,11 +159,21 @@ Backup/restore (`/api/export`, `/api/import`) use `listAllKeys()` (cursor-pagina
   `/api/save-order` is public **only for already-registered order IDs** (admin bypasses the check);
   it saves the `ORDER:` record and also syncs any `nfcUrl`/`qrUrl` onto the NFC/QR redirect records
   (empty string = keep existing). This replaced page2's old admin-authed `/api/register` call.
+- **Public friend-auth endpoints (rate-limited per IP):** `/api/maintenance-bypass-auth`
+  (checks `MAINTENANCE_BYPASS_PASSWORD` only), `/api/friend-check-id`, `/api/friend-register`,
+  `/api/friend-login`, `/api/friend-forgot-question`, `/api/friend-forgot-verify`.
+- **Friend endpoints (Bearer = FRIEND_SESSION token, resolved by `resolveFriendSession`/`requireFriend`):**
+  `/api/friend-logout`, `/api/friend-save-draft`, `/api/friend-get-draft`, `/api/friend-submit-order`,
+  `/api/friend-order-history`, `/api/friend-cancel-order`, `/api/friend-change-id`,
+  `/api/friend-change-password`, `/api/friend-change-question`, `/api/friend-delete-account`.
 - **Admin (Bearer auth):** `/api/register`, `/api/set`, `/api/set-all`, `/api/set-made`,
   `/api/set-qr`, `/api/get`, `/api/get-all`, `/api/get-qr-url`, `/api/delete`, `/api/save-order`
   (admin path), `/api/get-order`, `/api/inventory`, `/api/export`, `/api/import`, `/api/admin-cancel`,
   `/api/opt-register`, `/api/opt-list`, `/api/opt-set-used`, `/api/self-opt-set`, `/api/messages`,
-  `/api/message-update`, `/api/support-list`, `/api/support-reply`, `/api/support-update`.
+  `/api/message-update`, `/api/support-list`, `/api/support-reply`, `/api/support-update`,
+  `/api/admin-friend-list`, `/api/admin-friend-detail`, `/api/admin-friend-delete`,
+  `/api/admin-friend-reveal` (decrypts password/answer on demand — the admin UI only calls it when
+  the 表示 button is pressed).
 
 To add an endpoint: add an `if (path === '/api/...')` line in the `fetch` router, then write a
 `handleXxx(request, env, cors)` function. Guard admin handlers with the
@@ -172,6 +189,54 @@ To add an endpoint: add an `if (path === '/api/...')` line in the `fetch` router
 `Code.gs` decides between these in `processOrders()` (and `reprocessAll()`). Re-running
 registration is safe: the Worker preserves any customer-set URL/history and lifecycle flags on
 overwrite, so `reprocessAll()` won't wipe customer data.
+
+## Maintenance mode (2-level: all pages / per page)
+
+- Stored in `INVENTORY.maintenance` as `{ all:{on,msg}, pages:{<pageKey>:{on,msg}} }`. Page keys
+  are listed in `MAINT_PAGE_KEYS` (worker.js) and `MAINT_PAGES_DEF` (admin JS) — keep both in sync
+  with the `PAGE_KEY` constants embedded in the static pages.
+- A page is "in maintenance" when `all.on || pages[PAGE_KEY].on`; `all.msg` wins over the page msg.
+- Every customer/friend static page embeds the same self-contained check script (deliberately
+  duplicated per file, `PAGE_KEY` differs). It shows a full-screen banner; on page2/self-page2 it
+  also disables the submit button.
+- **Admin bypass:** `/api/maintenance-bypass-auth` validates the Cloudflare Secret
+  `MAINTENANCE_BYPASS_PASSWORD` (separate from `ADMIN_PASSWORD`; fails closed when unset). The
+  banner script has a hidden keyboard-shortcut prompt that stores the password in `localStorage`
+  (`buki_maint_bypass_pw`) and re-validates it on later visits. Don't advertise the shortcut in
+  commit messages or public docs.
+- `/admin` is never blocked by maintenance.
+
+## Friend account system (`self-*.html` + `FRIEND*` keys)
+
+A login-based ordering flow for friends/acquaintances, fully separate from the customer pages:
+friend pages link **only** to other `self-*.html` pages (logout goes to `self-login.html`).
+
+- **Auth:** `self.html` (register) / `self-login.html` (login) issue a `FRIEND_SESSION:` token
+  (30-day TTL) stored in `localStorage.buki_friend_token`. Every `self-*` page embeds a copied
+  auth-guard + `friendFetch()` wrapper that redirects to `self-login.html` on missing token/401.
+  Password rule (`isValidPassword`): ≥8 chars with upper+lower+digit. Password reset = secret
+  question (fixed `SECRET_QUESTIONS` list, duplicated in worker.js / self.html / self-settings.html).
+- **Crypto:** password & secret answer are stored **reversibly** (AES-GCM via `encryptText`/
+  `decryptText`, key = Cloudflare Secret `ACCOUNT_ENCRYPTION_KEY`, base64 32 bytes) so the admin
+  panel can reveal them. Login compares by decrypting (AES-GCM ciphertexts are not comparable).
+  All friend handlers fail closed if the key secret is unset.
+- **Orders:** `friend-save-draft` auto-issues a 10-digit orderId (same scheme as self-register,
+  SELF_OPT options baked in) and writes both the bare NFC record (`friendOwner`, `draft:true`) and
+  `ORDER:` (`draftData` = the whole page2 `S` state + QRS/NFCS/QTY). self-page2 adds a note
+  textarea, a 保存する button, 30s-autosave, visibility/beforeunload save, and `?orderId=…&resume=1`
+  restore (rebuilds layer `imgEl`s then re-renders the UI). Submit goes through
+  `friend-submit-order` with the page2-compatible payload (so `/order/<id>` renders normally),
+  flips `draft:false`, syncs nfc/qr URLs, and queues a `MSG:` notification. Friend cancel has
+  **no 3-day window**: drafts are deleted outright; submitted orders get `cancelled:true` unless
+  `made`. History/status come from `ordersIndex` + bare records (+ `orderHead` for draft flag) —
+  **never KV `list()`** (free-tier quota; that's also why `FRIEND_INDEX` exists).
+- **Admin:** keychain list now has a 5th status 注文中 (`st-draft`, yellow, from `nfc.draft`) and a
+  filter chip; the 👥 友人ユーザー管理 view lists accounts (via `FRIEND_INDEX`), shows details/orders,
+  reveals password/answer on demand, and force-deletes accounts (orders are kept).
+
+### Secrets checklist (Cloudflare → `npx wrangler secret put …`)
+`ADMIN_PASSWORD` (also an Apps Script property), `MAINTENANCE_BYPASS_PASSWORD`,
+`ACCOUNT_ENCRYPTION_KEY`. All fail closed when unset; none may appear in the repo.
 
 ## Support system (`SUP:` — customer ticket + chat)
 
