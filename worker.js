@@ -1913,6 +1913,10 @@ async function handleExportKeys(request, env, cors) {
 }
 
 // 分割版②：指定されたキーの中身を返す（get()のみ。list()は一切使わない）
+// 件数上限に加えて「累計サイズ上限」で途中打ち切りする。ORDER: レコードは1件で最大20MB近く
+// あるため、件数だけで区切ると20件で160MB超になり Error 1102 が再発する（実測済み）。
+// 打ち切った場合は processed（リクエスト先頭から何件処理したか）を返し、
+// クライアントはその続きのキーから次のバッチを投げる。
 async function handleExportBatch(request, env, cors) {
   const auth = request.headers.get('Authorization');
   if (auth !== adminBearer(env)) return json({ error: '認証エラー' }, 401, cors);
@@ -1920,16 +1924,21 @@ async function handleExportBatch(request, env, cors) {
   try {
     const body = await request.json();
     const requested = Array.isArray(body && body.keys) ? body.keys : [];
-    const MAX_BATCH = 20; // 1回のバッチで取得する最大キー数（メモリ上限対策。1102が出るなら減らす）
+    const MAX_BATCH   = 20;               // 1回のバッチで処理する最大キー数
+    const SIZE_BUDGET = 15 * 1024 * 1024; // 累計サイズ上限15MB（超えたら打ち切り。JSON化で約2倍のメモリを使うため小さめに）
     const keys = requested.slice(0, MAX_BATCH);
 
     const data = {};
+    let used = 0, processed = 0;
     for (const name of keys) {
       const v = await env.NFC_URLS.get(name); // get() のみ。list() は使わない
-      if (v !== null) data[name] = v;
+      processed++;
+      if (v !== null) { data[name] = v; used += v.length; }
+      // 上限到達で打ち切り（最低1件は必ず処理するので前進は保証される）
+      if (used >= SIZE_BUDGET && processed < keys.length) break;
     }
 
-    return json({ data: data }, 200, cors);
+    return json({ data: data, processed: processed }, 200, cors);
   } catch (e) {
     return json({
       error:  'バッチ取得に失敗しました',
@@ -4878,35 +4887,34 @@ function fetchExportKeys() {
 
 function fetchAllBatches(keys, batchSize) {
   var merged = {};
-  var chunks = [];
-  for (var i = 0; i < keys.length; i += batchSize) {
-    chunks.push(keys.slice(i, i + batchSize));
-  }
-  var done = 0;
-  // 直列で1つずつ処理（並列にするとCloudflare側の同時サブリクエスト数制限に当たる可能性があるため）
-  var p = Promise.resolve();
-  chunks.forEach(function (chunk) {
-    p = p.then(function () {
-      return fetch(BASE + '/api/export-batch', {
-        method:  'POST',
-        headers: { Authorization: 'Bearer ' + PW, 'Content-Type': 'application/json' },
-        body:    JSON.stringify({ keys: chunk }),
-      })
-      .then(function (r) {
-        return r.json().then(
-          function (d) { return { ok: r.ok, d: d }; },
-          function ()  { return { ok: false, d: { error: 'HTTP ' + r.status } }; }
-        );
-      })
-      .then(function (result) {
-        if (!result.ok) throw new Error((result.d && result.d.error) || 'バッチ取得エラー');
-        Object.assign(merged, result.d.data || {});
-        done++;
-        toast('エクスポート取得中... ' + done + '/' + chunks.length);
-      });
+  var idx = 0;
+  // 直列で1バッチずつ処理（並列にするとCloudflare側の同時サブリクエスト数制限に当たる可能性があるため）。
+  // サーバーはサイズ上限で途中打ち切りすることがあり、その場合 processed（処理済み件数）だけ前進して続きを投げる。
+  function step() {
+    if (idx >= keys.length) return Promise.resolve(merged);
+    var chunk = keys.slice(idx, idx + batchSize);
+    return fetch(BASE + '/api/export-batch', {
+      method:  'POST',
+      headers: { Authorization: 'Bearer ' + PW, 'Content-Type': 'application/json' },
+      body:    JSON.stringify({ keys: chunk }),
+    })
+    .then(function (r) {
+      return r.json().then(
+        function (d) { return { ok: r.ok, d: d }; },
+        function ()  { return { ok: false, d: { error: 'HTTP ' + r.status } }; }
+      );
+    })
+    .then(function (result) {
+      if (!result.ok) throw new Error((result.d && result.d.error) || 'バッチ取得エラー');
+      Object.assign(merged, result.d.data || {});
+      var adv = parseInt(result.d.processed, 10);
+      if (!(adv >= 1)) adv = chunk.length;   // 旧レスポンス（processedなし）との互換
+      idx += adv;
+      toast('エクスポート取得中... ' + Math.min(idx, keys.length) + '/' + keys.length + '件');
+      return step();
     });
-  });
-  return p.then(function () { return merged; });
+  }
+  return step();
 }
 
 function doExport() {
