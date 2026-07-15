@@ -114,7 +114,9 @@ export default {
     if (path === '/api/save-order')        return handleSaveOrder(request, env, cors);
     if (path === '/api/get-order')         return handleGetOrder(request, env, cors);
     if (path === '/api/inventory')         return handleInventory(request, env, cors);
-    if (path === '/api/export')            return handleExport(request, env, cors);
+    if (path === '/api/export')            return handleExport(request, env, cors);       // 一括版（互換のため残置。Error 1102の恐れあり）
+    if (path === '/api/export-keys')       return handleExportKeys(request, env, cors);   // 分割版①：キー名一覧（list()は1回だけ）
+    if (path === '/api/export-batch')      return handleExportBatch(request, env, cors);  // 分割版②：指定キーの中身（get()のみ）
     if (path === '/api/import')            return handleImport(request, env, cors);
 
     // ── メッセージ（お問い合わせ）──
@@ -1884,6 +1886,58 @@ async function handleExport(request, env, cors) {
   }
 }
 
+// ═══════════════════════════════════════════════
+// 分割エクスポート（Error 1102＝メモリ128MB超過の対策）
+// ═══════════════════════════════════════════════
+// 全値を1回のWorker実行で読み込むとメモリ上限を超えるため、
+// 「①キー名一覧（list()は1回だけ消費）→ ②キー指定で中身を数十件ずつ取得（get()のみ）」の
+// 2段階に分け、結合はクライアント側（管理画面JS・バックアップスクリプト）で行う。
+// ※ list() は1日1,000回上限なので、分割してもここ（export-keys）以外では絶対に使わないこと。
+
+// 分割版①：キー名の一覧だけを返す（値は読まないので軽い）
+async function handleExportKeys(request, env, cors) {
+  const auth = request.headers.get('Authorization');
+  if (auth !== adminBearer(env)) return json({ error: '認証エラー' }, 401, cors);
+
+  try {
+    const allKeys = await listAllKeys(env); // list() はここで1回だけ消費
+    return json({
+      keys: allKeys.map(function (k) { return k.name; }),
+    }, 200, cors);
+  } catch (e) {
+    return json({
+      error:  'キー一覧の取得に失敗しました',
+      detail: String((e && e.message) || e),
+    }, 503, cors);
+  }
+}
+
+// 分割版②：指定されたキーの中身を返す（get()のみ。list()は一切使わない）
+async function handleExportBatch(request, env, cors) {
+  const auth = request.headers.get('Authorization');
+  if (auth !== adminBearer(env)) return json({ error: '認証エラー' }, 401, cors);
+
+  try {
+    const body = await request.json();
+    const requested = Array.isArray(body && body.keys) ? body.keys : [];
+    const MAX_BATCH = 20; // 1回のバッチで取得する最大キー数（メモリ上限対策。1102が出るなら減らす）
+    const keys = requested.slice(0, MAX_BATCH);
+
+    const data = {};
+    for (const name of keys) {
+      const v = await env.NFC_URLS.get(name); // get() のみ。list() は使わない
+      if (v !== null) data[name] = v;
+    }
+
+    return json({ data: data }, 200, cors);
+  } catch (e) {
+    return json({
+      error:  'バッチ取得に失敗しました',
+      detail: String((e && e.message) || e),
+    }, 503, cors);
+  }
+}
+
 // バックアップをインポートして KV へ書き戻す
 async function handleImport(request, env, cors) {
   const auth = request.headers.get('Authorization');
@@ -3250,7 +3304,7 @@ tr:hover td{background:#f7f9fb;}
           すべての注文・NFC・QR・履歴データをまとめて書き出し／復元できます。定期的にエクスポートして保存しておくことをおすすめします。
         </div>
         <div class="backup-row">
-          <button class="backup-btn primary" onclick="doExport()">⬇ エクスポート（書き出し）</button>
+          <button class="backup-btn primary" id="exportBtn" onclick="doExport()">⬇ エクスポート（書き出し）</button>
           <button class="backup-btn" onclick="document.getElementById('importFile').click()">⬆ インポート（復元）</button>
           <input type="file" id="importFile" accept="application/json,.json" style="display:none;" onchange="doImport(event)">
         </div>
@@ -4804,24 +4858,84 @@ async function deleteFriendUser(loginId) {
 }
 
 // ─── バックアップ ───
-function doExport() {
-  fetch(BASE + '/api/export', { headers: { Authorization: 'Bearer ' + PW } })
+// エクスポートは分割方式（Error 1102＝メモリ上限対策）：
+// ①/api/export-keys でキー名一覧（list()消費は従来と同じ1回だけ）
+// ②/api/export-batch を20件ずつ直列で呼んで結合（get()のみ消費）
+// ③従来と同じ { type, version, exportedAt, count, data } 形式でダウンロード（インポート側は無変更）
+function fetchExportKeys() {
+  return fetch(BASE + '/api/export-keys', { headers: { Authorization: 'Bearer ' + PW } })
     .then(function (r) {
-      // 失敗時もサーバーが返す error/detail を読み取ってトーストに出す
-      return r.json().then(function (d) {
-        if (!r.ok) throw new Error((d && d.error) || ('HTTP ' + r.status));
-        return d;
-      }, function () { throw new Error('HTTP ' + r.status); });
+      return r.json().then(
+        function (d) { return { ok: r.ok, d: d }; },
+        function ()  { return { ok: false, d: { error: 'HTTP ' + r.status } }; }
+      );
     })
-    .then(function (data) {
-      const blob = new Blob([JSON.stringify(data,null,2)], { type:'application/json' });
+    .then(function (result) {
+      if (!result.ok) throw new Error((result.d && result.d.error) || 'キー一覧取得エラー');
+      return result.d.keys || [];
+    });
+}
+
+function fetchAllBatches(keys, batchSize) {
+  var merged = {};
+  var chunks = [];
+  for (var i = 0; i < keys.length; i += batchSize) {
+    chunks.push(keys.slice(i, i + batchSize));
+  }
+  var done = 0;
+  // 直列で1つずつ処理（並列にするとCloudflare側の同時サブリクエスト数制限に当たる可能性があるため）
+  var p = Promise.resolve();
+  chunks.forEach(function (chunk) {
+    p = p.then(function () {
+      return fetch(BASE + '/api/export-batch', {
+        method:  'POST',
+        headers: { Authorization: 'Bearer ' + PW, 'Content-Type': 'application/json' },
+        body:    JSON.stringify({ keys: chunk }),
+      })
+      .then(function (r) {
+        return r.json().then(
+          function (d) { return { ok: r.ok, d: d }; },
+          function ()  { return { ok: false, d: { error: 'HTTP ' + r.status } }; }
+        );
+      })
+      .then(function (result) {
+        if (!result.ok) throw new Error((result.d && result.d.error) || 'バッチ取得エラー');
+        Object.assign(merged, result.d.data || {});
+        done++;
+        toast('エクスポート取得中... ' + done + '/' + chunks.length);
+      });
+    });
+  });
+  return p.then(function () { return merged; });
+}
+
+function doExport() {
+  var btn = document.getElementById('exportBtn');
+  if (btn) btn.disabled = true;
+  toast('エクスポートを開始します...');
+  fetchExportKeys()
+    .then(function (keys) {
+      if (!keys.length) throw new Error('キーが1件もありません');
+      return fetchAllBatches(keys, 20); // 20件ずつ取得して結合
+    })
+    .then(function (mergedData) {
+      var payload = {
+        type:       'buki-booth-backup',
+        version:    1,
+        exportedAt: new Date().toISOString(),
+        count:      Object.keys(mergedData).length,
+        data:       mergedData,
+      };
+      const blob = new Blob([JSON.stringify(payload,null,2)], { type:'application/json' });
       const a = document.createElement('a');
       const d = new Date();
       const stamp = d.getFullYear()+('0'+(d.getMonth()+1)).slice(-2)+('0'+d.getDate()).slice(-2)+'_'+('0'+d.getHours()).slice(-2)+('0'+d.getMinutes()).slice(-2);
       a.href = URL.createObjectURL(blob); a.download = 'buki-booth-backup_'+stamp+'.json';
       document.body.appendChild(a); a.click(); document.body.removeChild(a); URL.revokeObjectURL(a.href);
-      toast('エクスポートしました（'+( data.count||0)+'件）');
-    }).catch(function (e) { toast('エクスポートに失敗しました' + ((e && e.message) ? '：' + e.message : '')); });
+      toast('エクスポートしました（'+(payload.count||0)+'件）');
+    })
+    .catch(function (e) { toast('エクスポートに失敗しました' + ((e && e.message) ? '：' + e.message : '')); })
+    .then(function () { if (btn) btn.disabled = false; });
 }
 
 function doImport(ev) {
