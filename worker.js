@@ -1930,20 +1930,22 @@ async function handleExportBatch(request, env, cors) {
     const rawKeys = body && body.keys;
     const requested = Array.isArray(rawKeys) ? rawKeys : (typeof rawKeys === 'string' && rawKeys ? [rawKeys] : []);
     const MAX_BATCH   = 20;              // 1回のバッチで処理する最大キー数
-    // 応答の合計サイズ上限。実測で30MB級の応答は「Workerの1102」「転送の途中切断」
-    // 「PowerShell 5.1のJSON解析失敗→文字列化」を引き起こしたため、小さく保つ。
-    // 「超える前に」打ち切る方式なので、応答は最大でも max(4MB, 単一値のサイズ≦約20MB) に収まる。
-    const SIZE_BUDGET = 4 * 1024 * 1024;
+    // 応答の合計サイズのソフト上限。累計がこれを超えたら「次の値を読む前に」打ち切る。
+    // ※判定を get() の後に置くと、送らない境界キーの巨大値までメモリに載ってしまい
+    //   （送る分＋捨てる分で30MB超→JSON化で倍）、Error 1102 が間欠再発した（実測）。
+    //   get() の前に判定すれば無駄な読み込みがなく、応答は最大でも
+    //   約 SIZE_BUDGET＋単一値1個分（KV上の実測最大は約20MB）に収まる。
+    const SIZE_BUDGET = 2 * 1024 * 1024;
     const keys = requested.slice(0, MAX_BATCH);
 
     const data = {};
     const missing = [];   // 処理したのに値がnullだったキー（一覧取得後にTTL失効/削除されたもの）
     let used = 0, processed = 0;
     for (const name of keys) {
-      const v = await env.NFC_URLS.get(name); // get() のみ。list() は使わない
-      // このキーを足すと上限を超える場合はここで打ち切り、キーは次のバッチに回す
+      // 累計が上限に達していたら、このキーは読まずに次のバッチへ回す
       // （processed に数えないのでクライアントはこのキーから再開する。バッチに最低1件は必ず入る）
-      if (v !== null && processed > 0 && used + v.length > SIZE_BUDGET) break;
+      if (processed > 0 && used >= SIZE_BUDGET) break;
+      const v = await env.NFC_URLS.get(name); // get() のみ。list() は使わない
       processed++;
       if (v !== null) { data[name] = v; used += v.length; }
       else missing.push(name);
