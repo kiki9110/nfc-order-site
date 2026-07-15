@@ -1926,9 +1926,14 @@ async function handleExportBatch(request, env, cors) {
 
   try {
     const body = await request.json();
-    const requested = Array.isArray(body && body.keys) ? body.keys : [];
-    const MAX_BATCH   = 20;               // 1回のバッチで処理する最大キー数
-    const SIZE_BUDGET = 15 * 1024 * 1024; // 累計サイズ上限15MB（超えたら打ち切り。JSON化で約2倍のメモリを使うため小さめに）
+    // PowerShell 5.1 の ConvertTo-Json は要素1個の配列を文字列に潰すことがあるため、文字列も受け付ける
+    const rawKeys = body && body.keys;
+    const requested = Array.isArray(rawKeys) ? rawKeys : (typeof rawKeys === 'string' && rawKeys ? [rawKeys] : []);
+    const MAX_BATCH   = 20;              // 1回のバッチで処理する最大キー数
+    // 応答の合計サイズ上限。実測で30MB級の応答は「Workerの1102」「転送の途中切断」
+    // 「PowerShell 5.1のJSON解析失敗→文字列化」を引き起こしたため、小さく保つ。
+    // 「超える前に」打ち切る方式なので、応答は最大でも max(4MB, 単一値のサイズ≦約20MB) に収まる。
+    const SIZE_BUDGET = 4 * 1024 * 1024;
     const keys = requested.slice(0, MAX_BATCH);
 
     const data = {};
@@ -1936,11 +1941,12 @@ async function handleExportBatch(request, env, cors) {
     let used = 0, processed = 0;
     for (const name of keys) {
       const v = await env.NFC_URLS.get(name); // get() のみ。list() は使わない
+      // このキーを足すと上限を超える場合はここで打ち切り、キーは次のバッチに回す
+      // （processed に数えないのでクライアントはこのキーから再開する。バッチに最低1件は必ず入る）
+      if (v !== null && processed > 0 && used + v.length > SIZE_BUDGET) break;
       processed++;
       if (v !== null) { data[name] = v; used += v.length; }
       else missing.push(name);
-      // 上限到達で打ち切り（最低1件は必ず処理するので前進は保証される）
-      if (used >= SIZE_BUDGET && processed < keys.length) break;
     }
 
     // missing を明示的に返す：クライアントは「dataの件数 + missingの件数 = processed」で
@@ -4914,10 +4920,17 @@ function fetchAllBatches(keys, batchSize) {
     })
     .then(function (result) {
       if (!result.ok) throw new Error((result.d && result.d.error) || 'バッチ取得エラー');
-      Object.assign(merged, result.d.data || {});
-      if (result.d.missing && result.d.missing.length) missing = missing.concat(result.d.missing);
+      // processed が読み取れない応答で前進すると「結果を捨てたままスキップ」する事故になるため、
+      // 検証できない応答は必ずエラーにする（勝手に chunk.length ぶん進むフォールバックは禁止）
       var adv = parseInt(result.d.processed, 10);
-      if (!(adv >= 1)) adv = chunk.length;   // 旧レスポンス（processedなし）との互換
+      if (!(adv >= 1)) throw new Error('サーバー応答が不正です（processedがありません）');
+      var gotData    = result.d.data || {};
+      var gotMissing = result.d.missing || [];
+      if (Object.keys(gotData).length + gotMissing.length !== adv) {
+        throw new Error('サーバー応答の件数が一致しません（processed=' + adv + ' / data=' + Object.keys(gotData).length + ' / missing=' + gotMissing.length + '）');
+      }
+      Object.assign(merged, gotData);
+      if (gotMissing.length) missing = missing.concat(gotMissing);
       idx += adv;
       toast('エクスポート取得中... ' + Math.min(idx, keys.length) + '/' + keys.length + '件');
       return step();
