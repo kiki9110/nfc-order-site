@@ -146,8 +146,11 @@ with the shared `isNfcOrderKey(name)` helper (used by `handleGet` / `handleGetAl
 | `SELF_OPT`         | Default option config for the self-registration page (also baked into new friend drafts) |
 | `BACKUP_STATUS`    | Last auto-backup run: `{ lastAttemptAt (server-stamped), ok, count, totalKeys, missing, large, errorMessage, source }` — POSTed by `buki-booth-backup.ps1`, shown on the admin backup screen |
 
-Backup/restore (`/api/export`, `/api/import`) use `listAllKeys()` (cursor-paginated) and cover
-**every** key regardless of prefix.
+Backup/restore covers **every** key regardless of prefix. Export is split (`/api/export-keys` →
+`/api/export-batch` → `/api/export-value` for >4MB values) and import is batched
+(`/api/import-batch`, ~3MB per POST, sent serially by the admin UI) to stay under the Worker's
+128MB memory limit (Error 1102). The legacy one-shot `/api/export` / `/api/import` remain for
+compatibility but can hit 1102 at current data sizes.
 
 ## API surface (defined by the `if (path === ...)` chain at the top of `worker.js`)
 
@@ -170,8 +173,8 @@ Backup/restore (`/api/export`, `/api/import`) use `listAllKeys()` (cursor-pagina
 - **Admin (Bearer auth):** `/api/register`, `/api/set`, `/api/set-all`, `/api/set-made`,
   `/api/set-qr`, `/api/get`, `/api/get-all`, `/api/get-qr-url`, `/api/delete`, `/api/save-order`
   (admin path), `/api/get-order`, `/api/inventory`, `/api/export`, `/api/export-keys`,
-  `/api/export-batch`, `/api/export-value`, `/api/import`, `/api/backup-status` (GET/POST,
-  get/put only — never `list()`), `/api/admin-cancel`,
+  `/api/export-batch`, `/api/export-value`, `/api/import`, `/api/import-batch`,
+  `/api/backup-status` (GET/POST, get/put only — never `list()`), `/api/admin-cancel`,
   `/api/opt-register`, `/api/opt-list`, `/api/opt-set-used`, `/api/self-opt-set`, `/api/messages`,
   `/api/message-update`, `/api/support-list`, `/api/support-reply`, `/api/support-update`,
   `/api/admin-friend-list`, `/api/admin-friend-detail`, `/api/admin-friend-delete`,

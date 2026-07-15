@@ -118,7 +118,8 @@ export default {
     if (path === '/api/export-keys')       return handleExportKeys(request, env, cors);   // 分割版①：キー名一覧（list()は1回だけ）
     if (path === '/api/export-batch')      return handleExportBatch(request, env, cors);  // 分割版②：小さい値をまとめて返す（get()のみ）
     if (path === '/api/export-value')      return handleExportValue(request, env, cors);  // 分割版③：巨大な値を1件ストリームで返す（メモリに載せない）
-    if (path === '/api/import')            return handleImport(request, env, cors);
+    if (path === '/api/import')            return handleImport(request, env, cors);       // 一括版（互換のため残置。Error 1102の恐れあり）
+    if (path === '/api/import-batch')      return handleImportBatch(request, env, cors);  // 分割版：数MBずつ受け取って書き込む（put()のみ）
     if (path === '/api/backup-status')     return handleBackupStatus(request, env, cors); // 自動バックアップの成否記録（GET/POST。get()/put()のみ）
 
     // ── メッセージ（お問い合わせ）──
@@ -2009,6 +2010,31 @@ async function handleImport(request, env, cors) {
   return json({ ok: true, imported }, 200, cors);
 }
 
+// 分割インポート：バックアップ全体を1回のPOSTで受けると request.json() がボディ全体を
+// 一度にパースしてメモリ上限（Error 1102＝128MB）に達するため、クライアント側で
+// 数MBずつに分割したバッチを受け取って書き込む。put() のみで list() は使わない。
+// 同じキーの再送は上書きになるだけ（冪等）なので、失敗バッチの再実行も安全。
+async function handleImportBatch(request, env, cors) {
+  const auth = request.headers.get('Authorization');
+  if (auth !== adminBearer(env)) return json({ error: '認証エラー' }, 401, cors);
+
+  let body;
+  try { body = await request.json(); }
+  catch (e) { return json({ error: 'JSONの読み込みに失敗しました' }, 400, cors); }
+
+  if (!body || !body.data || typeof body.data !== 'object' || Array.isArray(body.data)) {
+    return json({ error: 'バッチの形式が正しくありません' }, 400, cors);
+  }
+
+  let imported = 0;
+  for (const [key, val] of Object.entries(body.data)) {
+    await env.NFC_URLS.put(key, typeof val === 'string' ? val : JSON.stringify(val));
+    imported++;
+  }
+
+  return json({ ok: true, imported }, 200, cors);
+}
+
 
 // ═══════════════════════════════════════════════
 // 自動バックアップの状態記録（単発キー BACKUP_STATUS）
@@ -3400,7 +3426,7 @@ tr:hover td{background:#f7f9fb;}
         </div>
         <div class="backup-row">
           <button class="backup-btn primary" id="exportBtn" onclick="doExport()">⬇ エクスポート（書き出し）</button>
-          <button class="backup-btn" onclick="document.getElementById('importFile').click()">⬆ インポート（復元）</button>
+          <button class="backup-btn" id="importBtn" onclick="document.getElementById('importFile').click()">⬆ インポート（復元）</button>
           <input type="file" id="importFile" accept="application/json,.json" style="display:none;" onchange="doImport(event)">
         </div>
         <div class="warn-note">
@@ -5124,24 +5150,106 @@ function doExport() {
     .then(function () { if (btn) btn.disabled = false; });
 }
 
+// インポートも分割方式（Error 1102＝メモリ上限対策）：
+// ファイル全体はブラウザ側で読み込み・解析し（ブラウザのメモリなら163MB級でも問題ない）、
+// 累積サイズ約3MBごとのバッチに区切って /api/import-batch へ「直列で」POSTする
+// （並列にしないのはKV書き込みの負荷を抑え、どのバッチで失敗したか追いやすくするため）。
+// あるバッチが失敗しても処理は止めず、失敗キーを集めて最後にまとめて報告する
+// （インポートは同じキーの再送でも安全＝冪等なので、後で失敗分だけ再実行できる）。
 function doImport(ev) {
-  const file = ev.target.files && ev.target.files[0];
-  ev.target.value = '';
+  var fileInput = ev.target;
+  var file = fileInput.files && fileInput.files[0];
+  fileInput.value = '';
   if (!file) return;
-  const reader = new FileReader();
+  var reader = new FileReader();
   reader.onload = function () {
-    let parsed;
+    var parsed;
     try { parsed = JSON.parse(reader.result); }
     catch(e) { toast('JSONファイルとして読めませんでした'); return; }
-    if (!confirm('このバックアップを復元しますか？\\n同じ注文番号のデータは上書きされます。')) return;
-    fetch(BASE + '/api/import', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json', Authorization: 'Bearer ' + PW },
-      body: JSON.stringify(parsed),
-    }).then(function (r) { return r.json(); }).then(function (d) {
-      if (d.ok) { toast('復元しました（'+(d.imported||0)+'件）'); loadList(); }
-      else      { toast('エラー: '+(d.error||'不明')); }
-    }).catch(function () { toast('インポートに失敗しました'); });
+    if (!parsed || parsed.type !== 'buki-booth-backup' || !parsed.data || typeof parsed.data !== 'object') {
+      toast('バックアップファイルの形式が正しくありません'); return;
+    }
+    var allKeys = Object.keys(parsed.data);
+    if (!allKeys.length) { toast('データが0件のため何もしませんでした'); return; }
+    if (!confirm(allKeys.length + '件のデータを復元します。\\n同じ注文番号のデータは上書きされます。よろしいですか？')) return;
+
+    // バッチ分割：累積サイズが約3MBを超えるごと（または20件ごと）に区切る。
+    // 1件だけで3MBを超える巨大な値（画像を含むORDER:レコード等）は、それ単体で1バッチになる。
+    var SIZE_LIMIT  = 3 * 1024 * 1024;
+    var COUNT_LIMIT = 20;
+    var batches = [];
+    var cur = {}, curSize = 0, curCount = 0;
+    for (var i = 0; i < allKeys.length; i++) {
+      var key = allKeys[i];
+      var val = parsed.data[key];
+      var size = (typeof val === 'string') ? val.length : JSON.stringify(val).length; // バイト厳密でなく概算でよい
+      if (curCount > 0 && (curSize + size > SIZE_LIMIT || curCount >= COUNT_LIMIT)) {
+        batches.push(cur); cur = {}; curSize = 0; curCount = 0;
+      }
+      cur[key] = val; curSize += size; curCount++;
+    }
+    if (curCount > 0) batches.push(cur);
+
+    var importBtn = document.getElementById('importBtn');
+    var exportBtn = document.getElementById('exportBtn');
+    var origLabel = importBtn ? importBtn.textContent : '';
+    if (importBtn) importBtn.disabled = true;
+    if (exportBtn) exportBtn.disabled = true;
+    fileInput.disabled = true;
+
+    var doneCount  = 0;   // 書き込みに成功した件数
+    var failedKeys = [];  // 失敗したバッチに含まれていたキー名
+    var bi = 0;
+
+    function finish() {
+      if (importBtn) { importBtn.disabled = false; importBtn.textContent = origLabel; }
+      if (exportBtn) exportBtn.disabled = false;
+      fileInput.disabled = false;
+      if (failedKeys.length) {
+        try { console.warn('インポートに失敗したキー:', failedKeys); } catch (ce) {}
+        toast('復元しました（' + doneCount + '/' + allKeys.length + '件。失敗' + failedKeys.length + '件はコンソールを確認してください）');
+      } else {
+        toast('復元しました（' + doneCount + '件）');
+      }
+      loadList();
+    }
+    function step() {
+      if (bi >= batches.length) return finish();
+      var batch = batches[bi];
+      var keysInBatch = Object.keys(batch);
+      var label = '復元中… バッチ ' + (bi + 1) + '/' + batches.length + '（' + (doneCount + failedKeys.length + keysInBatch.length) + '/' + allKeys.length + '件）';
+      if (importBtn) importBtn.textContent = label;
+      toast(label);
+      fetch(BASE + '/api/import-batch', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', Authorization: 'Bearer ' + PW },
+        body: JSON.stringify({ data: batch }),
+      })
+      .then(function (r) {
+        return r.json().then(
+          function (d) { return { ok: r.ok && d && d.ok, d: d }; },
+          function ()  { return { ok: false, d: { error: 'HTTP ' + r.status } }; }
+        );
+      })
+      .then(function (result) {
+        if (result.ok) {
+          doneCount += keysInBatch.length;
+        } else {
+          failedKeys = failedKeys.concat(keysInBatch);
+          try { console.warn('バッチ ' + (bi + 1) + ' 失敗:', (result.d && result.d.error) || '不明', keysInBatch); } catch (ce) {}
+        }
+        bi++;
+        return step();
+      })
+      .catch(function (e) {
+        // 通信エラーでも止めずに次のバッチへ（失敗分は最後にまとめて報告）
+        failedKeys = failedKeys.concat(keysInBatch);
+        try { console.warn('バッチ ' + (bi + 1) + ' 通信エラー:', e, keysInBatch); } catch (ce) {}
+        bi++;
+        return step();
+      });
+    }
+    step();
   };
   reader.readAsText(file);
 }
