@@ -1858,20 +1858,30 @@ async function handleExport(request, env, cors) {
   const auth = request.headers.get('Authorization');
   if (auth !== adminBearer(env)) return json({ error: '認証エラー' }, 401, cors);
 
-  const allKeys = await listAllKeys(env);
-  const data    = {};
-  for (const k of allKeys) {
-    const v = await env.NFC_URLS.get(k.name);
-    if (v !== null) data[k.name] = v; // JSON文字列のまま保持
-  }
+  try {
+    const allKeys = await listAllKeys(env);
+    const data    = {};
+    for (const k of allKeys) {
+      const v = await env.NFC_URLS.get(k.name);
+      if (v !== null) data[k.name] = v; // JSON文字列のまま保持
+    }
 
-  return json({
-    type:       'buki-booth-backup',
-    version:    1,
-    exportedAt: new Date().toISOString(),
-    count:      Object.keys(data).length,
-    data,
-  }, 200, cors);
+    return json({
+      type:       'buki-booth-backup',
+      version:    1,
+      exportedAt: new Date().toISOString(),
+      count:      Object.keys(data).length,
+      data,
+    }, 200, cors);
+  } catch (e) {
+    // KV の list()/get() が1日の操作上限（無料枠）に達すると例外になることがある。
+    // その場合も生の500エラーで落とさず、呼び出し側（管理画面・自動バックアップ）が
+    // リトライ判断できるよう 503 ＋ 理由付きJSONで返す。
+    return json({
+      error:  'エクスポートに失敗しました（KVの一時的なエラーの可能性があります。時間をおいて再試行してください）',
+      detail: String((e && e.message) || e),
+    }, 503, cors);
+  }
 }
 
 // バックアップをインポートして KV へ書き戻す
@@ -4796,7 +4806,13 @@ async function deleteFriendUser(loginId) {
 // ─── バックアップ ───
 function doExport() {
   fetch(BASE + '/api/export', { headers: { Authorization: 'Bearer ' + PW } })
-    .then(function (r) { if (!r.ok) throw new Error(); return r.json(); })
+    .then(function (r) {
+      // 失敗時もサーバーが返す error/detail を読み取ってトーストに出す
+      return r.json().then(function (d) {
+        if (!r.ok) throw new Error((d && d.error) || ('HTTP ' + r.status));
+        return d;
+      }, function () { throw new Error('HTTP ' + r.status); });
+    })
     .then(function (data) {
       const blob = new Blob([JSON.stringify(data,null,2)], { type:'application/json' });
       const a = document.createElement('a');
@@ -4805,7 +4821,7 @@ function doExport() {
       a.href = URL.createObjectURL(blob); a.download = 'buki-booth-backup_'+stamp+'.json';
       document.body.appendChild(a); a.click(); document.body.removeChild(a); URL.revokeObjectURL(a.href);
       toast('エクスポートしました（'+( data.count||0)+'件）');
-    }).catch(function () { toast('エクスポートに失敗しました'); });
+    }).catch(function (e) { toast('エクスポートに失敗しました' + ((e && e.message) ? '：' + e.message : '')); });
 }
 
 function doImport(ev) {
