@@ -116,7 +116,8 @@ export default {
     if (path === '/api/inventory')         return handleInventory(request, env, cors);
     if (path === '/api/export')            return handleExport(request, env, cors);       // 一括版（互換のため残置。Error 1102の恐れあり）
     if (path === '/api/export-keys')       return handleExportKeys(request, env, cors);   // 分割版①：キー名一覧（list()は1回だけ）
-    if (path === '/api/export-batch')      return handleExportBatch(request, env, cors);  // 分割版②：指定キーの中身（get()のみ）
+    if (path === '/api/export-batch')      return handleExportBatch(request, env, cors);  // 分割版②：小さい値をまとめて返す（get()のみ）
+    if (path === '/api/export-value')      return handleExportValue(request, env, cors);  // 分割版③：巨大な値を1件ストリームで返す（メモリに載せない）
     if (path === '/api/import')            return handleImport(request, env, cors);
 
     // ── メッセージ（お問い合わせ）──
@@ -1931,15 +1932,17 @@ async function handleExportBatch(request, env, cors) {
     const requested = Array.isArray(rawKeys) ? rawKeys : (typeof rawKeys === 'string' && rawKeys ? [rawKeys] : []);
     const MAX_BATCH   = 20;              // 1回のバッチで処理する最大キー数
     // 応答の合計サイズのソフト上限。累計がこれを超えたら「次の値を読む前に」打ち切る。
-    // ※判定を get() の後に置くと、送らない境界キーの巨大値までメモリに載ってしまい
-    //   （送る分＋捨てる分で30MB超→JSON化で倍）、Error 1102 が間欠再発した（実測）。
-    //   get() の前に判定すれば無駄な読み込みがなく、応答は最大でも
-    //   約 SIZE_BUDGET＋単一値1個分（KV上の実測最大は約20MB）に収まる。
     const SIZE_BUDGET = 2 * 1024 * 1024;
+    // これを超える値は data に入れず、キー名だけ large で返す。クライアントは
+    // /api/export-value（ストリーム直渡し）で個別に取得する。
+    // ※実測で13〜20MB級の値を含むJSON応答は「Error 1102」「転送切断」「502/503」を
+    //   間欠的に起こしたため、巨大値はJSONに埋め込まない。
+    const LARGE_LIMIT = 4 * 1024 * 1024;
     const keys = requested.slice(0, MAX_BATCH);
 
     const data = {};
     const missing = [];   // 処理したのに値がnullだったキー（一覧取得後にTTL失効/削除されたもの）
+    const large = [];     // 値が大きすぎるため export-value での個別取得に回すキー
     let used = 0, processed = 0;
     for (const name of keys) {
       // 累計が上限に達していたら、このキーは読まずに次のバッチへ回す
@@ -1947,19 +1950,38 @@ async function handleExportBatch(request, env, cors) {
       if (processed > 0 && used >= SIZE_BUDGET) break;
       const v = await env.NFC_URLS.get(name); // get() のみ。list() は使わない
       processed++;
-      if (v !== null) { data[name] = v; used += v.length; }
-      else missing.push(name);
+      if (v === null) missing.push(name);
+      else if (v.length > LARGE_LIMIT) large.push(name);
+      else { data[name] = v; used += v.length; }
     }
 
-    // missing を明示的に返す：クライアントは「dataの件数 + missingの件数 = processed」で
-    // 整合性を検証でき、欠落があった場合もどのキーかをログに残せる（無言のスキップを防ぐ）。
-    return json({ data: data, processed: processed, missing: missing }, 200, cors);
+    // クライアントは「dataの件数 + missingの件数 + largeの件数 = processed」で整合性を検証する。
+    // この構造により応答は最大でも約 SIZE_BUDGET + LARGE_LIMIT（≒6MB）に収まる。
+    return json({ data: data, processed: processed, missing: missing, large: large }, 200, cors);
   } catch (e) {
     return json({
       error:  'バッチ取得に失敗しました',
       detail: String((e && e.message) || e),
     }, 503, cors);
   }
+}
+
+// 分割版③：巨大な値を1件だけストリームで返す（export-batch が large として返したキー用）
+// KVのストリームをそのままResponseに渡すため、Workerのメモリにはほぼ載らず、
+// 値のサイズに関係なく Error 1102 が起きない。
+async function handleExportValue(request, env, cors) {
+  const auth = request.headers.get('Authorization');
+  if (auth !== adminBearer(env)) return json({ error: '認証エラー' }, 401, cors);
+
+  const url = new URL(request.url);
+  const key = url.searchParams.get('key') || '';
+  if (!key) return json({ error: 'key が必要です' }, 400, cors);
+
+  const stream = await env.NFC_URLS.get(key, { type: 'stream' }); // get() のみ。list() は使わない
+  if (!stream) return json({ error: 'not_found' }, 404, cors);
+  return new Response(stream, {
+    headers: { ...cors, 'Content-Type': 'application/octet-stream', 'Cache-Control': 'no-store' },
+  });
 }
 
 // バックアップをインポートして KV へ書き戻す
@@ -4903,11 +4925,12 @@ function fetchExportKeys() {
 function fetchAllBatches(keys, batchSize) {
   var merged = {};
   var missing = [];   // 一覧取得後にKVから消えていて取得できなかったキー
+  var large = [];     // 巨大値のため export-value で個別取得するキー
   var idx = 0;
   // 直列で1バッチずつ処理（並列にするとCloudflare側の同時サブリクエスト数制限に当たる可能性があるため）。
   // サーバーはサイズ上限で途中打ち切りすることがあり、その場合 processed（処理済み件数）だけ前進して続きを投げる。
   function step() {
-    if (idx >= keys.length) return Promise.resolve({ data: merged, missing: missing });
+    if (idx >= keys.length) return fetchLargeValues();
     var chunk = keys.slice(idx, idx + batchSize);
     return fetch(BASE + '/api/export-batch', {
       method:  'POST',
@@ -4928,15 +4951,34 @@ function fetchAllBatches(keys, batchSize) {
       if (!(adv >= 1)) throw new Error('サーバー応答が不正です（processedがありません）');
       var gotData    = result.d.data || {};
       var gotMissing = result.d.missing || [];
-      if (Object.keys(gotData).length + gotMissing.length !== adv) {
-        throw new Error('サーバー応答の件数が一致しません（processed=' + adv + ' / data=' + Object.keys(gotData).length + ' / missing=' + gotMissing.length + '）');
+      var gotLarge   = result.d.large || [];
+      if (Object.keys(gotData).length + gotMissing.length + gotLarge.length !== adv) {
+        throw new Error('サーバー応答の件数が一致しません（processed=' + adv + ' / data=' + Object.keys(gotData).length + ' / missing=' + gotMissing.length + ' / large=' + gotLarge.length + '）');
       }
       Object.assign(merged, gotData);
       if (gotMissing.length) missing = missing.concat(gotMissing);
+      if (gotLarge.length)   large   = large.concat(gotLarge);
       idx += adv;
       toast('エクスポート取得中... ' + Math.min(idx, keys.length) + '/' + keys.length + '件');
       return step();
     });
+  }
+  // 巨大値は /api/export-value（ストリーム直渡し）で1件ずつ取得。JSONを介さないのでサイズに強い
+  function fetchLargeValues() {
+    var li = 0;
+    function next() {
+      if (li >= large.length) return Promise.resolve({ data: merged, missing: missing });
+      var key = large[li];
+      toast('大きな注文データを取得中... ' + (li + 1) + '/' + large.length + '件');
+      return fetch(BASE + '/api/export-value?key=' + encodeURIComponent(key), {
+        headers: { Authorization: 'Bearer ' + PW },
+      }).then(function (r) {
+        if (r.status === 404) { missing.push(key); li++; return next(); }
+        if (!r.ok) throw new Error('大きな値の取得に失敗しました（' + key + ' / HTTP ' + r.status + '）');
+        return r.text().then(function (t) { merged[key] = t; li++; return next(); });
+      });
+    }
+    return next();
   }
   return step();
 }
