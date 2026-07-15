@@ -128,7 +128,7 @@ login with the new password works, `Kiki.n0825` is rejected). If you ever rotate
 Everything is one KV namespace partitioned by key prefix. Code that lists "NFC orders" filters keys
 with the shared `isNfcOrderKey(name)` helper (used by `handleGet` / `handleGetAll`), which excludes
 `QR:`/`ORDER:`/`OPT:`/`MSG:`/`SUP:`/`RL:`/`FRIEND:`/`FRIEND_SESSION:` and the singletons
-`INVENTORY`/`SELF_OPT`/`FRIEND_INDEX`. **Any new prefix you add must be added to `isNfcOrderKey()` too.**
+`INVENTORY`/`SELF_OPT`/`FRIEND_INDEX`/`BACKUP_STATUS`. **Any new prefix you add must be added to `isNfcOrderKey()` too.**
 
 | Key pattern        | Holds                                                                       |
 |--------------------|-----------------------------------------------------------------------------|
@@ -144,6 +144,7 @@ with the shared `isNfcOrderKey(name)` helper (used by `handleGet` / `handleGetAl
 | `FRIEND_INDEX`     | Array of all friend loginIds (so friend listing never needs KV `list()`)    |
 | `INVENTORY`        | Inventory/maintenance record: `{ maintenance: { all:{on,msg}, pages:{<pageKey>:{on,msg}} }, colors }` (old flat `maintenance:bool` shape retired) |
 | `SELF_OPT`         | Default option config for the self-registration page (also baked into new friend drafts) |
+| `BACKUP_STATUS`    | Last auto-backup run: `{ lastAttemptAt (server-stamped), ok, count, totalKeys, missing, large, errorMessage, source }` — POSTed by `buki-booth-backup.ps1`, shown on the admin backup screen |
 
 Backup/restore (`/api/export`, `/api/import`) use `listAllKeys()` (cursor-paginated) and cover
 **every** key regardless of prefix.
@@ -168,7 +169,9 @@ Backup/restore (`/api/export`, `/api/import`) use `listAllKeys()` (cursor-pagina
   `/api/friend-change-password`, `/api/friend-change-question`, `/api/friend-delete-account`.
 - **Admin (Bearer auth):** `/api/register`, `/api/set`, `/api/set-all`, `/api/set-made`,
   `/api/set-qr`, `/api/get`, `/api/get-all`, `/api/get-qr-url`, `/api/delete`, `/api/save-order`
-  (admin path), `/api/get-order`, `/api/inventory`, `/api/export`, `/api/import`, `/api/admin-cancel`,
+  (admin path), `/api/get-order`, `/api/inventory`, `/api/export`, `/api/export-keys`,
+  `/api/export-batch`, `/api/export-value`, `/api/import`, `/api/backup-status` (GET/POST,
+  get/put only — never `list()`), `/api/admin-cancel`,
   `/api/opt-register`, `/api/opt-list`, `/api/opt-set-used`, `/api/self-opt-set`, `/api/messages`,
   `/api/message-update`, `/api/support-list`, `/api/support-reply`, `/api/support-update`,
   `/api/admin-friend-list`, `/api/admin-friend-detail`, `/api/admin-friend-delete`,

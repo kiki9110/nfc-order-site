@@ -119,6 +119,7 @@ export default {
     if (path === '/api/export-batch')      return handleExportBatch(request, env, cors);  // 分割版②：小さい値をまとめて返す（get()のみ）
     if (path === '/api/export-value')      return handleExportValue(request, env, cors);  // 分割版③：巨大な値を1件ストリームで返す（メモリに載せない）
     if (path === '/api/import')            return handleImport(request, env, cors);
+    if (path === '/api/backup-status')     return handleBackupStatus(request, env, cors); // 自動バックアップの成否記録（GET/POST。get()/put()のみ）
 
     // ── メッセージ（お問い合わせ）──
     if (path === '/api/message')        return handleMessageCreate(request, env, cors); // 公開：フォーム送信
@@ -1293,12 +1294,14 @@ async function handleSetQR(request, env, cors) {
 
 // NFC 一覧を取得（旧エンドポイント・後方互換）
 // 「NFC注文（本体レコード）」のキーかどうか。他プレフィックス（QR/ORDER/OPT/MSG/SUP/RL）や
-// 単発キー（INVENTORY/SELF_OPT）を除外する。新しいプレフィックスを足したらここにも足すこと。
+// 単発キー（INVENTORY/SELF_OPT/FRIEND_INDEX/BACKUP_STATUS）を除外する。
+// 新しいプレフィックス・単発キーを足したらここにも足すこと。
 function isNfcOrderKey(name) {
   return !name.startsWith('QR:')    && !name.startsWith('ORDER:') && !name.startsWith('OPT:')
       && !name.startsWith('MSG:')   && !name.startsWith('SUP:')   && !name.startsWith('RL:')
       && !name.startsWith('FRIEND:') && !name.startsWith('FRIEND_SESSION:')
-      && name !== 'INVENTORY'       && name !== 'SELF_OPT'        && name !== 'FRIEND_INDEX';
+      && name !== 'INVENTORY'       && name !== 'SELF_OPT'        && name !== 'FRIEND_INDEX'
+      && name !== 'BACKUP_STATUS';
 }
 
 async function handleGet(request, env, cors) {
@@ -2004,6 +2007,48 @@ async function handleImport(request, env, cors) {
   }
 
   return json({ ok: true, imported }, 200, cors);
+}
+
+
+// ═══════════════════════════════════════════════
+// 自動バックアップの状態記録（単発キー BACKUP_STATUS）
+// ═══════════════════════════════════════════════
+// バックアップスクリプト（buki-booth-backup.ps1）が実行結果をPOSTし、管理画面の
+// バックアップ画面が表示する。get()/put() のみで list() は一切使わないため、
+// KVクォータへの影響は1日1〜数回程度で無視できる。
+async function handleBackupStatus(request, env, cors) {
+  const auth = request.headers.get('Authorization');
+  if (auth !== adminBearer(env)) return json({ error: '認証エラー' }, 401, cors);
+
+  if (request.method === 'GET') {
+    const stored = await env.NFC_URLS.get('BACKUP_STATUS');
+    if (!stored) return json({ lastAttemptAt: null }, 200, cors); // まだ一度も記録がない
+    try { return json(JSON.parse(stored), 200, cors); }
+    catch (e) { return json({ lastAttemptAt: null }, 200, cors); } // 壊れた記録は「記録なし」扱い
+  }
+
+  if (request.method === 'POST') {
+    let body;
+    try { body = await request.json(); }
+    catch (e) { return json({ error: 'JSONの読み込みに失敗しました' }, 400, cors); }
+    if (!body || typeof body !== 'object') return json({ error: '形式が正しくありません' }, 400, cors);
+
+    // lastAttemptAt はPC側の時計を信用せず、必ずサーバー側の現在時刻で付与する
+    const record = {
+      lastAttemptAt: new Date().toISOString(),
+      ok:            body.ok === true,
+      count:         (typeof body.count     === 'number') ? body.count     : null,
+      totalKeys:     (typeof body.totalKeys === 'number') ? body.totalKeys : null,
+      missing:       (typeof body.missing   === 'number') ? body.missing   : null,
+      large:         (typeof body.large     === 'number') ? body.large     : null,
+      errorMessage:  body.errorMessage ? String(body.errorMessage) : null,
+      source:        body.source ? String(body.source) : null,
+    };
+    await env.NFC_URLS.put('BACKUP_STATUS', JSON.stringify(record));
+    return json({ ok: true }, 200, cors);
+  }
+
+  return json({ error: 'method not allowed' }, 405, cors);
 }
 
 
@@ -3343,6 +3388,10 @@ tr:hover td{background:#f7f9fb;}
   <!-- バックアップ画面 -->
   <div id="backupView" class="wrap" style="display:none;">
     <div class="section-title">バックアップ</div>
+    <div class="inv-card" id="backupStatusCard">
+      <div class="inv-card-head">📡 自動バックアップの状況</div>
+      <div class="inv-card-body" id="backupStatusBody">読み込み中…</div>
+    </div>
     <div class="inv-card">
       <div class="inv-card-head">💾 データのエクスポート／インポート</div>
       <div class="inv-card-body">
@@ -3902,6 +3951,7 @@ function showBackup(push) {
   hideAll();
   document.getElementById('backupView').style.display = 'block';
   document.getElementById('homeNavBtn').style.display = 'inline-block';
+  loadBackupStatus();
   nav('backup', push);
 }
 function showOptStock(push) {
@@ -4901,6 +4951,53 @@ async function deleteFriendUser(loginId) {
     if (d && d.ok) { toast('削除しました ✓'); loadFriendUsers(); }
     else toast('削除に失敗しました：' + ((d && d.message) || '不明'));
   } catch (e) { toast('通信エラー'); }
+}
+
+// ─── 自動バックアップの状況カード ───
+// GET /api/backup-status（get()のみ・list()不使用）で最終実行の記録を取得して表示する。
+function loadBackupStatus() {
+  var body = document.getElementById('backupStatusBody');
+  if (!body) return;
+  body.innerHTML = '<span style="color:var(--muted);">読み込み中…</span>';
+  fetch(BASE + '/api/backup-status', { headers: { Authorization: 'Bearer ' + PW } })
+    .then(function (r) { return r.json(); })
+    .then(function (d) { renderBackupStatus(d); })
+    .catch(function () {
+      body.innerHTML = '<span style="color:#c0392b;">状態の取得に失敗しました（通信エラー）</span>' + backupStatusReloadBtn();
+    });
+}
+function backupStatusReloadBtn() {
+  return '<div style="margin-top:10px;"><button class="backup-btn" onclick="loadBackupStatus()">🔄 今すぐ再確認</button></div>';
+}
+function renderBackupStatus(d) {
+  var body = document.getElementById('backupStatusBody');
+  if (!body) return;
+  var html;
+  if (!d || !d.lastAttemptAt) {
+    html = '<span style="color:var(--muted);">まだ自動バックアップの記録がありません</span>';
+  } else {
+    var when = fmtDate(d.lastAttemptAt);
+    var ageHours = (Date.now() - new Date(d.lastAttemptAt).getTime()) / 3600000;
+    var counts = '';
+    if (d.count != null) {
+      counts = '（' + d.count + '件'
+             + ((d.large   != null && d.large   > 0) ? '・大きな値' + d.large + '件' : '')
+             + ((d.missing != null && d.missing > 0) ? '・欠落' + d.missing + '件' : '')
+             + '）';
+    }
+    var src = d.source ? '<span style="color:var(--muted);font-size:12px;"> ［実行元: ' + esc(d.source) + '］</span>' : '';
+    if (d.ok !== true) {
+      html = '<span style="color:#c0392b;font-weight:bold;">❌ 前回のバックアップに失敗しました（' + when + '）'
+           + (d.errorMessage ? '：' + esc(d.errorMessage) : '') + '</span>' + src;
+    } else if (ageHours >= 36) {
+      // 36時間：毎日実行が1回飛んでも誤警告にならない余裕を持たせた固定閾値
+      html = '<span style="color:#9a6700;font-weight:bold;">⚠️ 最終バックアップから36時間以上経過しています（最終成功：' + when + counts + '）。'
+           + 'サブPCの電源やタスクスケジューラを確認してください</span>' + src;
+    } else {
+      html = '<span style="color:#1a7f37;font-weight:bold;">✅ 最終バックアップ：' + when + counts + ' 正常に完了しています</span>' + src;
+    }
+  }
+  body.innerHTML = html + backupStatusReloadBtn();
 }
 
 // ─── バックアップ ───
