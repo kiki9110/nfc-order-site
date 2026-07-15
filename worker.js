@@ -1901,8 +1901,11 @@ async function handleExportKeys(request, env, cors) {
 
   try {
     const allKeys = await listAllKeys(env); // list() はここで1回だけ消費
+    // RL:（レート制限カウンター）は約60秒で自動失効する一時キーなので除外する。
+    // 一覧に載っても中身取得の時点で消えて「欠落」として報告されるだけで、
+    // バックアップとして保存する意味も復元する意味もないため。
     return json({
-      keys: allKeys.map(function (k) { return k.name; }),
+      keys: allKeys.map(function (k) { return k.name; }).filter(function (n) { return n.indexOf('RL:') !== 0; }),
     }, 200, cors);
   } catch (e) {
     return json({
@@ -1929,16 +1932,20 @@ async function handleExportBatch(request, env, cors) {
     const keys = requested.slice(0, MAX_BATCH);
 
     const data = {};
+    const missing = [];   // 処理したのに値がnullだったキー（一覧取得後にTTL失効/削除されたもの）
     let used = 0, processed = 0;
     for (const name of keys) {
       const v = await env.NFC_URLS.get(name); // get() のみ。list() は使わない
       processed++;
       if (v !== null) { data[name] = v; used += v.length; }
+      else missing.push(name);
       // 上限到達で打ち切り（最低1件は必ず処理するので前進は保証される）
       if (used >= SIZE_BUDGET && processed < keys.length) break;
     }
 
-    return json({ data: data, processed: processed }, 200, cors);
+    // missing を明示的に返す：クライアントは「dataの件数 + missingの件数 = processed」で
+    // 整合性を検証でき、欠落があった場合もどのキーかをログに残せる（無言のスキップを防ぐ）。
+    return json({ data: data, processed: processed, missing: missing }, 200, cors);
   } catch (e) {
     return json({
       error:  'バッチ取得に失敗しました',
@@ -4887,11 +4894,12 @@ function fetchExportKeys() {
 
 function fetchAllBatches(keys, batchSize) {
   var merged = {};
+  var missing = [];   // 一覧取得後にKVから消えていて取得できなかったキー
   var idx = 0;
   // 直列で1バッチずつ処理（並列にするとCloudflare側の同時サブリクエスト数制限に当たる可能性があるため）。
   // サーバーはサイズ上限で途中打ち切りすることがあり、その場合 processed（処理済み件数）だけ前進して続きを投げる。
   function step() {
-    if (idx >= keys.length) return Promise.resolve(merged);
+    if (idx >= keys.length) return Promise.resolve({ data: merged, missing: missing });
     var chunk = keys.slice(idx, idx + batchSize);
     return fetch(BASE + '/api/export-batch', {
       method:  'POST',
@@ -4907,6 +4915,7 @@ function fetchAllBatches(keys, batchSize) {
     .then(function (result) {
       if (!result.ok) throw new Error((result.d && result.d.error) || 'バッチ取得エラー');
       Object.assign(merged, result.d.data || {});
+      if (result.d.missing && result.d.missing.length) missing = missing.concat(result.d.missing);
       var adv = parseInt(result.d.processed, 10);
       if (!(adv >= 1)) adv = chunk.length;   // 旧レスポンス（processedなし）との互換
       idx += adv;
@@ -4921,17 +4930,26 @@ function doExport() {
   var btn = document.getElementById('exportBtn');
   if (btn) btn.disabled = true;
   toast('エクスポートを開始します...');
+  var totalKeys = 0;
   fetchExportKeys()
     .then(function (keys) {
       if (!keys.length) throw new Error('キーが1件もありません');
+      totalKeys = keys.length;
       return fetchAllBatches(keys, 20); // 20件ずつ取得して結合
     })
-    .then(function (mergedData) {
+    .then(function (result) {
+      var mergedData = result.data;
+      var missing    = result.missing || [];
+      var count      = Object.keys(mergedData).length;
+      // 整合性チェック：取得件数 + 欠落件数 = キー一覧の件数 でなければ取りこぼしバグ
+      if (count + missing.length !== totalKeys) {
+        throw new Error('取得件数が一致しません（一覧' + totalKeys + '件 / 取得' + count + '件 / 欠落' + missing.length + '件）。ダウンロードを中止しました');
+      }
       var payload = {
         type:       'buki-booth-backup',
         version:    1,
         exportedAt: new Date().toISOString(),
-        count:      Object.keys(mergedData).length,
+        count:      count,
         data:       mergedData,
       };
       const blob = new Blob([JSON.stringify(payload,null,2)], { type:'application/json' });
@@ -4940,7 +4958,13 @@ function doExport() {
       const stamp = d.getFullYear()+('0'+(d.getMonth()+1)).slice(-2)+('0'+d.getDate()).slice(-2)+'_'+('0'+d.getHours()).slice(-2)+('0'+d.getMinutes()).slice(-2);
       a.href = URL.createObjectURL(blob); a.download = 'buki-booth-backup_'+stamp+'.json';
       document.body.appendChild(a); a.click(); document.body.removeChild(a); URL.revokeObjectURL(a.href);
-      toast('エクスポートしました（'+(payload.count||0)+'件）');
+      if (missing.length) {
+        // 一覧取得後に消えたキー（TTL失効・キャンセル削除など）。内容はコンソールに残す
+        try { console.warn('エクスポート時に取得できなかったキー:', missing); } catch (ce) {}
+        toast('エクスポートしました（' + count + '件。一覧後に削除された ' + missing.length + '件はスキップ）');
+      } else {
+        toast('エクスポートしました（' + count + '件）');
+      }
     })
     .catch(function (e) { toast('エクスポートに失敗しました' + ((e && e.message) ? '：' + e.message : '')); })
     .then(function () { if (btn) btn.disabled = false; });
