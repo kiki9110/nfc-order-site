@@ -359,6 +359,9 @@ async function handleAdminCancel(request, env, cors) {
 // オプションは「登録した時点の SELF_OPT 設定」を焼き付ける。
 // → 後から管理画面で設定を変えても、すでに登録済みの番号のオプションは変わらない。
 async function handleSelfRegister(request, env, cors) {
+  if (!await rateLimitOK(env, request, 'self-reg', 5, 60))
+    return json({ error: 'rate_limited', message: '試行が多すぎます。少し待ってからお試しください。' }, 429, cors);
+
   const body    = await request.json();
   let   orderId = (body.orderId || '').trim();
   const name    = (body.name    || '').trim();
@@ -5773,6 +5776,9 @@ async function listAllKeys(env) {
 // 公開：お問い合わせフォーム（message.html）からの送信を KV に保存する。
 async function handleMessageCreate(request, env, cors) {
   if (request.method !== 'POST') return json({ error: 'POST必須' }, 405, cors);
+  if (!await rateLimitOK(env, request, 'msg-create', 5, 60))
+    return json({ error: 'rate_limited', message: '送信が多すぎます。少し待ってからお試しください。' }, 429, cors);
+
   let body;
   try { body = await request.json(); } catch (e) { return json({ error: 'JSON不正' }, 400, cors); }
   const text = String(body.text || '').slice(0, 4000).trim();
